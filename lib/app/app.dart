@@ -12,7 +12,6 @@ class App extends StatelessWidget {
       title: 'DGU Mobile',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
-      darkTheme: AppTheme.dark,
       routerConfig: appRouter,
     );
   }

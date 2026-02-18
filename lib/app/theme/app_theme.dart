@@ -1,17 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 
 abstract final class AppTheme {
   static ThemeData get light => ThemeData(
         useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
+        colorScheme: ColorScheme.fromSeed(seedColor: Color(0xFF1A4B8E), surface: Color(0xFFF8FAFC)),
         appBarTheme: const AppBarTheme(centerTitle: true),
-      );
-
-  static ThemeData get dark => ThemeData(
-        useMaterial3: true,
-        brightness: Brightness.dark,
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue, brightness: Brightness.dark),
-        appBarTheme: const AppBarTheme(centerTitle: true),
+        fontFamily: GoogleFonts.montserrat().fontFamily,
       );
 }  

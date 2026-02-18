@@ -19,11 +19,9 @@ class _SplashPageState extends State<SplashPage> {
     // TODO: заменить на реальную проверку авторизации.
     await Future.delayed(const Duration(seconds: 2));
     if (!mounted) return;
-    // Временно всегда переходим на дашборд.
-    // Когда появится проверка токена, здесь будет ветвление:
-    //   - при успехе: context.go('/dashboard');
-    //   - при ошибке/неавторизован: context.go('/auth/login');
-    context.go('/dashboard');
+    // Временно всегда переходим в главный экран с нижней навигацией.
+    // Когда появится проверка токена: при успехе — /app/home, иначе — /auth/login.
+    context.go('/app/home');
   }
 
   @override

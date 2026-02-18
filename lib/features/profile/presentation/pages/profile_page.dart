@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../../shared/widgets/app_header.dart';
+
 /// Страница профиля пользователя.
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
@@ -7,7 +9,9 @@ class ProfilePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Профиль')),
+      appBar: AppHeader(
+        headerTitle: Text("Профиль")
+      ),
       body: const Center(child: Text('Профиль студента')),
     );
   }
