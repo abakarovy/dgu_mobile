@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/constants/app_colors.dart';
+
 /// Баннер (hero) на главной: фон card_background.png, приветствие и данные студента.
 class HomeHeroBanner extends StatelessWidget {
   const HomeHeroBanner({super.key});
@@ -30,35 +32,30 @@ class HomeHeroBanner extends StatelessWidget {
               Text(
                 'Привет, студент!',
                 style: textTheme.bodyMedium?.copyWith(
-                  color: Colors.white.withValues(alpha: 0.9),
+                  color: AppColors.onDarkMuted(0.9),
                 ),
               ),
               const SizedBox(height: 4),
               Text(
                 'Имя Фамилия',
                 style: textTheme.titleLarge?.copyWith(
-                  color: Colors.white,
+                  color: AppColors.onDark,
                   fontWeight: FontWeight.bold,
                 ),
               ),
               const SizedBox(height: 12),
-              Row(
-                children: [
-                  // Expanded(
-                  //   child: 
-                    _InfoChip(
-                      label: 'Группа',
-                      value: 'ИСИП-41',
-                    ),
-                  // ),
-                  const SizedBox(width: 12),
-                  // Expanded(
-                  //   child: 
-                    _InfoChip(
-                      label: 'Успеваемость',
-                      value: '4.92',
-                    ),
-                  // ),
+              Wrap(
+                spacing: 12,
+                runSpacing: 8,
+                children: const [
+                  _InfoChip(
+                    label: 'Группа',
+                    value: 'ИСИП-41',
+                  ),
+                  _InfoChip(
+                    label: 'Успеваемость',
+                    value: '4.92',
+                  ),
                 ],
               ),
             ],
@@ -81,7 +78,7 @@ class _InfoChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.15),
+        color: AppColors.onDarkSurface(0.15),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
@@ -91,14 +88,14 @@ class _InfoChip extends StatelessWidget {
           Text(
             label,
             style: theme.textTheme.bodySmall?.copyWith(
-              color: Colors.white.withValues(alpha: 0.8),
+              color: AppColors.onDarkMuted(0.8),
             ),
           ),
           const SizedBox(height: 2),
           Text(
             value,
             style: theme.textTheme.titleSmall?.copyWith(
-              color: Colors.white,
+              color: AppColors.onDark,
               fontWeight: FontWeight.w600,
             ),
           ),
