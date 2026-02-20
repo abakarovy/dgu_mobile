@@ -10,7 +10,22 @@ abstract final class AppTheme {
           seedColor: AppColors.primaryBlue,
           surface: AppColors.surfaceLight,
         ),
-        appBarTheme: const AppBarTheme(centerTitle: true),
+        appBarTheme: AppBarTheme(
+          centerTitle: true,
+          titleTextStyle: GoogleFonts.montserrat(
+            fontSize: 20,
+            fontWeight: FontWeight.w800,
+            color: Colors.black,
+            shadows: const [
+              // Shadow(
+              //   color: Colors.black,
+              //   offset: Offset(0.35, 0),
+              //   blurRadius: 0,
+              // ),
+            ],
+          ),
+          
+        ),
         fontFamily: GoogleFonts.montserrat().fontFamily,
       );
 }  

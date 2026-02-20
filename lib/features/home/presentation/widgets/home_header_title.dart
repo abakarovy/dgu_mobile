@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 /// Заголовок главной страницы: иконка колледжа + текст «КОЛЛЕДЖ ДГУ».
 class HomeHeaderTitle extends StatelessWidget {
@@ -6,7 +7,6 @@ class HomeHeaderTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -19,8 +19,17 @@ class HomeHeaderTitle extends StatelessWidget {
         const SizedBox(width: 8),
         Text(
           'КОЛЛЕДЖ ДГУ',
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.bold,
+          style: GoogleFonts.montserrat(
+            fontSize: 20,
+            fontWeight: FontWeight.w800,
+            color: Colors.black,
+            shadows: const [
+              Shadow(
+                color: Colors.black,
+                offset: Offset(0.35, 0),
+                blurRadius: 0,
+              ),
+            ],
           ),
         ),
       ],

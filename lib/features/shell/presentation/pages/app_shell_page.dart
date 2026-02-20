@@ -25,6 +25,9 @@ class _AppShellPageState extends State<AppShellPage> {
   static const String _pathNews = '/app/news';
   static const String _pathProfile = '/app/profile';
 
+  /// Минимальная ширина экрана, при которой показывается заголовок в AppBar.
+  static const double _minWidthForTitle = 240;
+
   int _selectedIndex(BuildContext context) {
     final path = GoRouterState.of(context).uri.path;
     if (path.startsWith(_pathGrades)) return 1;
@@ -33,11 +36,16 @@ class _AppShellPageState extends State<AppShellPage> {
     return 0;
   }
 
-  Widget _titleForPath(String path) {
+  static TextStyle _headerTitleStyle(BuildContext context) {
+    return Theme.of(context).appBarTheme.titleTextStyle ?? const TextStyle();
+  }
+
+  Widget _titleForPath(BuildContext context, String path) {
     if (path.startsWith(_pathHome)) return const HomeHeaderTitle();
-    if (path.startsWith(_pathGrades)) return const Text('Оценки');
-    if (path.startsWith(_pathNews)) return const Text('Новости');
-    if (path.startsWith(_pathProfile)) return const Text('Профиль');
+    final style = _headerTitleStyle(context);
+    if (path.startsWith(_pathGrades)) return Text('Успеваемость', style: style);
+    if (path.startsWith(_pathNews)) return Text('Новости', style: style);
+    if (path.startsWith(_pathProfile)) return Text('Профиль', style: style);
     return const SizedBox.shrink();
   }
 
@@ -78,6 +86,8 @@ class _AppShellPageState extends State<AppShellPage> {
   Widget build(BuildContext context) {
     final path = GoRouterState.of(context).uri.path;
     final selectedIndex = _selectedIndex(context);
+    final width = MediaQuery.sizeOf(context).width;
+    final showTitle = width >= _minWidthForTitle;
 
     return Scaffold(
       appBar: AppHeader(
@@ -88,9 +98,16 @@ class _AppShellPageState extends State<AppShellPage> {
           transitionBuilder: (Widget child, Animation<double> animation) {
             return FadeTransition(opacity: animation, child: child);
           },
-          child: KeyedSubtree(
-            key: ValueKey<String>(path),
-            child: _titleForPath(path),
+          child: SizedBox(
+            key: ValueKey<String>('title-$path-$showTitle'),
+            child: showTitle
+              ? _titleForPath(context, path)
+              : Image.asset(
+                  'assets/images/logo_icon.png',
+                  height: 32,
+                  width: 32,
+                  fit: BoxFit.contain,
+                ),
           ),
         ),
       ),
@@ -102,7 +119,7 @@ class _AppShellPageState extends State<AppShellPage> {
           transitionBuilder: (Widget child, Animation<double> animation) {
             return FadeTransition(opacity: animation, child: child);
           },
-          child: KeyedSubtree(
+          child: RepaintBoundary(
             key: ValueKey<String>(path),
             child: widget.child,
           ),

@@ -1,7 +1,8 @@
+import 'package:dgu_mobile/core/constants/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
-/// Кнопка уведомлений для [AppBar.actions].
+
 class AppHeader extends StatelessWidget implements PreferredSizeWidget {
   const AppHeader({super.key, this.onPressed, required this.headerTitle});
 
@@ -16,6 +17,7 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
       centerTitle: false,
       actions: [ 
         IconButton(
+          style: IconButton.styleFrom(padding: EdgeInsets.all(15)),
           icon: SvgPicture.asset(
             'assets/icons/notification_icon.svg',
             width: 24,
