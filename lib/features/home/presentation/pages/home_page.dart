@@ -1,6 +1,7 @@
 import 'package:dgu_mobile/core/constants/app_colors.dart';
 import 'package:dgu_mobile/shared/widgets/shallow_button.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_svg/svg.dart';
 
 import '../widgets/home_hero_banner.dart';
@@ -96,9 +97,9 @@ class HomePage extends StatelessWidget {
   Widget _scheduleSection(BuildContext context) {
     final theme = Theme.of(context).textTheme;
     final items = [
-      _ScheduleItem(subject: 'Веб разработка', time: '8:30', teacher: 'Алиева А.М.'),
-      _ScheduleItem(subject: 'Базы данных', time: '10:10', teacher: 'Иванов И.И.'),
-      _ScheduleItem(subject: 'Математика', time: '12:00', teacher: 'Петрова П.П.'),
+      _ScheduleItem(subject: 'Веб разработка', time: '8:30', teacher: 'Алиева А.М.', auditorium: "каб. 201"),
+      _ScheduleItem(subject: 'Базы данных', time: '10:10', teacher: 'Иванов И.И.', auditorium: "каб. 201"),
+      _ScheduleItem(subject: 'Математика', time: '12:00', teacher: 'Петрова П.П.', auditorium: "каб. 201"),
     ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -109,7 +110,10 @@ class HomePage extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text('Расписание', style: theme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
-            ShallowButton(label: "Все", onPressed: () {},)
+            ShallowButton(
+              label: 'Все',
+              onPressed: () => context.push('/app/schedule'),
+            )
           ],
         ),
         ...items.map((e) => Container(
@@ -150,10 +154,12 @@ class _ScheduleItem {
     required this.subject,
     required this.time,
     required this.teacher,
+    required this.auditorium
   });
   final String subject;
   final String time;
   final String teacher;
+  final String auditorium;
 }
 
 class _ScheduleItemTile extends StatelessWidget {
@@ -171,9 +177,14 @@ class _ScheduleItemTile extends StatelessWidget {
         Text(item.subject, style: theme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
         const SizedBox(height: 4),
         Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
               '${item.time} • ${item.teacher}',
+              style: theme.bodySmall?.copyWith(color: AppColors.caption),
+            ),
+            Text(
+              item.auditorium,
               style: theme.bodySmall?.copyWith(color: AppColors.caption),
             ),
           ],

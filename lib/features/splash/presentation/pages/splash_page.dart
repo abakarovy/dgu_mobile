@@ -1,3 +1,4 @@
+import 'package:dgu_mobile/core/constants/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -29,7 +30,7 @@ class _SplashPageState extends State<SplashPage> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: theme.colorScheme.primary,
+      backgroundColor: AppColors.primaryBlue,
       body: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,

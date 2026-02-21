@@ -18,7 +18,7 @@ class HomeHeaderTitle extends StatelessWidget {
         ),
         const SizedBox(width: 8),
         Text(
-          'КОЛЛЕДЖ ДГУ',
+          'Колледж ДГУ',
           style: GoogleFonts.montserrat(
             fontSize: 20,
             fontWeight: FontWeight.w800,

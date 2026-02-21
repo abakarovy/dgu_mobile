@@ -4,6 +4,7 @@ import '../../features/grades/presentation/pages/grades_page.dart';
 import '../../features/home/presentation/pages/home_page.dart';
 import '../../features/news/presentation/pages/news_page.dart';
 import '../../features/profile/presentation/pages/profile_page.dart';
+import '../../features/schedule/presentation/pages/schedule_page.dart';
 import '../../features/shell/presentation/pages/app_shell_page.dart';
 import '../../features/splash/presentation/pages/splash_page.dart';
 
@@ -40,6 +41,11 @@ final GoRouter appRouter = GoRouter(
           builder: (context, state) => const ProfilePage(),
         ),
       ],
+    ),
+    GoRoute(
+      path: '/app/schedule',
+      name: 'schedule',
+      builder: (context, state) => const SchedulePage(),
     ),
   ],
   redirect: (context, state) {
