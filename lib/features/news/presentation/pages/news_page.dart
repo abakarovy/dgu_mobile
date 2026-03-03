@@ -36,17 +36,28 @@ class NewsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView.separated(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
       itemCount: _items.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 16),
+      separatorBuilder: (_, _) => const SizedBox(height: 24),
       itemBuilder: (context, index) {
         final item = _items[index];
-        return NewsCard(
-          category: item.category,
-          title: item.title,
-          excerpt: item.excerpt,
-          date: item.date,
-          onTap: () {},
+        final imageAsset = index % 2 == 0 ? 'assets/images/img1.png' : 'assets/images/img2.png';
+        return Align(
+          alignment: Alignment.topCenter,
+          child: NewsCard(
+            category: item.category,
+            title: item.title,
+            excerpt: item.excerpt,
+            date: item.date,
+            imageWidget: Image.asset(
+              imageAsset,
+              fit: BoxFit.cover,
+              width: double.infinity,
+              height: 160,
+              errorBuilder: (_, _, _) => const SizedBox.shrink(),
+            ),
+            onTap: () {},
+          ),
         );
       },
     );

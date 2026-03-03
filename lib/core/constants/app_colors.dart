@@ -19,6 +19,18 @@ abstract final class AppColors {
   static const Color lightGrey = Color(0xFFCBD5E1);
   static const Color backgroundSecondary = (Color(0xFFF1F5F9));
 
+  /// Цвета для контейнера оценки: 5 — зелёный, 4 — янтарный, 3 — оранжевый, 2/1 — красный.
+  static const Color grade5Text = Color(0xFF10B981);
+  static const Color grade5Bg = Color(0xFFECFDF5);
+  static const Color grade4Text = Color(0xFFF59E0B);
+  static const Color grade4Bg = Color(0xFFFFF7ED);
+  static const Color grade3Text = Color(0xFFD97706);
+  static const Color grade3Bg = Color(0xFFFFFBEB);
+  static const Color grade2Text = Color(0xFFEF4444);
+  static const Color grade2Bg = Color(0xFFFEF2F2);
+  static const Color gradeDefaultText = Color(0xFF1E293B);
+  static const Color gradeDefaultBg = Color(0xFFF1F5F9);
+
   static const Color onDark = Colors.white;
 
   static Color onDarkMuted(double opacity) => Colors.white.withValues(alpha: opacity);

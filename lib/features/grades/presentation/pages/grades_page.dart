@@ -1,5 +1,6 @@
 import 'package:dgu_mobile/core/constants/app_colors.dart';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../widgets/grades_list_view.dart';
 
@@ -55,7 +56,7 @@ class GradesPage extends StatelessWidget {
       child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+            padding: const EdgeInsets.fromLTRB(24, 8, 24, 12),
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final controller = DefaultTabController.of(context);
@@ -125,7 +126,6 @@ class _GradesTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context).textTheme;
     return Material(
       color: selected ? Colors.white : Colors.transparent,
       borderRadius: BorderRadius.circular(12),
@@ -134,13 +134,16 @@ class _GradesTab extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8, ),
+          padding: const EdgeInsets.symmetric(vertical: 8),
           child: Center(
             child: Text(
               label,
-              style: theme.labelLarge?.copyWith(
+              textAlign: TextAlign.center,
+              style: GoogleFonts.inter(
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                fontSize: 12,
+                height: 1.0,
                 color: selected ? AppColors.primaryBlue : AppColors.caption,
-                fontWeight: selected ? FontWeight.w900 : FontWeight.w300,
               ),
             ),
           ),
