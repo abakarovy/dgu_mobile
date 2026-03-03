@@ -9,7 +9,7 @@ class GradesPage extends StatelessWidget {
 
   static const List<String> _tabLabels = ['Текущие', 'Сессия', 'Итого'];
 
-  static List<GradeListItem> _currentGrades = const [
+  static final List<GradeListItem> _currentGrades = const [
     GradeListItem(
       subjectName: 'Веб разработка',
       grade: '5',
@@ -27,7 +27,7 @@ class GradesPage extends StatelessWidget {
     ),
   ];
 
-  static List<GradeListItem> _semesterGrades = const [
+  static final List<GradeListItem> _semesterGrades = const [
     GradeListItem(
       subjectName: 'Веб разработка',
       grade: '5',
@@ -40,7 +40,7 @@ class GradesPage extends StatelessWidget {
     ),
   ];
 
-  static List<GradeListItem> _totalGrades = const [
+  static final List<GradeListItem> _totalGrades = const [
     GradeListItem(
       subjectName: 'Средний балл',
       grade: '4.67',
@@ -58,7 +58,7 @@ class GradesPage extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
             child: LayoutBuilder(
               builder: (context, constraints) {
-                final controller = DefaultTabController.of(context)!;
+                final controller = DefaultTabController.of(context);
                 return ListenableBuilder(
                   listenable: controller,
                   builder: (context, _) {

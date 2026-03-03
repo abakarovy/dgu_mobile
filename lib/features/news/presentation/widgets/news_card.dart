@@ -1,5 +1,4 @@
 import 'package:dgu_mobile/core/constants/app_colors.dart';
-import 'package:dgu_mobile/shared/widgets/shallow_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
@@ -59,7 +58,7 @@ class NewsCard extends StatelessWidget {
                         ? Image.network(
                             imageUrl!,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => _placeholder(),
+                            errorBuilder: (_, _, _) => _placeholder(),
                           )
                         : _placeholder()),
               ),

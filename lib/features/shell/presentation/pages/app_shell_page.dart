@@ -6,63 +6,37 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../shared/widgets/app_header.dart';
 import '../../../home/presentation/widgets/home_header_title.dart';
 
-/// Оболочка главного экрана: один AppBar, нижняя навигация, контент с плавной сменой.
-class AppShellPage extends StatefulWidget {
+/// Оболочка главного экрана: один AppBar, нижняя навигация, контент с отдельным
+/// Navigator для каждой вкладки (StatefulShellRoute — без дублирования GlobalKey).
+class AppShellPage extends StatelessWidget {
   const AppShellPage({
     super.key,
-    required this.child,
+    required this.navigationShell,
   });
 
-  final Widget child;
+  final StatefulNavigationShell navigationShell;
 
-  @override
-  State<AppShellPage> createState() => _AppShellPageState();
-}
-
-class _AppShellPageState extends State<AppShellPage> {
-  static const String _pathHome = '/app/home';
-  static const String _pathGrades = '/app/grades';
-  static const String _pathNews = '/app/news';
-  static const String _pathProfile = '/app/profile';
-
-  /// Минимальная ширина экрана, при которой показывается заголовок в AppBar.
   static const double _minWidthForTitle = 240;
-
-  int _selectedIndex(BuildContext context) {
-    final path = GoRouterState.of(context).uri.path;
-    if (path.startsWith(_pathGrades)) return 1;
-    if (path.startsWith(_pathNews)) return 2;
-    if (path.startsWith(_pathProfile)) return 3;
-    return 0;
-  }
 
   static TextStyle _headerTitleStyle(BuildContext context) {
     return Theme.of(context).appBarTheme.titleTextStyle ?? const TextStyle();
   }
 
-  Widget _titleForPath(BuildContext context, String path) {
-    if (path.startsWith(_pathHome)) return const HomeHeaderTitle();
-    final style = _headerTitleStyle(context);
-    if (path.startsWith(_pathGrades)) return Text('Успеваемость', style: style);
-    if (path.startsWith(_pathNews)) return Text('Новости', style: style);
-    if (path.startsWith(_pathProfile)) return Text('Профиль', style: style);
-    return const SizedBox.shrink();
-  }
-
-  void _onTap(BuildContext context, int index) {
+  Widget _titleForIndex(BuildContext context, int index) {
     switch (index) {
       case 0:
-        context.go(_pathHome);
-        break;
+        return const HomeHeaderTitle();
       case 1:
-        context.go(_pathGrades);
-        break;
+        final style = _headerTitleStyle(context);
+        return Text('Успеваемость', style: style);
       case 2:
-        context.go(_pathNews);
-        break;
+        final style = _headerTitleStyle(context);
+        return Text('Новости', style: style);
       case 3:
-        context.go(_pathProfile);
-        break;
+        final style = _headerTitleStyle(context);
+        return Text('Профиль', style: style);
+      default:
+        return const SizedBox.shrink();
     }
   }
 
@@ -84,8 +58,7 @@ class _AppShellPageState extends State<AppShellPage> {
 
   @override
   Widget build(BuildContext context) {
-    final path = GoRouterState.of(context).uri.path;
-    final selectedIndex = _selectedIndex(context);
+    final index = navigationShell.currentIndex;
     final width = MediaQuery.sizeOf(context).width;
     final showTitle = width >= _minWidthForTitle;
 
@@ -99,32 +72,19 @@ class _AppShellPageState extends State<AppShellPage> {
             return FadeTransition(opacity: animation, child: child);
           },
           child: SizedBox(
-            key: ValueKey<String>('title-$path-$showTitle'),
+            key: ValueKey<int>(index),
             child: showTitle
-              ? _titleForPath(context, path)
-              : Image.asset(
-                  'assets/images/logo_icon.png',
-                  height: 32,
-                  width: 32,
-                  fit: BoxFit.contain,
-                ),
+                ? _titleForIndex(context, index)
+                : Image.asset(
+                    'assets/images/logo_icon.png',
+                    height: 32,
+                    width: 32,
+                    fit: BoxFit.contain,
+                  ),
           ),
         ),
       ),
-      body: RepaintBoundary(
-        child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 180),
-          switchInCurve: Curves.easeOut,
-          switchOutCurve: Curves.easeIn,
-          transitionBuilder: (Widget child, Animation<double> animation) {
-            return FadeTransition(opacity: animation, child: child);
-          },
-          child: RepaintBoundary(
-            key: ValueKey<String>(path),
-            child: widget.child,
-          ),
-        ),
-      ),
+      body: navigationShell,
       bottomNavigationBar: Theme(
         data: Theme.of(context).copyWith(
           colorScheme: Theme.of(context).colorScheme.copyWith(
@@ -143,32 +103,32 @@ class _AppShellPageState extends State<AppShellPage> {
           ),
         ),
         child: NavigationBar(
-          selectedIndex: selectedIndex,
-          onDestinationSelected: (index) => _onTap(context, index),
+          selectedIndex: index,
+          onDestinationSelected: (int i) => navigationShell.goBranch(i),
           destinations: [
             NavigationDestination(
-              icon: _navIcon(context, 'assets/icons/home_icon.svg', selectedIndex == 0),
+              icon: _navIcon(context, 'assets/icons/home_icon.svg', index == 0),
               selectedIcon: _navIcon(context, 'assets/icons/home_filled_icon.svg', true),
               label: 'Главная',
             ),
             NavigationDestination(
-              icon: _navIcon(context, 'assets/icons/grades_icon.svg', selectedIndex == 1),
+              icon: _navIcon(context, 'assets/icons/grades_icon.svg', index == 1),
               selectedIcon: _navIcon(context, 'assets/icons/grades_filled_icon.svg', true),
               label: 'Оценки',
             ),
             NavigationDestination(
-              icon: _navIcon(context, 'assets/icons/news_icon.svg', selectedIndex == 2),
+              icon: _navIcon(context, 'assets/icons/news_icon.svg', index == 2),
               selectedIcon: _navIcon(context, 'assets/icons/news_filled_icon.svg', true),
               label: 'Новости',
             ),
             NavigationDestination(
-              icon: _navIcon(context, 'assets/icons/profile_icon.svg', selectedIndex == 3),
+              icon: _navIcon(context, 'assets/icons/profile_icon.svg', index == 3),
               selectedIcon: _navIcon(context, 'assets/icons/profile_filled_icon.svg', true),
               label: 'Профиль',
             ),
           ],
           indicatorColor: Colors.transparent,
-          overlayColor: WidgetStatePropertyAll(Colors.transparent),
+          overlayColor: const WidgetStatePropertyAll(Colors.transparent),
         ),
       ),
     );

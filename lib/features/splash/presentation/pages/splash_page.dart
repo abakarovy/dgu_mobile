@@ -17,7 +17,7 @@ class _SplashPageState extends State<SplashPage> {
   }
 
   Future<void> _navigateNext() async {
-    // TODO: заменить на реальную проверку авторизации.
+    // Позже заменить на реальную проверку авторизации (токен и т.д.).
     await Future.delayed(const Duration(seconds: 2));
     if (!mounted) return;
     // Временно всегда переходим в главный экран с нижней навигацией.
@@ -27,8 +27,6 @@ class _SplashPageState extends State<SplashPage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Scaffold(
       backgroundColor: AppColors.primaryBlue,
       body: Center(
