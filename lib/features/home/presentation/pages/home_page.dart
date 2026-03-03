@@ -3,6 +3,7 @@ import 'package:dgu_mobile/shared/widgets/shallow_button.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../widgets/home_hero_banner.dart';
 
@@ -10,13 +11,31 @@ class HomePage extends StatelessWidget {
 
   const HomePage({super.key});
 
+  static TextStyle _cardTitleStyle(BuildContext context) => GoogleFonts.inter(
+    fontWeight: FontWeight.w400,
+    fontSize: 16,
+    height: 1.0,
+    color: AppColors.textPrimary,
+  );
+
+  static TextStyle _cardSubtitleStyle(BuildContext context) => GoogleFonts.inter(
+    fontWeight: FontWeight.w400,
+    fontSize: 10,
+    height: 1.0,
+    color: AppColors.caption,
+  );
+
+  static const double _cardHeight = 122;
+  static const EdgeInsets _cardPadding = EdgeInsets.all(17);
+
   Widget _iconCaptionCard(Widget child) {
-    return Expanded(
+    return SizedBox(
+      height: _cardHeight,
       child: ElevatedButton(
         style: ButtonStyle(
-          padding: const WidgetStatePropertyAll(EdgeInsets.all(20)),
+          padding: const WidgetStatePropertyAll(_cardPadding),
           alignment: AlignmentGeometry.centerLeft,
-          minimumSize: const WidgetStatePropertyAll(Size.fromHeight(110)),
+          minimumSize: const WidgetStatePropertyAll(Size.zero),
           backgroundColor: WidgetStatePropertyAll(Colors.white),
           shape: WidgetStatePropertyAll(
             RoundedRectangleBorder(
@@ -29,13 +48,14 @@ class HomePage extends StatelessWidget {
       ),
     );
   }
-  Widget _scheduleButton() {
+  Widget _scheduleButton(BuildContext context) {
     return _iconCaptionCard(
       Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            padding: EdgeInsetsGeometry.all(10),
+            padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(14),
               color: AppColors.backgroundBlue,
@@ -50,19 +70,22 @@ class HomePage extends StatelessWidget {
               ),
             ),
           ),
-          Text("Расписание", style: TextStyle(fontSize: 16),),
-          Text("3 пары сегодня", style: TextStyle(fontSize: 10, color: AppColors.caption),)
+          const SizedBox(height: 12),
+          Text("Расписание", style: _cardTitleStyle(context)),
+          const SizedBox(height: 5),
+          Text("3 пары сегодня", style: _cardSubtitleStyle(context))
         ],
       ),
     );
   }
-  Widget _taskButton() {
+  Widget _taskButton(BuildContext context) {
     return _iconCaptionCard(
       Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            padding: EdgeInsetsGeometry.all(10),
+            padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(14),
               color: AppColors.backgroundGreen,
@@ -74,33 +97,43 @@ class HomePage extends StatelessWidget {
               colorFilter: ColorFilter.mode(AppColors.primaryGreen, BlendMode.srcIn),
             ),
           ),
-          Text("Задания", style: TextStyle(fontSize: 16, color: AppColors.primaryGreen),),
-          Text("5 активных тем", style: TextStyle(fontSize: 10, color: AppColors.caption),)
+          const SizedBox(height: 12),
+          Text("Задания", style: _cardTitleStyle(context)),
+          const SizedBox(height: 5),
+          Text("5 активных тем", style: _cardSubtitleStyle(context))
 
         ],
       ),
     );
   }
-  Widget _scheduleAndTasksSection() {
-    return IntrinsicHeight(
-      child: Row(
-        spacing: 10,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _scheduleButton(),
-          _taskButton(),
-        ],
-      ),
+  Widget _scheduleAndTasksSection(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(child: _scheduleButton(context)),
+        const SizedBox(width: 16),
+        Expanded(child: _taskButton(context)),
+      ],
     );
   }
 
   Widget _scheduleSection(BuildContext context) {
-    final theme = Theme.of(context).textTheme;
     final items = [
       _ScheduleItem(subject: 'Веб разработка', time: '8:30', teacher: 'Алиева А.М.', auditorium: "каб. 201"),
       _ScheduleItem(subject: 'Базы данных', time: '10:10', teacher: 'Иванов И.И.', auditorium: "каб. 201"),
       _ScheduleItem(subject: 'Математика', time: '12:00', teacher: 'Петрова П.П.', auditorium: "каб. 201"),
     ];
+    final sectionTitleStyle = GoogleFonts.inter(
+      fontWeight: FontWeight.w700,
+      fontSize: 16,
+      height: 1.0,
+      color: AppColors.textPrimary,
+    );
+    final allButtonStyle = GoogleFonts.inter(
+      fontWeight: FontWeight.w600,
+      fontSize: 12,
+      height: 1.0,
+      color: AppColors.primaryBlue,
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
@@ -109,9 +142,10 @@ class HomePage extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('Расписание', style: theme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+            Text('Расписание на сегодня', style: sectionTitleStyle),
             ShallowButton(
               label: 'Все',
+              style: allButtonStyle,
               onPressed: () => context.push('/app/schedule'),
             )
           ],
@@ -134,14 +168,15 @@ class HomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        spacing: 10,
+        spacing: 0,
         children: [
           const HomeHeroBanner(),
-          _scheduleAndTasksSection(),
-          const SizedBox(height: 8),
+          const SizedBox(height: 22),
+          _scheduleAndTasksSection(context),
+          const SizedBox(height: 24),
           _scheduleSection(context),
         ],
       ),
@@ -169,12 +204,18 @@ class _ScheduleItemTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final subjectStyle = GoogleFonts.inter(
+      fontWeight: FontWeight.w700,
+      fontSize: 14,
+      height: 1.0,
+      color: AppColors.textPrimary,
+    );
     final theme = Theme.of(context).textTheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(item.subject, style: theme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
+        Text(item.subject, style: subjectStyle),
         const SizedBox(height: 4),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,

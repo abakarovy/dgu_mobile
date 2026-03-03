@@ -14,6 +14,7 @@ abstract final class AppColors {
   static const Color surfaceLight = Color(0xFFF8FAFC);
 
   static const Color caption = Color(0xFF94A3B8);
+  static const Color textPrimary = Color(0xFF1E293B); // основной текст по макету
   static const Color grey = Color(0xFF475569);
   static const Color lightGrey = Color(0xFFCBD5E1);
   static const Color backgroundSecondary = (Color(0xFFF1F5F9));

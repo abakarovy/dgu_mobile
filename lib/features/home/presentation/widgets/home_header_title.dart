@@ -12,8 +12,8 @@ class HomeHeaderTitle extends StatelessWidget {
       children: [
         Image.asset(
           'assets/images/logo_icon.png',
-          height: 32,
-          width: 32,
+          height: 38,
+          width: 38,
           fit: BoxFit.contain,
         ),
         const SizedBox(width: 8),

@@ -77,8 +77,8 @@ class AppShellPage extends StatelessWidget {
                 ? _titleForIndex(context, index)
                 : Image.asset(
                     'assets/images/logo_icon.png',
-                    height: 32,
-                    width: 32,
+                    height: 38,
+                    width: 38,
                     fit: BoxFit.contain,
                   ),
           ),

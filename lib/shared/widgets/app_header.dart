@@ -12,17 +12,24 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
   Widget build(BuildContext context) {
     return AppBar(
       backgroundColor: Colors.white,
-      title: headerTitle,
+      titleSpacing: 0,
+      title: Padding(
+        padding: const EdgeInsets.only(left: 24),
+        child: headerTitle,
+      ),
       centerTitle: false,
-      actions: [ 
-        IconButton(
-          style: IconButton.styleFrom(padding: EdgeInsets.all(15)),
-          icon: SvgPicture.asset(
-            'assets/icons/notification_icon.svg',
-            width: 24,
-            height: 24,
+      actions: [
+        Padding(
+          padding: const EdgeInsets.only(right: 24),
+          child: IconButton(
+            style: IconButton.styleFrom(padding: const EdgeInsets.all(15)),
+            icon: SvgPicture.asset(
+              'assets/icons/notifi.svg',
+              width: 20,
+              height: 20,
+            ),
+            onPressed: onPressed,
           ),
-          onPressed: onPressed,
         )
       ],
     );
