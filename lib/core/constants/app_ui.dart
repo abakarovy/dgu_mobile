@@ -61,4 +61,12 @@ abstract final class AppUi {
   static const double notificationSwitchThumbSize = 16;
   static const double notificationSwitchPadding = 4;
   static const double notificationSwitchRadius = 12; // height/2 для полного скругления
+
+  // --- Поддержка ---
+  static const double supportBannerPadding = 32;
+  static const double supportBannerIconBoxSize = 64;
+  static const double supportBannerIconBoxRadius = 16;
+  static const double supportBannerIconSize = 32;
+  static const double supportContactIconSize = 20;
+  static const double supportContactIconPadding = 12;
 }

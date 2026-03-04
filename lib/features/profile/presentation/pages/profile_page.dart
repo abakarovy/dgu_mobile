@@ -159,7 +159,7 @@ class _ProfilePageState extends State<ProfilePage> {
           iconPath: 'assets/icons/support_icon.svg',
           title: 'Поддержка',
           subtitle: 'Помощь и контакты',
-          onTap: () {},
+          onTap: () => context.push('/app/profile/support'),
           titleColor: AppColors.textPrimary,
         ),
         const SizedBox(height: 10),

@@ -47,6 +47,25 @@ abstract final class AppColors {
   /// Переключатель уведомлений: неактивный трек (выключен).
   static const Color notificationSwitchInactive = Color(0xFFCBD5E1);
 
+  /// Фон контейнера иконки в баннере поддержки (белый 20%).
+  static const Color supportBannerIconBoxBg = Color(0x33FFFFFF);
+  /// Фон контейнера иконки в строках контактов (Поддержка).
+  static const Color supportContactIconBg = Color(0xFFF0F4F8);
+  /// Цвет названия (телефон, email, сайт) в поддержке.
+  static const Color supportContactTitle = Color(0xFF003B73);
+  /// Иконка телефона (горячая линия).
+  static const Color supportTelIcon = Color(0xFF2B7FFF);
+  /// Фон контейнера иконки телефона.
+  static const Color supportTelIconBg = Color(0xFFE8F0FF);
+  /// Иконка почты.
+  static const Color supportMailIcon = Color(0xFF615FFF);
+  /// Фон контейнера иконки почты.
+  static const Color supportMailIconBg = Color(0xFFEDECFF);
+  /// Иконка сайта.
+  static const Color supportInternetIcon = Color(0xFF00BC7D);
+  /// Фон контейнера иконки сайта.
+  static const Color supportInternetIconBg = Color(0xFFE0F5EE);
+
   static Color onDarkMuted(double opacity) => Colors.white.withValues(alpha: opacity);
 
   static Color onDarkSurface(double opacity) => Colors.white.withValues(alpha: opacity);

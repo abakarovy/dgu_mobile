@@ -6,6 +6,7 @@ import '../../features/news/presentation/pages/news_page.dart';
 import '../../features/notifications/presentation/pages/notifications_page.dart';
 import '../../features/profile/presentation/pages/profile_page.dart';
 import '../../features/schedule/presentation/pages/schedule_page.dart';
+import '../../features/support/presentation/pages/support_page.dart';
 import '../../features/shell/presentation/pages/app_shell_page.dart';
 import '../../features/splash/presentation/pages/splash_page.dart';
 
@@ -61,6 +62,11 @@ final GoRouter appRouter = GoRouter(
                   path: 'notifications',
                   name: 'notifications',
                   builder: (context, state) => const NotificationsPage(),
+                ),
+                GoRoute(
+                  path: 'support',
+                  name: 'support',
+                  builder: (context, state) => const SupportPage(),
                 ),
               ],
             ),

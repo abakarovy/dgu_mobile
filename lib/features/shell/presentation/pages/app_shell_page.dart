@@ -62,9 +62,11 @@ class AppShellPage extends StatelessWidget {
     final showTitle = width >= AppUi.shellMinWidthForTitle;
     final path = GoRouterState.of(context).uri.path;
     final isNotificationsScreen = path.endsWith('notifications');
+    final isSupportScreen = path.endsWith('support');
+    final hideShellAppBar = isNotificationsScreen || isSupportScreen;
 
     return Scaffold(
-      appBar: isNotificationsScreen
+      appBar: hideShellAppBar
           ? null
           : AppHeader(
               headerTitle: AnimatedSwitcher(
