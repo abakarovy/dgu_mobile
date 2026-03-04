@@ -11,7 +11,9 @@ dependencies:
     sdk: flutter
   go_router: ^17.1.0
   flutter_svg: ^2.2.3
-  google_fonts: ^8.0.1
+  image_picker: ^1.0.7
+  path_provider: ^2.1.2
+  shared_preferences: ^2.2.2
 
 dev_dependencies:
   flutter_test:
@@ -24,3 +26,19 @@ flutter:
     - assets/
     - assets/icons/
     - assets/images/
+    - assets/fonts/
+  fonts:
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter-Regular.otf
+        - asset: assets/fonts/Inter-SemiBold.otf
+          weight: 600
+        - asset: assets/fonts/Inter-Bold.otf
+          weight: 700
+        - asset: assets/fonts/Inter-ExtraBold.otf
+          weight: 800
+    - family: Montserrat
+      fonts:
+        - asset: assets/fonts/Montserrat-Regular.ttf
+        - asset: assets/fonts/Montserrat-ExtraBold.ttf
+          weight: 800

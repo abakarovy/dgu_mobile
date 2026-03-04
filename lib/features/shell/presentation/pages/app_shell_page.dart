@@ -3,6 +3,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/constants/app_ui.dart';
 import '../../../../shared/widgets/app_header.dart';
 import '../../../home/presentation/widgets/home_header_title.dart';
 
@@ -15,8 +16,6 @@ class AppShellPage extends StatelessWidget {
   });
 
   final StatefulNavigationShell navigationShell;
-
-  static const double _minWidthForTitle = 240;
 
   static TextStyle _headerTitleStyle(BuildContext context) {
     return Theme.of(context).appBarTheme.titleTextStyle ?? const TextStyle();
@@ -60,11 +59,15 @@ class AppShellPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final index = navigationShell.currentIndex;
     final width = MediaQuery.sizeOf(context).width;
-    final showTitle = width >= _minWidthForTitle;
+    final showTitle = width >= AppUi.shellMinWidthForTitle;
+    final path = GoRouterState.of(context).uri.path;
+    final isNotificationsScreen = path.endsWith('notifications');
 
     return Scaffold(
-      appBar: AppHeader(
-        headerTitle: AnimatedSwitcher(
+      appBar: isNotificationsScreen
+          ? null
+          : AppHeader(
+              headerTitle: AnimatedSwitcher(
           duration: const Duration(milliseconds: 120),
           switchInCurve: Curves.easeOut,
           switchOutCurve: Curves.easeIn,
@@ -77,12 +80,12 @@ class AppShellPage extends StatelessWidget {
                 ? _titleForIndex(context, index)
                 : Image.asset(
                     'assets/images/logo_icon.png',
-                    height: 38,
-                    width: 38,
+                    height: AppUi.appBarIconSize,
+                    width: AppUi.appBarIconSize,
                     fit: BoxFit.contain,
                   ),
+                  ),
           ),
-        ),
       ),
       body: navigationShell,
       bottomNavigationBar: Theme(

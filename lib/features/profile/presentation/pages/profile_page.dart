@@ -1,83 +1,158 @@
+import 'dart:io';
+
 import 'package:dgu_mobile/core/constants/app_colors.dart';
+import 'package:dgu_mobile/core/constants/app_constants.dart';
+import 'package:dgu_mobile/core/constants/app_ui.dart';
+import 'package:dgu_mobile/core/theme/app_text_styles.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../widgets/profile_row_button.dart';
 
 /// Вкладка «Профиль» — данные аккаунта, образование, личные данные и настройки.
-class ProfilePage extends StatelessWidget {
+class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
 
-  static const double _avatarSize = 96;
-  static const double _badgeSize = 24;
-  static const double _statCardRadius = 16;
+  @override
+  State<ProfilePage> createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends State<ProfilePage> {
+  String? _savedAvatarPath;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAvatarPath();
+  }
+
+  Future<void> _loadAvatarPath() async {
+    final prefs = await SharedPreferences.getInstance();
+    final path = prefs.getString(AppConstants.profileAvatarPathKey);
+    if (path != null && mounted) {
+      setState(() => _savedAvatarPath = path);
+    }
+  }
+
+  Future<void> _pickAndSaveAvatar() async {
+    final picker = ImagePicker();
+    final xFile = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 512,
+      maxHeight: 512,
+      imageQuality: 85,
+    );
+    if (xFile == null || !mounted) return;
+
+    try {
+      final appDir = await getApplicationDocumentsDirectory();
+      final file = File('${appDir.path}/${AppConstants.profileAvatarFileName}');
+      await file.writeAsBytes(await xFile.readAsBytes());
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(AppConstants.profileAvatarPathKey, file.path);
+      if (mounted) {
+        setState(() => _savedAvatarPath = file.path);
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Не удалось сохранить фото')),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context).textTheme;
-
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: AppUi.screenPaddingH),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _buildAccountInfo(context, theme),
-          const SizedBox(height: 24),
-          _buildEducationInfo(context, theme),
+          const SizedBox(height: AppUi.spacingXl),
+          _buildAccountInfo(context),
+          const SizedBox(height: AppUi.spacingXl),
+          _buildEducationInfo(context),
           const SizedBox(height: 28),
-          _buildPersonalDataSection(context, theme),
+          _buildPersonalDataSection(context),
           const SizedBox(height: 20),
-          _buildSettingsSection(context, theme),
-          const SizedBox(height: 30,),
+          _buildSettingsSection(context),
+          const SizedBox(height: 30),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
-                'ДГУ v1.0',
-                style: Theme.of(context).appBarTheme.titleTextStyle!.copyWith(color: AppColors.lightGrey, fontSize: 14, letterSpacing: 4)
+                'СТУДЕНТ ДГУ v1.0.0',
+                style: AppTextStyle.inter(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 10,
+                  height: 15 / 10,
+                  letterSpacing: 2,
+                  color: AppColors.lightGrey,
+                ),
+                textAlign: TextAlign.center,
               ),
             ],
-          )
+          ),
+          const SizedBox(height: 20),
         ],
       ),
     );
   }
 
-  Widget _buildPersonalDataSection(BuildContext context, TextTheme theme) {
+  Widget _buildPersonalDataSection(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           'ЛИЧНЫЕ ДАННЫЕ',
-          style: Theme.of(context).appBarTheme.titleTextStyle!.copyWith(color: AppColors.caption, fontSize: 14)
+          style: AppTextStyle.inter(
+            fontWeight: FontWeight.w800,
+            fontSize: 11,
+            height: 16.5 / 11,
+            letterSpacing: 1.65,
+            color: AppColors.caption,
+          ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: AppUi.spacingM),
         ProfileRowButton(
-          iconPath: 'assets/icons/profile_icon.svg',
+          iconPath: 'assets/icons/profile.svg',
           title: 'Студенческий билет',
           subtitle: '2021-0452',
           onTap: () {},
-          titleColor: AppColors.primaryBlue,
+          titleColor: AppColors.textPrimary,
           iconColor: AppColors.primaryBlue,
-          iconBackgroundColor: AppColors.backgroundBlue,
+          iconBackgroundColor: const Color(0xFFEFF6FF),
         ),
       ],
     );
   }
 
-  Widget _buildSettingsSection(BuildContext context, TextTheme theme) {
+  Widget _buildSettingsSection(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
           'НАСТРОЙКИ',
-          style: Theme.of(context).appBarTheme.titleTextStyle!.copyWith(color: AppColors.caption, fontSize: 14)
+          style: AppTextStyle.inter(
+            fontWeight: FontWeight.w800,
+            fontSize: 11,
+            height: 16.5 / 11,
+            letterSpacing: 1.65,
+            color: AppColors.caption,
+          ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: AppUi.spacingM),
         ProfileRowButton(
           iconPath: 'assets/icons/notification_icon.svg',
           title: 'Уведомления',
           subtitle: 'Настроить оповещения',
-          onTap: () {},
+          onTap: () => context.push('/app/profile/notifications'),
+          titleColor: AppColors.textPrimary,
         ),
         const SizedBox(height: 10),
         ProfileRowButton(
@@ -85,6 +160,7 @@ class ProfilePage extends StatelessWidget {
           title: 'Поддержка',
           subtitle: 'Помощь и контакты',
           onTap: () {},
+          titleColor: AppColors.textPrimary,
         ),
         const SizedBox(height: 10),
         ProfileRowButton(
@@ -93,104 +169,133 @@ class ProfilePage extends StatelessWidget {
           subtitle: 'Завершить сессию',
           onTap: () {},
           titleColor: Colors.red,
-          iconBackgroundColor: Colors.red.withValues(alpha: 0.12),
+          iconBackgroundColor: const Color(0xFFFEF2F2),
           iconColor: Colors.red,
         ),
       ],
     );
   }
 
-  Widget _buildAccountInfo(BuildContext context, TextTheme theme) {
+  Widget _buildAccountInfo(BuildContext context) {
+    final hasAvatar = _savedAvatarPath != null &&
+        _savedAvatarPath!.isNotEmpty &&
+        File(_savedAvatarPath!).existsSync();
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Аватар с бейджем
         Stack(
           clipBehavior: Clip.none,
           alignment: Alignment.center,
           children: [
             Container(
-              width: _avatarSize,
-              height: _avatarSize,
+                  width: AppUi.avatarSize,
+                  height: AppUi.avatarSize,
               decoration: BoxDecoration(
                 color: AppColors.backgroundSecondary,
-                border: BoxBorder.all(color: Colors.white, width: 6),
-                borderRadius: BorderRadius.circular(_statCardRadius),
+                border: Border.all(
+                  color: Colors.white,
+                  width: AppUi.avatarBorderWidth,
+                ),
+                borderRadius: BorderRadius.circular(AppUi.avatarRadius),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.06),
-                    offset: const Offset(0, 2),
-                    blurRadius: 4,
+                    color: const Color(0x1A000000),
+                    offset: const Offset(0, 10),
+                    blurRadius: 25,
+                    spreadRadius: 0,
                   ),
-                ]
+                ],
               ),
-              child: Icon(
-                Icons.person,
-                size: 48,
-                color: AppColors.caption,
-              ),
+              clipBehavior: Clip.antiAlias,
+              child: hasAvatar
+                  ? Image.file(
+                      File(_savedAvatarPath!),
+                      fit: BoxFit.cover,
+                      width: AppUi.avatarSize,
+                      height: AppUi.avatarSize,
+                    )
+                  : Icon(
+                      Icons.person,
+                      size: 48,
+                      color: AppColors.caption,
+                    ),
             ),
             Positioned(
-              right: -3,
-              bottom: -3,
-              child: Container(
-                width: _badgeSize,
-                height: _badgeSize,
-                decoration: BoxDecoration(
-                  color: AppColors.lightGreen,
-                  border: BoxBorder.all(color: Colors.white, width: 3),
-                  boxShadow: [
-                    BoxShadow(color: AppColors.lightGreen.withAlpha(50), spreadRadius: 1, offset: Offset(0, 2), blurRadius: 4)
-                  ],
-                  borderRadius: BorderRadius.circular(10),
+              right: -2,
+              bottom: -2,
+              child: GestureDetector(
+                onTap: _pickAndSaveAvatar,
+                child: Container(
+                  width: AppUi.profileEditButtonSize,
+                  height: AppUi.profileEditButtonSize,
+                  decoration: BoxDecoration(
+                    color: AppColors.lightGreen,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.white, width: 2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.lightGreen.withValues(alpha: 0.2),
+                        spreadRadius: 1,
+                        offset: const Offset(0, 2),
+                        blurRadius: 4,
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.edit,
+                    size: 16,
+                    color: Colors.white,
+                  ),
                 ),
               ),
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: AppUi.spacingM),
         Text(
           'Имя Фамилия',
-          style: theme.titleMedium?.copyWith(
-            color: Colors.black,
-            fontWeight: FontWeight.w600,
+          style: AppTextStyle.inter(
+            fontWeight: FontWeight.w800,
+            fontSize: 24,
+            height: 36 / 24,
+            color: AppColors.textPrimary,
           ),
           textAlign: TextAlign.center,
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: AppUi.spacingXs),
         Text(
           'ИСИП-41 • Информационные системы и программирование',
-          style: theme.bodyMedium?.copyWith(color: AppColors.caption),
+          style: AppTextStyle.inter(
+            fontWeight: FontWeight.w600,
+            fontSize: 14,
+            height: 21 / 14,
+            color: AppColors.caption,
+          ),
           textAlign: TextAlign.center,
         ),
       ],
     );
   }
 
-  Widget _buildEducationInfo(BuildContext context, TextTheme theme) {
-    return Row(
-      children: [
+  Widget _buildEducationInfo(BuildContext context) {
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
         Expanded(
-          child: _StatCard(
-            label: 'Курс',
-            value: '4',
-          ),
+          child: _StatCard(label: 'Курс', value: '4'),
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: AppUi.spacingBetweenCards),
         Expanded(
-          child: _StatCard(
-            label: 'Средний балл',
-            value: '4.92',
-          ),
+          child: _StatCard(label: 'Средний балл', value: '4.92'),
         ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _StatCard(
-            label: 'Пропуски',
-            value: '4ч',
+        const SizedBox(width: AppUi.spacingBetweenCards),
+          Expanded(
+            child: _StatCard(label: 'Пропуски', value: '4ч'),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -203,13 +308,11 @@ class _StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context).textTheme;
-
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+      padding: const EdgeInsets.symmetric(vertical: AppUi.contentPaddingV, horizontal: AppUi.spacingS),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(ProfilePage._statCardRadius),
+        borderRadius: BorderRadius.circular(AppUi.statCardRadius),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.06),
@@ -220,20 +323,34 @@ class _StatCard extends StatelessWidget {
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(
-            label,
-            style: theme.bodySmall?.copyWith(color: AppColors.caption),
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+          SizedBox(
+            height: AppUi.statCardLabelHeight,
+            child: Center(
+              child: Text(
+                label.toUpperCase(),
+                style: AppTextStyle.inter(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 10,
+                  height: 15 / 10,
+                  letterSpacing: 1,
+                  color: AppColors.caption,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           ),
           const SizedBox(height: 6),
           Text(
             value,
-            style: theme.titleMedium?.copyWith(
-              color: Colors.black,
-              fontWeight: FontWeight.w600,
+            style: AppTextStyle.inter(
+              fontWeight: FontWeight.w800,
+              fontSize: 18,
+              height: 27 / 18,
+              color: AppColors.textPrimary,
             ),
             textAlign: TextAlign.center,
           ),

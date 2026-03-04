@@ -1,6 +1,7 @@
 import 'package:dgu_mobile/core/constants/app_colors.dart';
+import 'package:dgu_mobile/core/constants/app_ui.dart';
+import 'package:dgu_mobile/core/theme/app_text_styles.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../widgets/grades_list_view.dart';
 
@@ -56,7 +57,7 @@ class GradesPage extends StatelessWidget {
       child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(24, 8, 24, 12),
+            padding: const EdgeInsets.fromLTRB(AppUi.screenPaddingH, 8, AppUi.screenPaddingH, 12),
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final controller = DefaultTabController.of(context);
@@ -139,7 +140,7 @@ class _GradesTab extends StatelessWidget {
             child: Text(
               label,
               textAlign: TextAlign.center,
-              style: GoogleFonts.inter(
+              style: AppTextStyle.inter(
                 fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
                 fontSize: 12,
                 height: 1.0,

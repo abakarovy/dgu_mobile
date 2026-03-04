@@ -1,4 +1,5 @@
 import 'package:dgu_mobile/core/constants/app_colors.dart';
+import 'package:dgu_mobile/core/constants/app_ui.dart';
 import 'package:flutter/material.dart';
 
 import 'grade_item_tile.dart';
@@ -38,14 +39,14 @@ class GradesListView extends StatelessWidget {
       );
     }
     return ListView.separated(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+      padding: const EdgeInsets.symmetric(horizontal: AppUi.screenPaddingH),
       itemCount: items.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 10),
+      separatorBuilder: (_, _) => const SizedBox(height: AppUi.spacingM),
       itemBuilder: (context, index) {
         final e = items[index];
         return Container(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(AppUi.radiusS),
             color: Colors.white,
             boxShadow: [
               BoxShadow(
@@ -55,7 +56,7 @@ class GradesListView extends StatelessWidget {
               ),
             ],
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          padding: const EdgeInsets.symmetric(horizontal: AppUi.contentPaddingH, vertical: AppUi.contentPaddingV),
           child: GradeItemTile(
             subjectName: e.subjectName,
             grade: e.grade,

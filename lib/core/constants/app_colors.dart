@@ -15,6 +15,8 @@ abstract final class AppColors {
 
   static const Color caption = Color(0xFF94A3B8);
   static const Color textPrimary = Color(0xFF1E293B); // основной текст по макету
+  /// Цвет подзаголовка в настройках уведомлений (описание).
+  static const Color notificationSubtitle = Color(0xFF64748B);
   static const Color grey = Color(0xFF475569);
   static const Color lightGrey = Color(0xFFCBD5E1);
   static const Color backgroundSecondary = (Color(0xFFF1F5F9));
@@ -32,6 +34,18 @@ abstract final class AppColors {
   static const Color gradeDefaultBg = Color(0xFFF1F5F9);
 
   static const Color onDark = Colors.white;
+
+  /// Баннер профиля / герой: текст на синем фоне.
+  static const Color textOnBanner = Color(0xFFFFFFFF);
+  /// Полупрозрачный фон чипов на баннере.
+  static const Color chipBackgroundOnBanner = Color(0x1AFFFFFF);
+  /// Стрелка вправо в списках (профиль и т.д.).
+  static const Color chevronRight = Color(0xFFCBD5E1);
+
+  /// Переключатель уведомлений: активный трек.
+  static const Color notificationSwitchActive = Color(0xFF003B73);
+  /// Переключатель уведомлений: неактивный трек (выключен).
+  static const Color notificationSwitchInactive = Color(0xFFCBD5E1);
 
   static Color onDarkMuted(double opacity) => Colors.white.withValues(alpha: opacity);
 

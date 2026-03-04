@@ -1,6 +1,7 @@
 import 'package:dgu_mobile/core/constants/app_colors.dart';
+import 'package:dgu_mobile/core/constants/app_ui.dart';
+import 'package:dgu_mobile/core/theme/app_text_styles.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 /// Один элемент списка оценок: дисциплина, преподаватель (subtitle), справа — оценка в контейнере.
 class GradeItemTile extends StatelessWidget {
@@ -46,7 +47,7 @@ class GradeItemTile extends StatelessWidget {
             children: [
               Text(
                 subjectName,
-                style: GoogleFonts.inter(
+                style: AppTextStyle.inter(
                   fontWeight: FontWeight.w700,
                   fontSize: 16,
                   height: 1.0,
@@ -56,7 +57,7 @@ class GradeItemTile extends StatelessWidget {
               const SizedBox(height: 4),
               Text(
                 subtitle,
-                style: GoogleFonts.inter(
+                style: AppTextStyle.inter(
                   fontWeight: FontWeight.w400,
                   fontSize: 11,
                   height: 1.0,
@@ -66,19 +67,19 @@ class GradeItemTile extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: AppUi.spacingM),
         Container(
           width: 48,
           height: 48,
           decoration: BoxDecoration(
             color: gradeBgColor,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(AppUi.radiusL),
           ),
           alignment: Alignment.center,
           child: Text(
             grade,
             textAlign: TextAlign.center,
-            style: GoogleFonts.inter(
+            style: AppTextStyle.inter(
               fontWeight: FontWeight.w700,
               fontSize: 18,
               height: 1.0,

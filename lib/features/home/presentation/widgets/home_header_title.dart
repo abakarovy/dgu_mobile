@@ -1,5 +1,6 @@
+import 'package:dgu_mobile/core/constants/app_ui.dart';
+import 'package:dgu_mobile/core/theme/app_text_styles.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 /// Заголовок главной страницы: иконка колледжа + текст «КОЛЛЕДЖ ДГУ».
 class HomeHeaderTitle extends StatelessWidget {
@@ -12,14 +13,14 @@ class HomeHeaderTitle extends StatelessWidget {
       children: [
         Image.asset(
           'assets/images/logo_icon.png',
-          height: 38,
-          width: 38,
+          height: AppUi.appBarIconSize,
+          width: AppUi.appBarIconSize,
           fit: BoxFit.contain,
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: AppUi.spacingS),
         Text(
           'Колледж ДГУ',
-          style: GoogleFonts.montserrat(
+          style: AppTextStyle.montserrat(
             fontSize: 20,
             fontWeight: FontWeight.w800,
             color: Colors.black,

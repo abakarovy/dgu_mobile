@@ -1,9 +1,10 @@
 import 'package:dgu_mobile/core/constants/app_colors.dart';
+import 'package:dgu_mobile/core/constants/app_ui.dart';
+import 'package:dgu_mobile/core/theme/app_text_styles.dart';
 import 'package:dgu_mobile/shared/widgets/shallow_button.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_svg/svg.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../widgets/home_hero_banner.dart';
 
@@ -11,22 +12,22 @@ class HomePage extends StatelessWidget {
 
   const HomePage({super.key});
 
-  static TextStyle _cardTitleStyle(BuildContext context) => GoogleFonts.inter(
+  static TextStyle _cardTitleStyle(BuildContext context) => AppTextStyle.inter(
     fontWeight: FontWeight.w400,
     fontSize: 16,
     height: 1.0,
     color: AppColors.textPrimary,
   );
 
-  static TextStyle _cardSubtitleStyle(BuildContext context) => GoogleFonts.inter(
+  static TextStyle _cardSubtitleStyle(BuildContext context) => AppTextStyle.inter(
     fontWeight: FontWeight.w400,
     fontSize: 10,
     height: 1.0,
     color: AppColors.caption,
   );
 
-  static const double _cardHeight = 122;
-  static const EdgeInsets _cardPadding = EdgeInsets.all(17);
+  static const double _cardHeight = AppUi.homeCardHeight;
+  static const EdgeInsets _cardPadding = AppUi.homeCardPadding;
 
   Widget _iconCaptionCard(Widget child) {
     return SizedBox(
@@ -110,7 +111,7 @@ class HomePage extends StatelessWidget {
     return Row(
       children: [
         Expanded(child: _scheduleButton(context)),
-        const SizedBox(width: 16),
+        const SizedBox(width: AppUi.spacingBetweenCards),
         Expanded(child: _taskButton(context)),
       ],
     );
@@ -122,13 +123,13 @@ class HomePage extends StatelessWidget {
       _ScheduleItem(subject: 'Базы данных', time: '10:10', teacher: 'Иванов И.И.', auditorium: "каб. 201"),
       _ScheduleItem(subject: 'Математика', time: '12:00', teacher: 'Петрова П.П.', auditorium: "каб. 201"),
     ];
-    final sectionTitleStyle = GoogleFonts.inter(
+    final sectionTitleStyle = AppTextStyle.inter(
       fontWeight: FontWeight.w700,
       fontSize: 16,
       height: 1.0,
       color: AppColors.textPrimary,
     );
-    final allButtonStyle = GoogleFonts.inter(
+    final allButtonStyle = AppTextStyle.inter(
       fontWeight: FontWeight.w600,
       fontSize: 12,
       height: 1.0,
@@ -168,15 +169,15 @@ class HomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
+      padding: AppUi.screenPaddingAll,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         spacing: 0,
         children: [
           const HomeHeroBanner(),
-          const SizedBox(height: 22),
+          const SizedBox(height: AppUi.spacingAfterBanner),
           _scheduleAndTasksSection(context),
-          const SizedBox(height: 24),
+          const SizedBox(height: AppUi.spacingAfterButtons),
           _scheduleSection(context),
         ],
       ),
@@ -204,7 +205,7 @@ class _ScheduleItemTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final subjectStyle = GoogleFonts.inter(
+    final subjectStyle = AppTextStyle.inter(
       fontWeight: FontWeight.w700,
       fontSize: 14,
       height: 1.0,

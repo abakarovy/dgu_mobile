@@ -2,9 +2,10 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:google_fonts/google_fonts.dart';
 
-const Color _textOnBanner = Color(0xFFFFFFFF);
+import '../../../../core/constants/app_colors.dart';
+import '../../../../core/constants/app_ui.dart';
+import '../../../../core/theme/app_text_styles.dart';
 
 /// Баннер на главной: контейнер с приветствием и данными студента, картинка card.svg справа снизу.
 class HomeHeroBanner extends StatelessWidget {
@@ -15,11 +16,11 @@ class HomeHeroBanner extends StatelessWidget {
     return Container(
       constraints: const BoxConstraints(minHeight: 140),
       decoration: BoxDecoration(
-        color: const Color(0xFF003882),
-        borderRadius: BorderRadius.circular(24),
+        color: AppColors.primaryBlue,
+        borderRadius: BorderRadius.circular(AppUi.radiusXl),
         boxShadow: [
           BoxShadow(
-            color: const Color(0x4D003882), // #0038824D
+            color: const Color(0x4D003882),
             offset: const Offset(0, 10),
             blurRadius: 15,
             spreadRadius: -3,
@@ -31,34 +32,34 @@ class HomeHeroBanner extends StatelessWidget {
         clipBehavior: Clip.none,
         children: [
           Padding(
-            padding: const EdgeInsets.all(24),
+            padding: AppUi.screenPaddingAll,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   'Привет, студент!',
-                  style: GoogleFonts.inter(
+                  style: AppTextStyle.inter(
                     fontWeight: FontWeight.w400,
                     fontSize: 12,
                     height: 1.0,
-                    color: _textOnBanner,
+                    color: AppColors.textOnBanner,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: AppUi.spacingXs),
                 Text(
                   'Имя Фамилия',
-                  style: GoogleFonts.inter(
+                  style: AppTextStyle.inter(
                     fontWeight: FontWeight.w700,
                     fontSize: 24,
                     height: 1.0,
-                    color: _textOnBanner,
+                    color: AppColors.textOnBanner,
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppUi.spacingL),
                 Wrap(
-                  spacing: 12,
-                  runSpacing: 8,
+                  spacing: AppUi.spacingM,
+                  runSpacing: AppUi.spacingS,
                   children: const [
                     _InfoChip(label: 'Группа', value: 'ИСИП-41'),
                     _InfoChip(label: 'Успеваемость', value: '4.92'),
@@ -89,19 +90,17 @@ class _InfoChip extends StatelessWidget {
   final String label;
   final String value;
 
-  static const Color _chipBackground = Color(0x1AFFFFFF);
-
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(AppUi.radiusM),
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: AppUi.spacingM, vertical: AppUi.spacingS),
           decoration: BoxDecoration(
-            color: _chipBackground,
-            borderRadius: BorderRadius.circular(12),
+            color: AppColors.chipBackgroundOnBanner,
+            borderRadius: BorderRadius.circular(AppUi.radiusM),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -109,21 +108,21 @@ class _InfoChip extends StatelessWidget {
             children: [
               Text(
                 label.toUpperCase(),
-                style: GoogleFonts.inter(
+                style: AppTextStyle.inter(
                   fontWeight: FontWeight.w400,
                   fontSize: 10,
                   height: 1.0,
-                  color: _textOnBanner,
+                  color: AppColors.textOnBanner,
                 ),
               ),
               const SizedBox(height: 2),
               Text(
                 value,
-                style: GoogleFonts.inter(
+                style: AppTextStyle.inter(
                   fontWeight: FontWeight.w700,
                   fontSize: 14,
                   height: 1.0,
-                  color: _textOnBanner,
+                  color: AppColors.textOnBanner,
                 ),
               ),
             ],

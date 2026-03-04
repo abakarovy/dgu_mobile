@@ -1,3 +1,4 @@
+import 'package:dgu_mobile/core/constants/app_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../widgets/news_card.dart';
@@ -36,9 +37,9 @@ class NewsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
+      padding: AppUi.screenPaddingAll,
       itemCount: _items.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 24),
+      separatorBuilder: (_, _) => const SizedBox(height: AppUi.spacingBetweenNews),
       itemBuilder: (context, index) {
         final item = _items[index];
         final imageAsset = index % 2 == 0 ? 'assets/images/img1.png' : 'assets/images/img2.png';
