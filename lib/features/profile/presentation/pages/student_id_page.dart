@@ -115,21 +115,57 @@ class StudentIdPage extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: AppUi.spacingXl),
-              _label(context, 'Действителен до'),
-              const SizedBox(height: 4),
-              Text(_validUntil, style: _dateValueStyle()),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _label(context, 'Действителен до'),
+                        const SizedBox(height: 4),
+                        Text(_validUntil, style: _dateValueStyle()),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _label(context, 'Дата выдачи'),
+                        const SizedBox(height: 4),
+                        Text(_issueDate, style: _dateValueStyle()),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
               const SizedBox(height: AppUi.spacingXl),
-              _label(context, 'Дата выдачи'),
-              const SizedBox(height: 4),
-              Text(_issueDate, style: _dateValueStyle()),
-              const SizedBox(height: AppUi.spacingXl),
-              _label(context, 'Форма обучения'),
-              const SizedBox(height: 4),
-              Text(_studyForm, style: _dateValueStyle()),
-              const SizedBox(height: AppUi.spacingXl),
-              _label(context, 'Курс'),
-              const SizedBox(height: 4),
-              Text(_course, style: _dateValueStyle()),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _label(context, 'Форма обучения'),
+                        const SizedBox(height: 4),
+                        Text(_studyForm, style: _dateValueStyle()),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _label(context, 'Курс'),
+                        const SizedBox(height: 4),
+                        Text(_course, style: _dateValueStyle()),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
         ),

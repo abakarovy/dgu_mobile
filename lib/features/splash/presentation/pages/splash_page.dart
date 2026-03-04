@@ -20,9 +20,8 @@ class _SplashPageState extends State<SplashPage> {
     // Позже заменить на реальную проверку авторизации (токен и т.д.).
     await Future.delayed(const Duration(seconds: 2));
     if (!mounted) return;
-    // Временно всегда переходим в главный экран с нижней навигацией.
-    // Когда появится проверка токена: при успехе — /app/home, иначе — /auth/login.
-    context.go('/app/home');
+    // Пока переходим на экран входа; после входа — /app/home.
+    context.go('/login');
   }
 
   @override

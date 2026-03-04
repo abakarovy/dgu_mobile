@@ -86,4 +86,9 @@ abstract final class AppUi {
   static const double taskChipRadius = 4;
   static const EdgeInsets taskChipPadding = EdgeInsets.symmetric(horizontal: 8, vertical: 2);
   static const double taskCardSpacing = 16;
+
+  // --- Вход в систему (логин) ---
+  static const double loginIconBoxSize = 80;
+  static const double loginIconBoxRadius = 24;
+  static const double loginIconSize = 40;
 }

@@ -78,4 +78,9 @@ abstract final class AppColors {
   static const Color newsDetailTitle = Color(0xFF003B73);
   /// Цитата/курсив в тексте новости.
   static const Color newsDetailQuote = Color(0xFF1C398E);
+
+  /// Экран входа: тёмный фон.
+  static const Color loginBackground = Color(0xFF1E293B);
+  /// Кнопка «Войти» и иконка-контейнер (#003B73 по макету).
+  static const Color loginPrimary = Color(0xFF003B73);
 }
