@@ -63,7 +63,8 @@ class AppShellPage extends StatelessWidget {
     final path = GoRouterState.of(context).uri.path;
     final isNotificationsScreen = path.endsWith('notifications');
     final isSupportScreen = path.endsWith('support');
-    final hideShellAppBar = isNotificationsScreen || isSupportScreen;
+    final isStudentIdScreen = path.endsWith('student-id');
+    final hideShellAppBar = isNotificationsScreen || isSupportScreen || isStudentIdScreen;
 
     return Scaffold(
       appBar: hideShellAppBar

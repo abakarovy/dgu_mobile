@@ -123,7 +123,7 @@ class _ProfilePageState extends State<ProfilePage> {
           iconPath: 'assets/icons/profile.svg',
           title: 'Студенческий билет',
           subtitle: '2021-0452',
-          onTap: () {},
+          onTap: () => context.push('/app/profile/student-id'),
           titleColor: AppColors.textPrimary,
           iconColor: AppColors.primaryBlue,
           iconBackgroundColor: const Color(0xFFEFF6FF),
