@@ -69,4 +69,13 @@ abstract final class AppColors {
   static Color onDarkMuted(double opacity) => Colors.white.withValues(alpha: opacity);
 
   static Color onDarkSurface(double opacity) => Colors.white.withValues(alpha: opacity);
+
+  /// Задания: цвет чипа предмета и текст срока.
+  static const Color taskChipText = Color(0xFF003B73);
+  static const Color taskDeadline = Color(0xFFFF6900);
+
+  /// Заголовок новости на экране детали.
+  static const Color newsDetailTitle = Color(0xFF003B73);
+  /// Цитата/курсив в тексте новости.
+  static const Color newsDetailQuote = Color(0xFF1C398E);
 }

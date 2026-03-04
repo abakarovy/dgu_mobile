@@ -2,11 +2,14 @@ import 'package:go_router/go_router.dart';
 
 import '../../features/grades/presentation/pages/grades_page.dart';
 import '../../features/home/presentation/pages/home_page.dart';
+import '../../features/news/data/news_item.dart';
+import '../../features/news/presentation/pages/news_detail_page.dart';
 import '../../features/news/presentation/pages/news_page.dart';
 import '../../features/notifications/presentation/pages/notifications_page.dart';
 import '../../features/profile/presentation/pages/profile_page.dart';
 import '../../features/schedule/presentation/pages/schedule_page.dart';
 import '../../features/support/presentation/pages/support_page.dart';
+import '../../features/tasks/presentation/pages/tasks_page.dart';
 import '../../features/shell/presentation/pages/app_shell_page.dart';
 import '../../features/splash/presentation/pages/splash_page.dart';
 
@@ -78,6 +81,20 @@ final GoRouter appRouter = GoRouter(
       path: '/app/schedule',
       name: 'schedule',
       builder: (context, state) => const SchedulePage(),
+    ),
+    GoRoute(
+      path: '/app/tasks',
+      name: 'tasks',
+      builder: (context, state) => const TasksPage(),
+    ),
+    GoRoute(
+      path: '/app/news/detail',
+      name: 'newsDetail',
+      builder: (context, state) {
+        final item = state.extra as NewsItem?;
+        if (item == null) return const NewsPage();
+        return NewsDetailPage(item: item);
+      },
     ),
   ],
   redirect: (context, state) {

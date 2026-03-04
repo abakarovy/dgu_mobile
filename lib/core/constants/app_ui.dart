@@ -45,6 +45,12 @@ abstract final class AppUi {
   static const double newsContentPaddingH = 20;
   static const double newsCardRadius = 24;
 
+  // --- Новость (детальный экран) ---
+  static const double newsDetailImageHeight = 320;
+  static const double newsDetailBackButtonSize = 48;
+  static const double newsDetailBackIconSize = 24;
+  static const double newsDetailBackBlurSigma = 24;
+
   // --- Профиль: строки-кнопки ---
   static const double profileRowIconSize = 24;
   static const double profileRowIconPadding = 12;
@@ -69,4 +75,15 @@ abstract final class AppUi {
   static const double supportBannerIconSize = 32;
   static const double supportContactIconSize = 20;
   static const double supportContactIconPadding = 12;
+
+  // --- Расписание (экран) ---
+  static const double scheduleDayCellWidth = 40;
+  static const double scheduleDayCellHeight = 48;
+  static const double scheduleDayCellRadius = 12;
+  static const double scheduleDayCellSpacing = 13;
+
+  // --- Задания ---
+  static const double taskChipRadius = 4;
+  static const EdgeInsets taskChipPadding = EdgeInsets.symmetric(horizontal: 8, vertical: 2);
+  static const double taskCardSpacing = 16;
 }

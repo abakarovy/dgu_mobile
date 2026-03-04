@@ -5,6 +5,7 @@ abstract final class AppTextStyle {
   static TextStyle inter({
     double? fontSize,
     FontWeight? fontWeight,
+    FontStyle? fontStyle,
     double? height,
     Color? color,
     double? letterSpacing,
@@ -14,6 +15,7 @@ abstract final class AppTextStyle {
       fontFamily: 'Inter',
       fontSize: fontSize,
       fontWeight: fontWeight,
+      fontStyle: fontStyle,
       height: height,
       color: color,
       letterSpacing: letterSpacing,

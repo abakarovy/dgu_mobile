@@ -1,11 +1,12 @@
 import 'package:dgu_mobile/core/constants/app_colors.dart';
 import 'package:dgu_mobile/core/constants/app_ui.dart';
 import 'package:dgu_mobile/core/theme/app_text_styles.dart';
-import 'package:dgu_mobile/shared/widgets/shallow_button.dart';
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../schedule/data/schedule_mock_data.dart';
+import '../../../schedule/presentation/widgets/schedule_lesson_tile.dart';
 import '../widgets/home_hero_banner.dart';
 
 class HomePage extends StatelessWidget {
@@ -29,7 +30,7 @@ class HomePage extends StatelessWidget {
   static const double _cardHeight = AppUi.homeCardHeight;
   static const EdgeInsets _cardPadding = AppUi.homeCardPadding;
 
-  Widget _iconCaptionCard(Widget child) {
+  Widget _iconCaptionCard(Widget child, {VoidCallback? onPressed}) {
     return SizedBox(
       height: _cardHeight,
       child: ElevatedButton(
@@ -44,12 +45,14 @@ class HomePage extends StatelessWidget {
             ),
           ),
         ),
-        onPressed: () {},
+        onPressed: onPressed ?? () {},
         child: child,
       ),
     );
   }
   Widget _scheduleButton(BuildContext context) {
+    final todayIndex = DateTime.now().weekday - 1;
+    final count = scheduleLessonsForDay(todayIndex).length;
     return _iconCaptionCard(
       Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -66,7 +69,7 @@ class HomePage extends StatelessWidget {
               width: 24,
               height: 24,
               colorFilter: ColorFilter.mode(
-                AppColors.primaryBlue, 
+                AppColors.primaryBlue,
                 BlendMode.srcIn
               ),
             ),
@@ -74,10 +77,20 @@ class HomePage extends StatelessWidget {
           const SizedBox(height: 12),
           Text("Расписание", style: _cardTitleStyle(context)),
           const SizedBox(height: 5),
-          Text("3 пары сегодня", style: _cardSubtitleStyle(context))
+          Text(
+            count == 0 ? 'Нет пар' : '$count ${_pairWord(count)} сегодня',
+            style: _cardSubtitleStyle(context),
+          )
         ],
       ),
+      onPressed: () => context.push('/app/schedule'),
     );
+  }
+
+  static String _pairWord(int n) {
+    if (n == 1) return 'пара';
+    if (n >= 2 && n <= 4) return 'пары';
+    return 'пар';
   }
   Widget _taskButton(BuildContext context) {
     return _iconCaptionCard(
@@ -105,6 +118,7 @@ class HomePage extends StatelessWidget {
 
         ],
       ),
+      onPressed: () => context.push('/app/tasks'),
     );
   }
   Widget _scheduleAndTasksSection(BuildContext context) {
@@ -118,50 +132,38 @@ class HomePage extends StatelessWidget {
   }
 
   Widget _scheduleSection(BuildContext context) {
-    final items = [
-      _ScheduleItem(subject: 'Веб разработка', time: '8:30', teacher: 'Алиева А.М.', auditorium: "каб. 201"),
-      _ScheduleItem(subject: 'Базы данных', time: '10:10', teacher: 'Иванов И.И.', auditorium: "каб. 201"),
-      _ScheduleItem(subject: 'Математика', time: '12:00', teacher: 'Петрова П.П.', auditorium: "каб. 201"),
-    ];
+    final todayIndex = DateTime.now().weekday - 1;
+    final items = scheduleLessonsForDay(todayIndex);
     final sectionTitleStyle = AppTextStyle.inter(
       fontWeight: FontWeight.w700,
       fontSize: 16,
       height: 1.0,
       color: AppColors.textPrimary,
     );
-    final allButtonStyle = AppTextStyle.inter(
-      fontWeight: FontWeight.w600,
-      fontSize: 12,
-      height: 1.0,
-      color: AppColors.primaryBlue,
-    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
-      spacing: 16,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text('Расписание на сегодня', style: sectionTitleStyle),
-            ShallowButton(
-              label: 'Все',
-              style: allButtonStyle,
-              onPressed: () => context.push('/app/schedule'),
-            )
-          ],
-        ),
-        ...items.map((e) => Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(10),
-            color: Colors.white,
-            boxShadow: [BoxShadow(color: Colors.black.withAlpha(20), offset: Offset(0, 2))]
+        Text('Расписание на сегодня', style: sectionTitleStyle),
+        const SizedBox(height: 16),
+        ...items.map((e) => Padding(
+          padding: const EdgeInsets.only(bottom: AppUi.spacingBetweenCards),
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withAlpha(20),
+                  offset: const Offset(0, 2),
+                  blurRadius: 4,
+                ),
+              ],
+            ),
+            padding: const EdgeInsets.all(12),
+            child: ScheduleLessonTile(lesson: e),
           ),
-          padding: const EdgeInsets.all(12),
-          child: 
-            _ScheduleItemTile(item: e),
-          )
-        ),
+        )),
       ],
     );
   }
@@ -185,53 +187,3 @@ class HomePage extends StatelessWidget {
   }
 }
 
-class _ScheduleItem {
-  const _ScheduleItem({
-    required this.subject,
-    required this.time,
-    required this.teacher,
-    required this.auditorium
-  });
-  final String subject;
-  final String time;
-  final String teacher;
-  final String auditorium;
-}
-
-class _ScheduleItemTile extends StatelessWidget {
-  const _ScheduleItemTile({required this.item});
-
-  final _ScheduleItem item;
-
-  @override
-  Widget build(BuildContext context) {
-    final subjectStyle = AppTextStyle.inter(
-      fontWeight: FontWeight.w700,
-      fontSize: 14,
-      height: 1.0,
-      color: AppColors.textPrimary,
-    );
-    final theme = Theme.of(context).textTheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(item.subject, style: subjectStyle),
-        const SizedBox(height: 4),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              '${item.time} • ${item.teacher}',
-              style: theme.bodySmall?.copyWith(color: AppColors.caption),
-            ),
-            Text(
-              item.auditorium,
-              style: theme.bodySmall?.copyWith(color: AppColors.caption),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-}
