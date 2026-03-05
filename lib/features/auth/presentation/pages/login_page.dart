@@ -4,7 +4,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_ui.dart';
+import '../../../../core/di/app_container.dart';
 import '../../../../core/theme/app_text_styles.dart';
+import '../../../../data/api/auth_api.dart';
 
 /// Экран входа: иконка в контейнере, заголовок, подзаголовок, форма (Фамилия, Имя, Отчество, Номер з/к), кнопка «Войти».
 class LoginPage extends StatefulWidget {
@@ -20,19 +22,17 @@ class _LoginPageState extends State<LoginPage> {
   final _firstNameController = TextEditingController();
   final _patronymicController = TextEditingController();
   final _studentIdController = TextEditingController();
+  final _passwordController = TextEditingController();
 
   final _lastNameFocusNode = FocusNode();
   final _firstNameFocusNode = FocusNode();
   final _patronymicFocusNode = FocusNode();
   final _studentIdFocusNode = FocusNode();
+  final _passwordFocusNode = FocusNode();
 
   final Set<String> _errorFields = {};
   bool _showWrongCredentialsError = false;
-
-  static const String _validLastName = 'Иванов';
-  static const String _validFirstName = 'Иван';
-  static const String _validPatronymic = 'Иванович';
-  static const String _validStudentId = '12345';
+  String _credentialsErrorMessage = 'Неверные Ф.И.О. или № зач. книжки!';
 
   @override
   void initState() {
@@ -69,6 +69,14 @@ class _LoginPageState extends State<LoginPage> {
         });
       }
     });
+    _passwordFocusNode.addListener(() {
+      if (_passwordFocusNode.hasFocus) {
+        setState(() {
+          _errorFields.remove('password');
+          _showWrongCredentialsError = false;
+        });
+      }
+    });
   }
 
   @override
@@ -77,19 +85,22 @@ class _LoginPageState extends State<LoginPage> {
     _firstNameController.dispose();
     _patronymicController.dispose();
     _studentIdController.dispose();
+    _passwordController.dispose();
     _lastNameFocusNode.dispose();
     _firstNameFocusNode.dispose();
     _patronymicFocusNode.dispose();
     _studentIdFocusNode.dispose();
+    _passwordFocusNode.dispose();
     super.dispose();
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     final errors = <String>{};
     if (_lastNameController.text.trim().isEmpty) errors.add('lastName');
     if (_firstNameController.text.trim().isEmpty) errors.add('firstName');
     if (_patronymicController.text.trim().isEmpty) errors.add('patronymic');
     if (_studentIdController.text.trim().isEmpty) errors.add('studentId');
+    if (_passwordController.text.trim().isEmpty) errors.add('password');
     setState(() {
       _errorFields
         ..clear()
@@ -98,19 +109,19 @@ class _LoginPageState extends State<LoginPage> {
     });
     if (errors.isNotEmpty) return;
 
-    final last = _lastNameController.text.trim();
-    final first = _firstNameController.text.trim();
-    final patronymic = _patronymicController.text.trim();
-    final id = _studentIdController.text.trim();
-    if (last == _validLastName &&
-        first == _validFirstName &&
-        patronymic == _validPatronymic &&
-        id == _validStudentId) {
+    final bookNumber = _studentIdController.text.trim();
+    final password = _passwordController.text.trim();
+    try {
+      await AppContainer.authRepository.login(username: bookNumber, password: password);
+      if (!mounted) return;
       context.go('/app/home');
-      return;
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _showWrongCredentialsError = true;
+        _credentialsErrorMessage = e.message;
+      });
     }
-
-    setState(() => _showWrongCredentialsError = true);
   }
 
   @override
@@ -160,7 +171,7 @@ class _LoginPageState extends State<LoginPage> {
                 const SizedBox(height: 12),
                 Center(
                   child: Text(
-                    'Неверные Ф.И.О. или № зач. книжки!',
+                    _credentialsErrorMessage,
                     textAlign: TextAlign.center,
                     style: AppTextStyle.inter(
                       fontWeight: FontWeight.w500,
@@ -232,6 +243,8 @@ class _LoginPageState extends State<LoginPage> {
           _buildField(key: 'patronymic', label: 'Отчество', hint: 'Иванович', controller: _patronymicController, focusNode: _patronymicFocusNode),
           const SizedBox(height: 12),
           _buildField(key: 'studentId', label: 'Номер з/к', hint: '12345', controller: _studentIdController, focusNode: _studentIdFocusNode, keyboardType: TextInputType.number),
+          const SizedBox(height: 12),
+          _buildField(key: 'password', label: 'Пароль', hint: '••••••••', controller: _passwordController, focusNode: _passwordFocusNode, obscureText: true),
         ],
       ),
     );
@@ -244,6 +257,7 @@ class _LoginPageState extends State<LoginPage> {
     required TextEditingController controller,
     required FocusNode focusNode,
     TextInputType keyboardType = TextInputType.name,
+    bool obscureText = false,
   }) {
     final hasError = _errorFields.contains(key);
     final border = OutlineInputBorder(
@@ -272,6 +286,7 @@ class _LoginPageState extends State<LoginPage> {
           controller: controller,
           focusNode: focusNode,
           keyboardType: keyboardType,
+          obscureText: obscureText,
           inputFormatters: keyboardType == TextInputType.number
               ? [FilteringTextInputFormatter.digitsOnly]
               : null,

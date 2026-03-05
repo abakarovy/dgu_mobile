@@ -1,4 +1,5 @@
 import 'package:dgu_mobile/core/constants/app_colors.dart';
+import 'package:dgu_mobile/core/di/app_container.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -17,11 +18,15 @@ class _SplashPageState extends State<SplashPage> {
   }
 
   Future<void> _navigateNext() async {
-    // Позже заменить на реальную проверку авторизации (токен и т.д.).
     await Future.delayed(const Duration(seconds: 2));
     if (!mounted) return;
-    // Пока переходим на экран входа; после входа — /app/home.
-    context.go('/login');
+    final isLoggedIn = await AppContainer.authRepository.isLoggedIn();
+    if (!mounted) return;
+    if (isLoggedIn) {
+      context.go('/app/home');
+    } else {
+      context.go('/login');
+    }
   }
 
   @override

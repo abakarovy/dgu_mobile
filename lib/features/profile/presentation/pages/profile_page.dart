@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:dgu_mobile/core/constants/app_colors.dart';
 import 'package:dgu_mobile/core/constants/app_constants.dart';
 import 'package:dgu_mobile/core/constants/app_ui.dart';
+import 'package:dgu_mobile/core/di/app_container.dart';
 import 'package:dgu_mobile/core/theme/app_text_styles.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -167,7 +168,10 @@ class _ProfilePageState extends State<ProfilePage> {
           iconPath: 'assets/icons/logout_icon.svg',
           title: 'Выйти',
           subtitle: 'Завершить сессию',
-          onTap: () => context.go('/login'),
+          onTap: () async {
+            await AppContainer.authRepository.logout();
+            if (context.mounted) context.go('/login');
+          },
           titleColor: Colors.red,
           iconBackgroundColor: const Color(0xFFFEF2F2),
           iconColor: Colors.red,

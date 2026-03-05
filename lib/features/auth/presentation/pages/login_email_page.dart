@@ -3,7 +3,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_ui.dart';
+import '../../../../core/di/app_container.dart';
 import '../../../../core/theme/app_text_styles.dart';
+import '../../../../data/api/auth_api.dart';
 
 /// Экран входа по E-Mail: те же заголовок и оформление, поля E-Mail и Пароль, кнопка «Войти» и «Войти по № з/к».
 class LoginEmailPage extends StatefulWidget {
@@ -20,6 +22,7 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
   final _passwordFocusNode = FocusNode();
   final Set<String> _errorFields = {};
   bool _showWrongCredentialsError = false;
+  String _credentialsErrorMessage = 'Неверный E-Mail или пароль';
 
   @override
   void initState() {
@@ -51,7 +54,7 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
     super.dispose();
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     final errors = <String>{};
     if (_emailController.text.trim().isEmpty) errors.add('email');
     if (_passwordController.text.trim().isEmpty) errors.add('password');
@@ -62,8 +65,20 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
       _showWrongCredentialsError = false;
     });
     if (errors.isNotEmpty) return;
-    // Пока пускаем при любых заполненных данных; позже — проверка по API.
-    context.go('/app/home');
+
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+    try {
+      await AppContainer.authRepository.login(username: email, password: password);
+      if (!mounted) return;
+      context.go('/app/home');
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _showWrongCredentialsError = true;
+        _credentialsErrorMessage = e.message;
+      });
+    }
   }
 
   @override
@@ -113,7 +128,7 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
                 const SizedBox(height: 12),
                 Center(
                   child: Text(
-                    'Неверный E-Mail или пароль',
+                    _credentialsErrorMessage,
                     textAlign: TextAlign.center,
                     style: AppTextStyle.inter(
                       fontWeight: FontWeight.w500,
