@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import '../../features/grades/presentation/pages/grades_page.dart';
 import '../../features/home/presentation/pages/home_page.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
+import '../../features/auth/presentation/pages/login_email_page.dart';
 import '../../features/news/data/news_item.dart';
 import '../../features/news/presentation/pages/news_detail_page.dart';
 import '../../features/news/presentation/pages/news_page.dart';
@@ -29,6 +30,13 @@ final GoRouter appRouter = GoRouter(
       path: '/login',
       name: 'login',
       builder: (context, state) => const LoginPage(),
+      routes: [
+        GoRoute(
+          path: 'email',
+          name: 'loginEmail',
+          builder: (context, state) => const LoginEmailPage(),
+        ),
+      ],
     ),
     StatefulShellRoute.indexedStack(
       builder: (context, state, navigationShell) =>

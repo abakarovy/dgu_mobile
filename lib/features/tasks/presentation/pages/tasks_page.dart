@@ -154,7 +154,7 @@ class _TasksList extends StatelessWidget {
     return ListView.separated(
       padding: const EdgeInsets.symmetric(horizontal: AppUi.screenPaddingH),
       itemCount: items.length,
-      separatorBuilder: (_, __) => const SizedBox(height: AppUi.taskCardSpacing),
+      separatorBuilder: (_, _) => const SizedBox(height: AppUi.taskCardSpacing),
       itemBuilder: (context, index) {
         final task = items[index];
         return Container(

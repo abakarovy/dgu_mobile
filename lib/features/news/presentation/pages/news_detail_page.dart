@@ -34,7 +34,7 @@ class NewsDetailPage extends StatelessWidget {
                   child: Image.asset(
                     item.imageAsset,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
+                    errorBuilder: (_, _, _) => Container(
                       color: AppColors.backgroundSecondary,
                       child: const Icon(Icons.image_outlined, size: 48, color: AppColors.caption),
                     ),

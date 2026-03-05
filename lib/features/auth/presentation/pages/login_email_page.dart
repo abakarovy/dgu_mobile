@@ -1,70 +1,41 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_ui.dart';
 import '../../../../core/theme/app_text_styles.dart';
 
-/// Экран входа: иконка в контейнере, заголовок, подзаголовок, форма (Фамилия, Имя, Отчество, Номер з/к), кнопка «Войти».
-class LoginPage extends StatefulWidget {
-  const LoginPage({super.key});
+/// Экран входа по E-Mail: те же заголовок и оформление, поля E-Mail и Пароль, кнопка «Войти» и «Войти по № з/к».
+class LoginEmailPage extends StatefulWidget {
+  const LoginEmailPage({super.key});
 
   @override
-  State<LoginPage> createState() => _LoginPageState();
+  State<LoginEmailPage> createState() => _LoginEmailPageState();
 }
 
-class _LoginPageState extends State<LoginPage> {
-  final _formKey = GlobalKey<FormState>();
-  final _lastNameController = TextEditingController();
-  final _firstNameController = TextEditingController();
-  final _patronymicController = TextEditingController();
-  final _studentIdController = TextEditingController();
-
-  final _lastNameFocusNode = FocusNode();
-  final _firstNameFocusNode = FocusNode();
-  final _patronymicFocusNode = FocusNode();
-  final _studentIdFocusNode = FocusNode();
-
+class _LoginEmailPageState extends State<LoginEmailPage> {
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _emailFocusNode = FocusNode();
+  final _passwordFocusNode = FocusNode();
   final Set<String> _errorFields = {};
   bool _showWrongCredentialsError = false;
-
-  static const String _validLastName = 'Иванов';
-  static const String _validFirstName = 'Иван';
-  static const String _validPatronymic = 'Иванович';
-  static const String _validStudentId = '12345';
 
   @override
   void initState() {
     super.initState();
-    _lastNameFocusNode.addListener(() {
-      if (_lastNameFocusNode.hasFocus) {
+    _emailFocusNode.addListener(() {
+      if (_emailFocusNode.hasFocus) {
         setState(() {
-          _errorFields.remove('lastName');
+          _errorFields.remove('email');
           _showWrongCredentialsError = false;
         });
       }
     });
-    _firstNameFocusNode.addListener(() {
-      if (_firstNameFocusNode.hasFocus) {
+    _passwordFocusNode.addListener(() {
+      if (_passwordFocusNode.hasFocus) {
         setState(() {
-          _errorFields.remove('firstName');
-          _showWrongCredentialsError = false;
-        });
-      }
-    });
-    _patronymicFocusNode.addListener(() {
-      if (_patronymicFocusNode.hasFocus) {
-        setState(() {
-          _errorFields.remove('patronymic');
-          _showWrongCredentialsError = false;
-        });
-      }
-    });
-    _studentIdFocusNode.addListener(() {
-      if (_studentIdFocusNode.hasFocus) {
-        setState(() {
-          _errorFields.remove('studentId');
+          _errorFields.remove('password');
           _showWrongCredentialsError = false;
         });
       }
@@ -73,23 +44,17 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   void dispose() {
-    _lastNameController.dispose();
-    _firstNameController.dispose();
-    _patronymicController.dispose();
-    _studentIdController.dispose();
-    _lastNameFocusNode.dispose();
-    _firstNameFocusNode.dispose();
-    _patronymicFocusNode.dispose();
-    _studentIdFocusNode.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    _emailFocusNode.dispose();
+    _passwordFocusNode.dispose();
     super.dispose();
   }
 
   void _submit() {
     final errors = <String>{};
-    if (_lastNameController.text.trim().isEmpty) errors.add('lastName');
-    if (_firstNameController.text.trim().isEmpty) errors.add('firstName');
-    if (_patronymicController.text.trim().isEmpty) errors.add('patronymic');
-    if (_studentIdController.text.trim().isEmpty) errors.add('studentId');
+    if (_emailController.text.trim().isEmpty) errors.add('email');
+    if (_passwordController.text.trim().isEmpty) errors.add('password');
     setState(() {
       _errorFields
         ..clear()
@@ -97,20 +62,8 @@ class _LoginPageState extends State<LoginPage> {
       _showWrongCredentialsError = false;
     });
     if (errors.isNotEmpty) return;
-
-    final last = _lastNameController.text.trim();
-    final first = _firstNameController.text.trim();
-    final patronymic = _patronymicController.text.trim();
-    final id = _studentIdController.text.trim();
-    if (last == _validLastName &&
-        first == _validFirstName &&
-        patronymic == _validPatronymic &&
-        id == _validStudentId) {
-      context.go('/app/home');
-      return;
-    }
-
-    setState(() => _showWrongCredentialsError = true);
+    // Пока пускаем при любых заполненных данных; позже — проверка по API.
+    context.go('/app/home');
   }
 
   @override
@@ -160,7 +113,7 @@ class _LoginPageState extends State<LoginPage> {
                 const SizedBox(height: 12),
                 Center(
                   child: Text(
-                    'Неверные Ф.И.О. или № зач. книжки!',
+                    'Неверный E-Mail или пароль',
                     textAlign: TextAlign.center,
                     style: AppTextStyle.inter(
                       fontWeight: FontWeight.w500,
@@ -174,7 +127,7 @@ class _LoginPageState extends State<LoginPage> {
               const SizedBox(height: 32),
               _buildSubmitButton(),
               const SizedBox(height: 12),
-              _buildSwitchButton(label: 'Войти по E-Mail', onTap: () => context.go('/login/email')),
+              _buildSwitchButton(label: 'Войти по № з/к', onTap: () => context.go('/login')),
             ],
           ),
         ),
@@ -221,17 +174,12 @@ class _LoginPageState extends State<LoginPage> {
 
   Widget _buildForm() {
     return Form(
-      key: _formKey,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _buildField(key: 'lastName', label: 'Фамилия', hint: 'Иванов', controller: _lastNameController, focusNode: _lastNameFocusNode),
+          _buildField(key: 'email', label: 'E-Mail', hint: 'example@mail.ru', controller: _emailController, focusNode: _emailFocusNode, keyboardType: TextInputType.emailAddress),
           const SizedBox(height: 12),
-          _buildField(key: 'firstName', label: 'Имя', hint: 'Иван', controller: _firstNameController, focusNode: _firstNameFocusNode),
-          const SizedBox(height: 12),
-          _buildField(key: 'patronymic', label: 'Отчество', hint: 'Иванович', controller: _patronymicController, focusNode: _patronymicFocusNode),
-          const SizedBox(height: 12),
-          _buildField(key: 'studentId', label: 'Номер з/к', hint: '12345', controller: _studentIdController, focusNode: _studentIdFocusNode, keyboardType: TextInputType.number),
+          _buildField(key: 'password', label: 'Пароль', hint: '••••••••', controller: _passwordController, focusNode: _passwordFocusNode, obscureText: true),
         ],
       ),
     );
@@ -243,7 +191,8 @@ class _LoginPageState extends State<LoginPage> {
     required String hint,
     required TextEditingController controller,
     required FocusNode focusNode,
-    TextInputType keyboardType = TextInputType.name,
+    TextInputType keyboardType = TextInputType.text,
+    bool obscureText = false,
   }) {
     final hasError = _errorFields.contains(key);
     final border = OutlineInputBorder(
@@ -272,9 +221,7 @@ class _LoginPageState extends State<LoginPage> {
           controller: controller,
           focusNode: focusNode,
           keyboardType: keyboardType,
-          inputFormatters: keyboardType == TextInputType.number
-              ? [FilteringTextInputFormatter.digitsOnly]
-              : null,
+          obscureText: obscureText,
           decoration: InputDecoration(
             hintText: hint,
             hintStyle: AppTextStyle.inter(

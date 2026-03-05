@@ -167,7 +167,7 @@ class _ProfilePageState extends State<ProfilePage> {
           iconPath: 'assets/icons/logout_icon.svg',
           title: 'Выйти',
           subtitle: 'Завершить сессию',
-          onTap: () {},
+          onTap: () => context.go('/login'),
           titleColor: Colors.red,
           iconBackgroundColor: const Color(0xFFFEF2F2),
           iconColor: Colors.red,
