@@ -15,12 +15,20 @@ void showSubjectGradesSheet(BuildContext context, {
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    isDismissible: true,
-    useRootNavigator: false,
+    isDismissible: false,
+    enableDrag: true,
+    useRootNavigator: true,
     barrierColor: Colors.black54,
-    builder: (context) => _SubjectGradesSheet(
-      subjectName: subjectName,
-      grades: grades,
+    builder: (context) => Material(
+      color: Colors.transparent,
+      child: SafeArea(
+        top: false,
+        bottom: false,
+        child: _SubjectGradesSheet(
+          subjectName: subjectName,
+          grades: grades,
+        ),
+      ),
     ),
   );
 }
@@ -39,17 +47,12 @@ class _SubjectGradesSheet extends StatefulWidget {
 }
 
 class _SubjectGradesSheetState extends State<_SubjectGradesSheet> {
-  late final DraggableScrollableController _sheetController;
-
-  @override
-  void initState() {
-    super.initState();
-    _sheetController = DraggableScrollableController();
-  }
+  final ValueNotifier<double> _extent = ValueNotifier<double>(0.7);
+  bool _closing = false;
 
   @override
   void dispose() {
-    _sheetController.dispose();
+    _extent.dispose();
     super.dispose();
   }
 
@@ -76,16 +79,44 @@ class _SubjectGradesSheetState extends State<_SubjectGradesSheet> {
   Widget build(BuildContext context) {
     final sorted = List<GradeListItem>.from(widget.grades)
       ..sort((a, b) => (b.date ?? DateTime(2000)).compareTo(a.date ?? DateTime(2000)));
+    final screenHeight = MediaQuery.sizeOf(context).height;
 
-    return DraggableScrollableSheet(
-                  controller: _sheetController,
-                  initialChildSize: 0.7,
-                  minChildSize: 0.4,
-                  maxChildSize: 1.0,
-                  builder: (context, scrollController) {
-                    return Container(
-          decoration: const BoxDecoration(
-            color: AppColors.surfaceLight,
+    return ValueListenableBuilder<double>(
+      valueListenable: _extent,
+      builder: (context, extent, _) {
+        final barrierHeight = screenHeight * (1 - extent);
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => Navigator.of(context).pop(),
+              child: SizedBox(height: barrierHeight),
+            ),
+            SizedBox(
+              height: screenHeight * extent,
+              child: NotificationListener<DraggableScrollableNotification>(
+                onNotification: (n) {
+                  if (n.extent != _extent.value) _extent.value = n.extent;
+                  if (!_closing && n.extent <= n.minExtent + 0.05) {
+                    _closing = true;
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) Navigator.of(context).pop();
+                    });
+                  }
+                  return false;
+                },
+                child: DraggableScrollableSheet(
+      initialChildSize: 1.0,
+      minChildSize: 0.35,
+      maxChildSize: 1.0,
+      snap: true,
+      snapSizes: const [0.35, 0.7, 1.0],
+      shouldCloseOnMinExtent: true,
+      builder: (context, scrollController) {
+                    return Material(
+          color: AppColors.surfaceLight,
+          shape: const RoundedRectangleBorder(
             borderRadius: BorderRadius.vertical(top: Radius.circular(AppUi.radiusXl)),
           ),
           child: Column(
@@ -161,6 +192,12 @@ class _SubjectGradesSheetState extends State<_SubjectGradesSheet> {
           ),
         );
       },
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -194,18 +231,15 @@ class _GradeRow extends StatelessWidget {
     final (gradeTextColor, gradeBgColor) = GradeItemTile.colorsForGrade(item.grade);
     final subtitleColor = item.isSpecialType ? gradeTextColor : AppColors.caption;
 
-    return Container(
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(AppUi.radiusS),
+      elevation: 1,
+      shadowColor: Colors.black.withValues(alpha: 0.06),
+      child: Container(
       padding: const EdgeInsets.symmetric(horizontal: AppUi.contentPaddingH, vertical: AppUi.contentPaddingV),
       decoration: BoxDecoration(
-        color: Colors.white,
         borderRadius: BorderRadius.circular(AppUi.radiusS),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            offset: const Offset(0, 2),
-            blurRadius: 4,
-          ),
-        ],
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -257,6 +291,7 @@ class _GradeRow extends StatelessWidget {
           ),
         ],
       ),
+    ),
     );
   }
 }
