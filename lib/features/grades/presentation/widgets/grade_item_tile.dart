@@ -3,18 +3,22 @@ import 'package:dgu_mobile/core/constants/app_ui.dart';
 import 'package:dgu_mobile/core/theme/app_text_styles.dart';
 import 'package:flutter/material.dart';
 
-/// Один элемент списка оценок: дисциплина, преподаватель (subtitle), справа — оценка в контейнере.
+/// Один элемент списка оценок: название предмета, подпись (тип работы или преподаватель), справа — оценка.
 class GradeItemTile extends StatelessWidget {
   const GradeItemTile({
     super.key,
     required this.subjectName,
     required this.grade,
     required this.subtitle,
+    this.type,
+    this.isSpecialType = false,
   });
 
   final String subjectName;
   final String grade;
   final String subtitle;
+  final String? type;
+  final bool isSpecialType;
 
   static (Color textColor, Color bgColor) _colorsForGrade(String grade) {
     final g = grade.trim();
@@ -37,6 +41,8 @@ class GradeItemTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (gradeTextColor, gradeBgColor) = _colorsForGrade(grade);
+    final subtitleText = type ?? subtitle;
+    final subtitleColor = isSpecialType ? gradeTextColor : AppColors.caption;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
@@ -54,16 +60,18 @@ class GradeItemTile extends StatelessWidget {
                   color: AppColors.textPrimary,
                 ),
               ),
-              const SizedBox(height: 4),
-              Text(
-                subtitle,
-                style: AppTextStyle.inter(
-                  fontWeight: FontWeight.w400,
-                  fontSize: 11,
-                  height: 1.0,
-                  color: AppColors.caption,
+              if (subtitleText.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  subtitleText,
+                  style: AppTextStyle.inter(
+                    fontWeight: FontWeight.w400,
+                    fontSize: 11,
+                    height: 1.0,
+                    color: subtitleColor,
+                  ),
                 ),
-              ),
+              ],
             ],
           ),
         ),
