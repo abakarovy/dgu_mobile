@@ -4,6 +4,7 @@ import 'package:dgu_mobile/core/theme/app_text_styles.dart';
 import 'package:flutter/material.dart';
 
 import '../widgets/grades_list_view.dart';
+import '../widgets/subject_grades_sheet.dart';
 
 /// Вкладка «Оценки»: 3 таба (Текущие, Сессия, Итого).
 /// Текущие: выбор периода (неделя по умолчанию), стрелки, календарь; оценки с датами и типами.
@@ -94,6 +95,135 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
     ),
   ];
 
+  /// Все оценки по предметам для детализации при нажатии.
+  static Map<String, List<GradeListItem>> get _allGradesBySubject {
+    final now = DateTime.now();
+    return {
+      'Веб разработка': [
+        GradeListItem(
+          subjectName: 'Веб разработка',
+          grade: '5',
+          subtitle: 'Алиева А.М.',
+          date: now.subtract(const Duration(days: 1)),
+          type: 'Опрос',
+        ),
+        GradeListItem(
+          subjectName: 'Веб разработка',
+          grade: '5',
+          subtitle: 'Алиева А.М.',
+          date: now.subtract(const Duration(days: 14)),
+          type: 'Домашняя работа',
+        ),
+        GradeListItem(
+          subjectName: 'Веб разработка',
+          grade: '4',
+          subtitle: 'Алиева А.М.',
+          date: now.subtract(const Duration(days: 21)),
+          type: 'Контрольная работа',
+        ),
+        GradeListItem(
+          subjectName: 'Веб разработка',
+          grade: '5',
+          subtitle: 'Алиева А.М.',
+          date: now.subtract(const Duration(days: 28)),
+          type: 'Введение тетради',
+        ),
+      ],
+      'Базы данных': [
+        GradeListItem(
+          subjectName: 'Базы данных',
+          grade: '4',
+          subtitle: 'Иванов И.И.',
+          date: now.subtract(const Duration(days: 1)),
+          type: 'Введение тетради',
+        ),
+        GradeListItem(
+          subjectName: 'Базы данных',
+          grade: '5',
+          subtitle: 'Иванов И.И.',
+          date: now.subtract(const Duration(days: 8)),
+          type: 'Опрос',
+        ),
+        GradeListItem(
+          subjectName: 'Базы данных',
+          grade: '4',
+          subtitle: 'Иванов И.И.',
+          date: now.subtract(const Duration(days: 15)),
+          type: 'Практическая работа',
+        ),
+      ],
+      'Математика': [
+        GradeListItem(
+          subjectName: 'Математика',
+          grade: '5',
+          subtitle: 'Петрова П.П.',
+          date: now,
+          type: 'Контрольная работа',
+        ),
+        GradeListItem(
+          subjectName: 'Математика',
+          grade: '4',
+          subtitle: 'Петрова П.П.',
+          date: now.subtract(const Duration(days: 10)),
+          type: 'Опрос',
+        ),
+        GradeListItem(
+          subjectName: 'Математика',
+          grade: '4',
+          subtitle: 'Петрова П.П.',
+          date: now.subtract(const Duration(days: 17)),
+          type: 'Домашняя работа',
+        ),
+      ],
+      'Физика': [
+        GradeListItem(
+          subjectName: 'Физика',
+          grade: '3',
+          subtitle: 'Сидоров С.С.',
+          date: now.subtract(const Duration(days: 2)),
+          type: 'Промежуточная аттестация',
+        ),
+        GradeListItem(
+          subjectName: 'Физика',
+          grade: '4',
+          subtitle: 'Сидоров С.С.',
+          date: now.subtract(const Duration(days: 9)),
+          type: 'Лабораторная работа',
+        ),
+        GradeListItem(
+          subjectName: 'Физика',
+          grade: '4',
+          subtitle: 'Сидоров С.С.',
+          date: now.subtract(const Duration(days: 16)),
+          type: 'Опрос',
+        ),
+      ],
+      'Иностранный язык': [
+        GradeListItem(
+          subjectName: 'Иностранный язык',
+          grade: '5',
+          subtitle: 'Кузнецова К.К.',
+          date: now.subtract(const Duration(days: 3)),
+          type: 'Устный ответ',
+        ),
+        GradeListItem(
+          subjectName: 'Иностранный язык',
+          grade: '5',
+          subtitle: 'Кузнецова К.К.',
+          date: now.subtract(const Duration(days: 10)),
+          type: 'Домашнее чтение',
+        ),
+        GradeListItem(
+          subjectName: 'Иностранный язык',
+          grade: '5',
+          subtitle: 'Кузнецова К.К.',
+          date: now.subtract(const Duration(days: 17)),
+          type: 'Тест',
+        ),
+      ],
+    };
+  }
+
   List<GradeListItem> get _filteredCurrentGrades {
     final start = DateTime(_rangeStart.year, _rangeStart.month, _rangeStart.day);
     final end = DateTime(_rangeEnd.year, _rangeEnd.month, _rangeEnd.day).add(const Duration(days: 1));
@@ -163,6 +293,13 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
 
   Future<void> _showDatePickerSheet(BuildContext context) async {
     await _pickDateRange(context);
+  }
+
+  void _showSubjectGrades(BuildContext context, String subjectName) {
+    final grades = _allGradesBySubject[subjectName] ?? [];
+    if (context.mounted) {
+      showSubjectGradesSheet(context, subjectName: subjectName, grades: grades);
+    }
   }
 
   @override
@@ -245,9 +382,15 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
                     child: TabBarView(
                       controller: _tabController,
                       children: [
-                        _buildCurrentTab(),
-                        GradesListView(items: _semesterGrades),
-                        GradesListView(items: _totalGrades),
+                        _buildCurrentTab(context),
+                        GradesListView(
+                          items: _semesterGrades,
+                          onSubjectTap: (name) => _showSubjectGrades(context, name),
+                        ),
+                        GradesListView(
+                          items: _totalGrades,
+                          onSubjectTap: (name) => _showSubjectGrades(context, name),
+                        ),
                       ],
                     ),
                   ),
@@ -260,10 +403,11 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
     );
   }
 
-  Widget _buildCurrentTab() {
+  Widget _buildCurrentTab(BuildContext context) {
     return GradesListView(
       items: _filteredCurrentGrades,
       groupByDate: true,
+      onSubjectTap: (name) => _showSubjectGrades(context, name),
     );
   }
 }

@@ -38,10 +38,12 @@ class GradesListView extends StatelessWidget {
     super.key,
     required this.items,
     this.groupByDate = false,
+    this.onSubjectTap,
   });
 
   final List<GradeListItem> items;
   final bool groupByDate;
+  final void Function(String subjectName)? onSubjectTap;
 
   @override
   Widget build(BuildContext context) {
@@ -75,6 +77,7 @@ class GradesListView extends StatelessWidget {
           return _DateGroup(
             date: date,
             items: groupItems,
+            onSubjectTap: onSubjectTap,
           );
         },
       );
@@ -86,17 +89,22 @@ class GradesListView extends StatelessWidget {
       separatorBuilder: (_, _) => const SizedBox(height: AppUi.spacingM),
       itemBuilder: (context, index) {
         final e = items[index];
-        return _GradeCard(item: e);
+        return _GradeCard(item: e, onTap: onSubjectTap != null ? () => onSubjectTap!(e.subjectName) : null);
       },
     );
   }
 }
 
 class _DateGroup extends StatelessWidget {
-  const _DateGroup({required this.date, required this.items});
+  const _DateGroup({
+    required this.date,
+    required this.items,
+    this.onSubjectTap,
+  });
 
   final DateTime date;
   final List<GradeListItem> items;
+  final void Function(String subjectName)? onSubjectTap;
 
   static const _months = [
     'января', 'февраля', 'марта', 'апреля', 'мая', 'июня',
@@ -139,7 +147,10 @@ class _DateGroup extends StatelessWidget {
           ),
           ...items.map((e) => Padding(
             padding: const EdgeInsets.only(bottom: AppUi.spacingM),
-            child: _GradeCard(item: e),
+            child: _GradeCard(
+              item: e,
+              onTap: onSubjectTap != null ? () => onSubjectTap!(e.subjectName) : null,
+            ),
           )),
         ],
       ),
@@ -148,31 +159,39 @@ class _DateGroup extends StatelessWidget {
 }
 
 class _GradeCard extends StatelessWidget {
-  const _GradeCard({required this.item});
+  const _GradeCard({required this.item, this.onTap});
 
   final GradeListItem item;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(AppUi.radiusS),
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            offset: const Offset(0, 2),
-            blurRadius: 4,
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppUi.radiusS),
+            color: Colors.white,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.08),
+                offset: const Offset(0, 2),
+                blurRadius: 4,
+              ),
+            ],
           ),
-        ],
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: AppUi.contentPaddingH, vertical: AppUi.contentPaddingV),
-      child: GradeItemTile(
-        subjectName: item.subjectName,
-        grade: item.grade,
-        subtitle: item.subtitle,
-        type: item.type,
-        isSpecialType: item.isSpecialType,
+          padding: const EdgeInsets.symmetric(horizontal: AppUi.contentPaddingH, vertical: AppUi.contentPaddingV),
+          child: GradeItemTile(
+            subjectName: item.subjectName,
+            grade: item.grade,
+            subtitle: item.subtitle,
+            type: item.type,
+            isSpecialType: item.isSpecialType,
+          ),
+        ),
       ),
     );
   }

@@ -20,7 +20,8 @@ class GradeItemTile extends StatelessWidget {
   final String? type;
   final bool isSpecialType;
 
-  static (Color textColor, Color bgColor) _colorsForGrade(String grade) {
+  /// Публичный для использования в subject_grades_sheet.
+  static (Color textColor, Color bgColor) colorsForGrade(String grade) {
     final g = grade.trim();
     if (g == '5') return (AppColors.grade5Text, AppColors.grade5Bg);
     if (g == '4') return (AppColors.grade4Text, AppColors.grade4Bg);
@@ -40,7 +41,7 @@ class GradeItemTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (gradeTextColor, gradeBgColor) = _colorsForGrade(grade);
+    final (gradeTextColor, gradeBgColor) = colorsForGrade(grade);
     final subtitleText = type ?? subtitle;
     final subtitleColor = isSpecialType ? gradeTextColor : AppColors.caption;
     return Row(
