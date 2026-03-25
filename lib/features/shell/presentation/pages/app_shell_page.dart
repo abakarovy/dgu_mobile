@@ -10,7 +10,7 @@ import '../../../home/presentation/widgets/home_header_title.dart';
 /// Оболочка главного экрана: один AppBar, нижняя навигация, контент с отдельным
 /// Navigator для каждой вкладки (StatefulShellRoute — без дублирования GlobalKey).
 ///
-/// Нижняя панель: Профиль → Оценки → Главная (центр, крупнее) → Новости → Мероприятия.
+/// Нижняя панель: Профиль → Оценки → Главная (центр, круг без подписи) → Новости → Мероприятия.
 class AppShellPage extends StatelessWidget {
   const AppShellPage({
     super.key,
@@ -66,7 +66,12 @@ class AppShellPage extends StatelessWidget {
       Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6);
 
   static const double _sideIconSize = 24;
-  static const double _homeIconSize = 30;
+  /// Слот по layout (как у ряда иконок); сам круг больше и рисуется через [OverflowBox].
+  static const double _homeIconSlotHeight = 30;
+  static const double _homeFabDiameter = 70; // было 42 → ×3
+  static const double _homeIconInnerSize = 40; // было 26 → ×2
+  /// Как у боковых: зазор + высота строки подписи (подписи у «Главной» нет — оставляем место).
+  static const double _homeBottomReserve = 4 + 11;
 
   Widget _navIcon(
     BuildContext context,
@@ -138,63 +143,57 @@ class AppShellPage extends StatelessWidget {
 
   Widget _homeDestination(BuildContext context, {required int currentBranchIndex}) {
     final selected = currentBranchIndex == _indexHome;
-    final color = selected ? _selectedColor : _unselectedColor(context);
     return Expanded(
       child: Material(
         color: Colors.transparent,
+        clipBehavior: Clip.none,
         child: InkWell(
           onTap: () => navigationShell.goBranch(_indexHome),
-          borderRadius: BorderRadius.circular(28),
+          customBorder: const CircleBorder(),
           splashFactory: NoSplash.splashFactory,
           splashColor: Colors.transparent,
           highlightColor: Colors.transparent,
           hoverColor: Colors.transparent,
           focusColor: Colors.transparent,
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 2),
+            padding: const EdgeInsets.symmetric(vertical: 6),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  curve: Curves.easeOutCubic,
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: selected
-                        ? AppColors.primaryBlue.withValues(alpha: 0.14)
-                        : Colors.transparent,
-                    shape: BoxShape.circle,
-                    boxShadow: selected
-                        ? [
-                            BoxShadow(
-                              color: AppColors.primaryBlue.withValues(alpha: 0.18),
-                              blurRadius: 10,
-                              offset: const Offset(0, 3),
-                            ),
-                          ]
-                        : null,
-                  ),
-                  child: _navIcon(
-                    context,
-                    selected
-                        ? 'assets/icons/home_filled_icon.svg'
-                        : 'assets/icons/home_icon.svg',
-                    selected,
-                    size: _homeIconSize,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Главная',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                    height: 1.0,
-                    color: color,
+                SizedBox(
+                  height: _homeIconSlotHeight,
+                  width: double.infinity,
+                  child: OverflowBox(
+                    maxWidth: _homeFabDiameter,
+                    minWidth: _homeFabDiameter,
+                    maxHeight: _homeFabDiameter,
+                    minHeight: _homeFabDiameter,
+                    alignment: Alignment.center,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      curve: Curves.easeOutCubic,
+                      width: _homeFabDiameter,
+                      height: _homeFabDiameter,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: selected
+                            ? AppColors.backgroundBlue
+                            : AppColors.surfaceLight,
+                      ),
+                      child: Center(
+                        child: _navIcon(
+                          context,
+                          selected
+                              ? 'assets/icons/home_filled_icon.svg'
+                              : 'assets/icons/home_icon.svg',
+                          selected,
+                          size: _homeIconInnerSize,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
+                SizedBox(height: _homeBottomReserve),
               ],
             ),
           ),
@@ -232,12 +231,13 @@ class AppShellPage extends StatelessWidget {
         color: Colors.white,
         elevation: 8,
         shadowColor: Colors.black.withValues(alpha: 0.08),
+        clipBehavior: Clip.none,
         child: SafeArea(
           top: false,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 8),
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 _sideDestination(
                   context,
