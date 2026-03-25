@@ -4,6 +4,7 @@ import 'package:dgu_mobile/core/constants/app_colors.dart';
 import 'package:dgu_mobile/core/constants/app_constants.dart';
 import 'package:dgu_mobile/core/constants/app_ui.dart';
 import 'package:dgu_mobile/core/di/app_container.dart';
+import 'package:dgu_mobile/core/navigation/nav_bar_edit_host.dart';
 import 'package:dgu_mobile/core/theme/app_text_styles.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -154,6 +155,16 @@ class _ProfilePageState extends State<ProfilePage> {
           subtitle: 'Настроить оповещения',
           onTap: () => context.push('/app/profile/notifications'),
           titleColor: AppColors.textPrimary,
+        ),
+        const SizedBox(height: 10),
+        ProfileRowButton(
+          iconPath: 'assets/icons/home_icon.svg',
+          title: 'Настроить нижнее меню',
+          subtitle: 'Порядок вкладок в панели',
+          onTap: NavBarEditHost.requestEditMode,
+          titleColor: AppColors.textPrimary,
+          iconColor: AppColors.primaryBlue,
+          iconBackgroundColor: const Color(0xFFEFF6FF),
         ),
         const SizedBox(height: 10),
         ProfileRowButton(
