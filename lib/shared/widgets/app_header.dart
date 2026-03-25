@@ -9,7 +9,7 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
     this.onPressed,
     required this.headerTitle,
     this.leading,
-    this.showNotificationIcon = true,
+    this.showNotificationIcon = false,
   });
 
   final VoidCallback? onPressed;

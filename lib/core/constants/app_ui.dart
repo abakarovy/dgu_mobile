@@ -77,7 +77,6 @@ abstract final class AppUi {
   static const double supportContactIconPadding = 12;
 
   // --- Расписание (экран) ---
-  static const double scheduleDayCellWidth = 40;
   static const double scheduleDayCellHeight = 48;
   static const double scheduleDayCellRadius = 12;
   static const double scheduleDayCellSpacing = 13;

@@ -64,7 +64,6 @@ class _SchedulePageState extends State<SchedulePage> {
             color: AppColors.textPrimary,
           ),
         ),
-        showNotificationIcon: false,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: AppUi.screenPaddingH),
@@ -86,66 +85,68 @@ class _SchedulePageState extends State<SchedulePage> {
 
   Widget _buildWeekStrip() {
     return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: List.generate(7, (index) {
-        final date = _dateFor(index);
-        final isSelected = index == _selectedDayIndex;
-        return Padding(
-          padding: EdgeInsets.only(
-            right: index < 6 ? AppUi.scheduleDayCellSpacing : 0,
-          ),
-          child: GestureDetector(
-            onTap: () => setState(() => _selectedDayIndex = index),
-            child: Container(
-              width: AppUi.scheduleDayCellWidth,
-              height: AppUi.scheduleDayCellHeight,
-              decoration: BoxDecoration(
-                color: isSelected
-                    ? AppColors.notificationSwitchActive
-                    : Colors.white,
-                borderRadius:
-                    BorderRadius.circular(AppUi.scheduleDayCellRadius),
-                boxShadow: isSelected
-                    ? null
-                    : [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.06),
-                          offset: const Offset(0, 2),
-                          blurRadius: 4,
-                        ),
-                      ],
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    SchedulePage._dayNames[index],
-                    style: AppTextStyle.inter(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 10,
-                      height: 15 / 10,
-                      color: isSelected
-                          ? Colors.white
-                          : AppColors.notificationSubtitle,
-                    ),
-                  ),
-                  Text(
-                    '${date.day}',
-                    style: AppTextStyle.inter(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 10,
-                      height: 15 / 10,
-                      color: isSelected
-                          ? Colors.white
-                          : AppColors.notificationSubtitle,
-                    ),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (int index = 0; index < 7; index++) ...[
+          if (index > 0) SizedBox(width: AppUi.scheduleDayCellSpacing),
+          Expanded(child: _buildDayCell(index)),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildDayCell(int index) {
+    final date = _dateFor(index);
+    final isSelected = index == _selectedDayIndex;
+    return GestureDetector(
+      onTap: () => setState(() => _selectedDayIndex = index),
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        height: AppUi.scheduleDayCellHeight,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: isSelected
+              ? AppColors.notificationSwitchActive
+              : Colors.white,
+          borderRadius: BorderRadius.circular(AppUi.scheduleDayCellRadius),
+          boxShadow: isSelected
+              ? null
+              : [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.06),
+                    offset: const Offset(0, 2),
+                    blurRadius: 4,
                   ),
                 ],
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              SchedulePage._dayNames[index],
+              style: AppTextStyle.inter(
+                fontWeight: FontWeight.w700,
+                fontSize: 10,
+                height: 15 / 10,
+                color: isSelected
+                    ? Colors.white
+                    : AppColors.notificationSubtitle,
               ),
             ),
-          ),
-        );
-      }),
+            Text(
+              '${date.day}',
+              style: AppTextStyle.inter(
+                fontWeight: FontWeight.w700,
+                fontSize: 10,
+                height: 15 / 10,
+                color: isSelected
+                    ? Colors.white
+                    : AppColors.notificationSubtitle,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

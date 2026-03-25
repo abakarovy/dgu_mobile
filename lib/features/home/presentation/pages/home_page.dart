@@ -38,7 +38,10 @@ class HomePage extends StatelessWidget {
           padding: const WidgetStatePropertyAll(_cardPadding),
           alignment: AlignmentGeometry.centerLeft,
           minimumSize: const WidgetStatePropertyAll(Size.zero),
-          backgroundColor: WidgetStatePropertyAll(Colors.white),
+          backgroundColor: const WidgetStatePropertyAll(Colors.white),
+          surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
+          elevation: const WidgetStatePropertyAll(0),
+          shadowColor: const WidgetStatePropertyAll(Colors.transparent),
           shape: WidgetStatePropertyAll(
             RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(15),

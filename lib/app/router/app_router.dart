@@ -1,5 +1,6 @@
 import 'package:go_router/go_router.dart';
 
+import '../../features/events/presentation/pages/events_page.dart';
 import '../../features/grades/presentation/pages/grades_page.dart';
 import '../../features/home/presentation/pages/home_page.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
@@ -45,33 +46,6 @@ final GoRouter appRouter = GoRouter(
         StatefulShellBranch(
           routes: [
             GoRoute(
-              path: '/app/home',
-              name: 'home',
-              builder: (context, state) => const HomePage(),
-            ),
-          ],
-        ),
-        StatefulShellBranch(
-          routes: [
-            GoRoute(
-              path: '/app/grades',
-              name: 'grades',
-              builder: (context, state) => const GradesPage(),
-            ),
-          ],
-        ),
-        StatefulShellBranch(
-          routes: [
-            GoRoute(
-              path: '/app/news',
-              name: 'news',
-              builder: (context, state) => const NewsPage(),
-            ),
-          ],
-        ),
-        StatefulShellBranch(
-          routes: [
-            GoRoute(
               path: '/app/profile',
               name: 'profile',
               builder: (context, state) => const ProfilePage(),
@@ -92,6 +66,42 @@ final GoRouter appRouter = GoRouter(
                   builder: (context, state) => const StudentIdPage(),
                 ),
               ],
+            ),
+          ],
+        ),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/app/grades',
+              name: 'grades',
+              builder: (context, state) => const GradesPage(),
+            ),
+          ],
+        ),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/app/home',
+              name: 'home',
+              builder: (context, state) => const HomePage(),
+            ),
+          ],
+        ),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/app/news',
+              name: 'news',
+              builder: (context, state) => const NewsPage(),
+            ),
+          ],
+        ),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/app/events',
+              name: 'events',
+              builder: (context, state) => const EventsPage(),
             ),
           ],
         ),

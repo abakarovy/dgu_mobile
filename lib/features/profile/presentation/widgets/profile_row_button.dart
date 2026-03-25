@@ -47,6 +47,11 @@ class ProfileRowButton extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(AppUi.radiusM),
+          splashFactory: NoSplash.splashFactory,
+          splashColor: Colors.transparent,
+          highlightColor: Colors.transparent,
+          hoverColor: Colors.transparent,
+          focusColor: Colors.transparent,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: AppUi.spacingM, vertical: 10),
             child: Row(

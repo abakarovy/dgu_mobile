@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -9,9 +11,14 @@ import '../../../../core/theme/app_text_styles.dart';
 import '../../../../shared/widgets/app_header.dart';
 
 /// Экран «Студенческий билет»: AppBar как у поддержки, контейнер с отступами 24, ФИО, ID, копирование, даты, форма, курс.
-class StudentIdPage extends StatelessWidget {
+class StudentIdPage extends StatefulWidget {
   const StudentIdPage({super.key});
 
+  @override
+  State<StudentIdPage> createState() => _StudentIdPageState();
+}
+
+class _StudentIdPageState extends State<StudentIdPage> {
   static const String _fullName = 'Иванов Иван Иванович';
   static const String _id = '22325';
   static const String _validUntil = '31.08.2026';
@@ -37,17 +44,27 @@ class StudentIdPage extends StatelessWidget {
     );
   }
 
+  bool _copiedToastVisible = false;
+  Timer? _copiedToastTimer;
+
+  @override
+  void dispose() {
+    _copiedToastTimer?.cancel();
+    super.dispose();
+  }
+
   String _copyableText() {
     return '$_fullName\nID: $_id\nДействителен до: $_validUntil\nДата выдачи: $_issueDate\nФорма обучения: $_studyForm\nКурс: $_course';
   }
 
   Future<void> _copyToClipboard(BuildContext context) async {
     await Clipboard.setData(ClipboardData(text: _copyableText()));
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Данные скопированы')),
-      );
-    }
+    if (!context.mounted) return;
+    _copiedToastTimer?.cancel();
+    setState(() => _copiedToastVisible = true);
+    _copiedToastTimer = Timer(const Duration(milliseconds: 2000), () {
+      if (mounted) setState(() => _copiedToastVisible = false);
+    });
   }
 
   @override
@@ -68,107 +85,147 @@ class StudentIdPage extends StatelessWidget {
             color: AppColors.textPrimary,
           ),
         ),
-        showNotificationIcon: false,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(
-          AppUi.screenPaddingH,
-          AppUi.spacingXl,
-          AppUi.screenPaddingH,
-          AppUi.spacingXl,
-        ),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(AppUi.spacingXl),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(AppUi.radiusXl),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.06),
-                offset: const Offset(0, 2),
-                blurRadius: 4,
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(
+              AppUi.screenPaddingH,
+              AppUi.spacingXl,
+              AppUi.screenPaddingH,
+              AppUi.spacingXl,
+            ),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(AppUi.spacingXl),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(AppUi.radiusXl),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.06),
+                    offset: const Offset(0, 2),
+                    blurRadius: 4,
+                  ),
+                ],
               ),
-            ],
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _label(context, 'ФИО'),
+                  const SizedBox(height: 4),
+                  Text(_fullName, style: _valueStyle()),
+                  const SizedBox(height: AppUi.spacingXl),
+                  _label(context, 'ID'),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Text(_id, style: _valueStyle()),
+                      const SizedBox(width: AppUi.spacingS),
+                      GestureDetector(
+                        onTap: () => _copyToClipboard(context),
+                        child: SvgPicture.asset(
+                          'assets/icons/copy.svg',
+                          width: 14,
+                          height: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppUi.spacingXl),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _label(context, 'Действителен до'),
+                            const SizedBox(height: 4),
+                            Text(_validUntil, style: _dateValueStyle()),
+                          ],
+                        ),
+                      ),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _label(context, 'Дата выдачи'),
+                            const SizedBox(height: 4),
+                            Text(_issueDate, style: _dateValueStyle()),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppUi.spacingXl),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _label(context, 'Форма обучения'),
+                            const SizedBox(height: 4),
+                            Text(_studyForm, style: _dateValueStyle()),
+                          ],
+                        ),
+                      ),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _label(context, 'Курс'),
+                            const SizedBox(height: 4),
+                            Text(_course, style: _dateValueStyle()),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _label(context, 'ФИО'),
-              const SizedBox(height: 4),
-              Text(_fullName, style: _valueStyle()),
-              const SizedBox(height: AppUi.spacingXl),
-              _label(context, 'ID'),
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  Text(_id, style: _valueStyle()),
-                  const SizedBox(width: AppUi.spacingS),
-                  GestureDetector(
-                    onTap: () => _copyToClipboard(context),
-                    child: SvgPicture.asset(
-                      'assets/icons/copy.svg',
-                      width: 14,
-                      height: 14,
+          Center(
+            child: IgnorePointer(
+              ignoring: true,
+              child: AnimatedOpacity(
+                opacity: _copiedToastVisible ? 1 : 0,
+                duration: const Duration(milliseconds: 200),
+                child: Material(
+                  color: Colors.transparent,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(AppUi.radiusL),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.12),
+                          offset: const Offset(0, 4),
+                          blurRadius: 16,
+                        ),
+                      ],
+                    ),
+                    child: Text(
+                      'Данные скопированы',
+                      textAlign: TextAlign.center,
+                      style: AppTextStyle.inter(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 15,
+                        height: 20 / 15,
+                        color: AppColors.textPrimary,
+                      ),
                     ),
                   ),
-                ],
+                ),
               ),
-              const SizedBox(height: AppUi.spacingXl),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _label(context, 'Действителен до'),
-                        const SizedBox(height: 4),
-                        Text(_validUntil, style: _dateValueStyle()),
-                      ],
-                    ),
-                  ),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _label(context, 'Дата выдачи'),
-                        const SizedBox(height: 4),
-                        Text(_issueDate, style: _dateValueStyle()),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppUi.spacingXl),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _label(context, 'Форма обучения'),
-                        const SizedBox(height: 4),
-                        Text(_studyForm, style: _dateValueStyle()),
-                      ],
-                    ),
-                  ),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _label(context, 'Курс'),
-                        const SizedBox(height: 4),
-                        Text(_course, style: _dateValueStyle()),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }

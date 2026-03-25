@@ -34,7 +34,6 @@ class TasksPage extends StatelessWidget {
               color: AppColors.textPrimary,
             ),
           ),
-          showNotificationIcon: false,
         ),
         body: Column(
           children: [

@@ -41,7 +41,6 @@ class _NotificationsPageState extends State<NotificationsPage> {
             color: AppColors.textPrimary,
           ),
         ),
-        showNotificationIcon: false,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: AppUi.screenPaddingH),

@@ -15,7 +15,7 @@ void showSubjectGradesSheet(BuildContext context, {
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    isDismissible: false,
+    isDismissible: true,
     enableDrag: true,
     useRootNavigator: true,
     barrierColor: Colors.black54,
@@ -47,12 +47,13 @@ class _SubjectGradesSheet extends StatefulWidget {
 }
 
 class _SubjectGradesSheetState extends State<_SubjectGradesSheet> {
-  final ValueNotifier<double> _extent = ValueNotifier<double>(0.7);
+  /// Доля высоты экрана, занятая шитом (0–1). Только для слоя «тап по затемнению над шитом».
+  final ValueNotifier<double> _sheetExtent = ValueNotifier<double>(0.7);
   bool _closing = false;
 
   @override
   void dispose() {
-    _extent.dispose();
+    _sheetExtent.dispose();
     super.dispose();
   }
 
@@ -81,123 +82,132 @@ class _SubjectGradesSheetState extends State<_SubjectGradesSheet> {
       ..sort((a, b) => (b.date ?? DateTime(2000)).compareTo(a.date ?? DateTime(2000)));
     final screenHeight = MediaQuery.sizeOf(context).height;
 
-    return ValueListenableBuilder<double>(
-      valueListenable: _extent,
-      builder: (context, extent, _) {
-        final barrierHeight = screenHeight * (1 - extent);
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () => Navigator.of(context).pop(),
-              child: SizedBox(height: barrierHeight),
+    return SizedBox(
+      height: screenHeight,
+      width: double.infinity,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          NotificationListener<DraggableScrollableNotification>(
+            onNotification: (n) {
+              if (_sheetExtent.value != n.extent) {
+                _sheetExtent.value = n.extent;
+              }
+              if (!_closing && n.extent <= n.minExtent + 0.05) {
+                _closing = true;
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) Navigator.of(context).pop();
+                });
+              }
+              return false;
+            },
+            child: DraggableScrollableSheet(
+              initialChildSize: 0.7,
+              minChildSize: 0.35,
+              maxChildSize: 1.0,
+              snap: true,
+              snapSizes: const [0.35, 0.7, 1.0],
+              shouldCloseOnMinExtent: true,
+              builder: (context, scrollController) {
+                return Material(
+                  color: AppColors.surfaceLight,
+                  shape: const RoundedRectangleBorder(
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(AppUi.radiusXl)),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const SizedBox(height: 12),
+                      Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: AppColors.lightGrey,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(AppUi.screenPaddingH, 20, AppUi.screenPaddingH, 16),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                widget.subjectName,
+                                style: AppTextStyle.inter(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 20,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                            ),
+                            Container(
+                              width: 56,
+                              height: 56,
+                              decoration: BoxDecoration(
+                                color: _gradeBgColor(_averageStr),
+                                borderRadius: BorderRadius.circular(AppUi.radiusL),
+                              ),
+                              alignment: Alignment.center,
+                              child: Text(
+                                _averageStr,
+                                style: AppTextStyle.inter(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 20,
+                                  color: _gradeTextColor(_averageStr),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Expanded(
+                        child: sorted.isEmpty
+                            ? Center(
+                                child: Text(
+                                  'Нет оценок',
+                                  style: AppTextStyle.inter(
+                                    fontSize: 14,
+                                    color: AppColors.caption,
+                                  ),
+                                ),
+                              )
+                            : ListView.separated(
+                                controller: scrollController,
+                                padding: const EdgeInsets.fromLTRB(AppUi.screenPaddingH, 0, AppUi.screenPaddingH, 24),
+                                itemCount: sorted.length,
+                                separatorBuilder: (context, index) => const SizedBox(height: AppUi.spacingS),
+                                itemBuilder: (context, index) {
+                                  final item = sorted[index];
+                                  return _GradeRow(item: item);
+                                },
+                              ),
+                      ),
+                    ],
+                  ),
+                );
+              },
             ),
-            SizedBox(
-              height: screenHeight * extent,
-              child: NotificationListener<DraggableScrollableNotification>(
-                onNotification: (n) {
-                  if (n.extent != _extent.value) _extent.value = n.extent;
-                  if (!_closing && n.extent <= n.minExtent + 0.05) {
-                    _closing = true;
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (mounted) Navigator.of(context).pop();
-                    });
-                  }
-                  return false;
-                },
-                child: DraggableScrollableSheet(
-      initialChildSize: 1.0,
-      minChildSize: 0.35,
-      maxChildSize: 1.0,
-      snap: true,
-      snapSizes: const [0.35, 0.7, 1.0],
-      shouldCloseOnMinExtent: true,
-      builder: (context, scrollController) {
-                    return Material(
-          color: AppColors.surfaceLight,
-          shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.vertical(top: Radius.circular(AppUi.radiusXl)),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(height: 12),
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppColors.lightGrey,
-                  borderRadius: BorderRadius.circular(2),
+          ValueListenableBuilder<double>(
+            valueListenable: _sheetExtent,
+            builder: (context, extent, _) {
+              final barrierHeight = screenHeight * (1 - extent);
+              if (barrierHeight <= 0) return const SizedBox.shrink();
+              return Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                height: barrierHeight,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => Navigator.of(context).pop(),
+                  child: const SizedBox.expand(),
                 ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(AppUi.screenPaddingH, 20, AppUi.screenPaddingH, 16),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        widget.subjectName,
-                        style: AppTextStyle.inter(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 20,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                    ),
-                    Container(
-                      width: 56,
-                      height: 56,
-                      decoration: BoxDecoration(
-                        color: _gradeBgColor(_averageStr),
-                        borderRadius: BorderRadius.circular(AppUi.radiusL),
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        _averageStr,
-                        style: AppTextStyle.inter(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 20,
-                          color: _gradeTextColor(_averageStr),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              // const SizedBox(height: 20),
-              Expanded(
-                child: sorted.isEmpty
-                    ? Center(
-                        child: Text(
-                          'Нет оценок',
-                          style: AppTextStyle.inter(
-                            fontSize: 14,
-                            color: AppColors.caption,
-                          ),
-                        ),
-                      )
-                    : ListView.separated(
-                        controller: scrollController,
-                        padding: const EdgeInsets.fromLTRB(AppUi.screenPaddingH, 0, AppUi.screenPaddingH, 24),
-                        itemCount: sorted.length,
-                        separatorBuilder: (context, index) => const SizedBox(height: AppUi.spacingS),
-                        itemBuilder: (context, index) {
-                          final item = sorted[index];
-                          return _GradeRow(item: item);
-                        },
-                      ),
-              ),
-            ],
+              );
+            },
           ),
-        );
-      },
-                ),
-              ),
-            ),
-          ],
-        );
-      },
+        ],
+      ),
     );
   }
 

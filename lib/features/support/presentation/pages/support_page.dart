@@ -39,7 +39,6 @@ class SupportPage extends StatelessWidget {
             color: AppColors.textPrimary,
           ),
         ),
-        showNotificationIcon: false,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: AppUi.screenPaddingH),

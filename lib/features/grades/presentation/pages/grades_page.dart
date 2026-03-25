@@ -385,7 +385,6 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
                         _buildCurrentTab(context),
                         GradesListView(
                           items: _semesterGrades,
-                          onSubjectTap: (name) => _showSubjectGrades(context, name),
                         ),
                         GradesListView(
                           items: _totalGrades,
@@ -524,7 +523,6 @@ class _GradesTab extends StatelessWidget {
       color: selected ? Colors.white : Colors.transparent,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
-        splashColor: AppColors.surfaceLight,
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: Padding(

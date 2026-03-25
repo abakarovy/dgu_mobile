@@ -128,6 +128,11 @@ class _BackButton extends StatelessWidget {
           color: const Color(0x33000000),
           child: InkWell(
             onTap: () => context.pop(),
+            splashFactory: NoSplash.splashFactory,
+            splashColor: Colors.transparent,
+            highlightColor: Colors.transparent,
+            hoverColor: Colors.transparent,
+            focusColor: Colors.transparent,
             child: SizedBox(
               width: size,
               height: size,

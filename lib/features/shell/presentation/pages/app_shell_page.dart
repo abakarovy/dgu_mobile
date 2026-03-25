@@ -9,6 +9,8 @@ import '../../../home/presentation/widgets/home_header_title.dart';
 
 /// Оболочка главного экрана: один AppBar, нижняя навигация, контент с отдельным
 /// Navigator для каждой вкладки (StatefulShellRoute — без дублирования GlobalKey).
+///
+/// Нижняя панель: Профиль → Оценки → Главная (центр, крупнее) → Новости → Мероприятия.
 class AppShellPage extends StatelessWidget {
   const AppShellPage({
     super.key,
@@ -21,19 +23,39 @@ class AppShellPage extends StatelessWidget {
     return Theme.of(context).appBarTheme.titleTextStyle ?? const TextStyle();
   }
 
+  static const int _indexProfile = 0;
+  static const int _indexGrades = 1;
+  static const int _indexHome = 2;
+  static const int _indexNews = 3;
+  static const int _indexEvents = 4;
+
+  /// Индекс вкладки по URI: совпадает с маршрутом сразу при переключении.
+  /// [navigationShell.currentIndex] отстаёт на кадр(ы) — из‑за этого заголовок AppBar «мигал» старым текстом.
+  static int _branchIndexFromPath(String path, StatefulNavigationShell shell) {
+    if (path.startsWith('/app/profile')) return _indexProfile;
+    if (path.startsWith('/app/grades')) return _indexGrades;
+    if (path.startsWith('/app/home')) return _indexHome;
+    if (path.startsWith('/app/news')) return _indexNews;
+    if (path.startsWith('/app/events')) return _indexEvents;
+    return shell.currentIndex;
+  }
+
   Widget _titleForIndex(BuildContext context, int index) {
     switch (index) {
-      case 0:
-        return const HomeHeaderTitle();
-      case 1:
-        final style = _headerTitleStyle(context);
-        return Text('Успеваемость', style: style);
-      case 2:
-        final style = _headerTitleStyle(context);
-        return Text('Новости', style: style);
-      case 3:
+      case _indexProfile:
         final style = _headerTitleStyle(context);
         return Text('Профиль', style: style);
+      case _indexGrades:
+        final style = _headerTitleStyle(context);
+        return Text('Оценки', style: style);
+      case _indexHome:
+        return const HomeHeaderTitle();
+      case _indexNews:
+        final style = _headerTitleStyle(context);
+        return Text('Новости', style: style);
+      case _indexEvents:
+        final style = _headerTitleStyle(context);
+        return Text('Мероприятия', style: style);
       default:
         return const SizedBox.shrink();
     }
@@ -43,11 +65,19 @@ class AppShellPage extends StatelessWidget {
   static Color _unselectedColor(BuildContext context) =>
       Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6);
 
-  Widget _navIcon(BuildContext context, String assetPath, bool selected) {
+  static const double _sideIconSize = 24;
+  static const double _homeIconSize = 30;
+
+  Widget _navIcon(
+    BuildContext context,
+    String assetPath,
+    bool selected, {
+    double size = _sideIconSize,
+  }) {
     return SvgPicture.asset(
       assetPath,
-      width: 24,
-      height: 24,
+      width: size,
+      height: size,
       colorFilter: ColorFilter.mode(
         selected ? _selectedColor : _unselectedColor(context),
         BlendMode.srcIn,
@@ -55,12 +85,130 @@ class AppShellPage extends StatelessWidget {
     );
   }
 
+  Widget _sideDestination(
+    BuildContext context, {
+    required int branchIndex,
+    required String outlineIcon,
+    required String filledIcon,
+    required String label,
+    required int currentBranchIndex,
+  }) {
+    final selected = currentBranchIndex == branchIndex;
+    final color = selected ? _selectedColor : _unselectedColor(context);
+    return Expanded(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => navigationShell.goBranch(branchIndex),
+          borderRadius: BorderRadius.circular(12),
+          splashFactory: NoSplash.splashFactory,
+          splashColor: Colors.transparent,
+          highlightColor: Colors.transparent,
+          hoverColor: Colors.transparent,
+          focusColor: Colors.transparent,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _navIcon(
+                  context,
+                  selected ? filledIcon : outlineIcon,
+                  selected,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                    height: 1.0,
+                    color: color,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _homeDestination(BuildContext context, {required int currentBranchIndex}) {
+    final selected = currentBranchIndex == _indexHome;
+    final color = selected ? _selectedColor : _unselectedColor(context);
+    return Expanded(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => navigationShell.goBranch(_indexHome),
+          borderRadius: BorderRadius.circular(28),
+          splashFactory: NoSplash.splashFactory,
+          splashColor: Colors.transparent,
+          highlightColor: Colors.transparent,
+          hoverColor: Colors.transparent,
+          focusColor: Colors.transparent,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 2),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeOutCubic,
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: selected
+                        ? AppColors.primaryBlue.withValues(alpha: 0.14)
+                        : Colors.transparent,
+                    shape: BoxShape.circle,
+                    boxShadow: selected
+                        ? [
+                            BoxShadow(
+                              color: AppColors.primaryBlue.withValues(alpha: 0.18),
+                              blurRadius: 10,
+                              offset: const Offset(0, 3),
+                            ),
+                          ]
+                        : null,
+                  ),
+                  child: _navIcon(
+                    context,
+                    selected
+                        ? 'assets/icons/home_filled_icon.svg'
+                        : 'assets/icons/home_icon.svg',
+                    selected,
+                    size: _homeIconSize,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Главная',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                    height: 1.0,
+                    color: color,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final index = navigationShell.currentIndex;
+    final path = GoRouterState.of(context).uri.path;
+    final branchIndex = _branchIndexFromPath(path, navigationShell);
     final width = MediaQuery.sizeOf(context).width;
     final showTitle = width >= AppUi.shellMinWidthForTitle;
-    final path = GoRouterState.of(context).uri.path;
     final isNotificationsScreen = path.endsWith('notifications');
     final isSupportScreen = path.endsWith('support');
     final isStudentIdScreen = path.endsWith('student-id');
@@ -70,71 +218,63 @@ class AppShellPage extends StatelessWidget {
       appBar: hideShellAppBar
           ? null
           : AppHeader(
-              headerTitle: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 120),
-          switchInCurve: Curves.easeOut,
-          switchOutCurve: Curves.easeIn,
-          transitionBuilder: (Widget child, Animation<double> animation) {
-            return FadeTransition(opacity: animation, child: child);
-          },
-          child: SizedBox(
-            key: ValueKey<int>(index),
-            child: showTitle
-                ? _titleForIndex(context, index)
-                : Image.asset(
-                    'assets/images/logo_icon.png',
-                    height: AppUi.appBarIconSize,
-                    width: AppUi.appBarIconSize,
-                    fit: BoxFit.contain,
-                  ),
-                  ),
-          ),
-      ),
+              headerTitle: showTitle
+                  ? _titleForIndex(context, branchIndex)
+                  : Image.asset(
+                      'assets/images/logo_icon.png',
+                      height: AppUi.appBarIconSize,
+                      width: AppUi.appBarIconSize,
+                      fit: BoxFit.contain,
+                    ),
+            ),
       body: navigationShell,
-      bottomNavigationBar: Theme(
-        data: Theme.of(context).copyWith(
-          colorScheme: Theme.of(context).colorScheme.copyWith(
-            primary: _selectedColor,
-            onSurface: _unselectedColor(context),
+      bottomNavigationBar: Material(
+        color: Colors.white,
+        elevation: 8,
+        shadowColor: Colors.black.withValues(alpha: 0.08),
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 8),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _sideDestination(
+                  context,
+                  branchIndex: _indexProfile,
+                  outlineIcon: 'assets/icons/profile_icon.svg',
+                  filledIcon: 'assets/icons/profile_filled_icon.svg',
+                  label: 'Профиль',
+                  currentBranchIndex: branchIndex,
+                ),
+                _sideDestination(
+                  context,
+                  branchIndex: _indexGrades,
+                  outlineIcon: 'assets/icons/grades_icon.svg',
+                  filledIcon: 'assets/icons/grades_filled_icon.svg',
+                  label: 'Оценки',
+                  currentBranchIndex: branchIndex,
+                ),
+                _homeDestination(context, currentBranchIndex: branchIndex),
+                _sideDestination(
+                  context,
+                  branchIndex: _indexNews,
+                  outlineIcon: 'assets/icons/news_icon.svg',
+                  filledIcon: 'assets/icons/news_filled_icon.svg',
+                  label: 'Новости',
+                  currentBranchIndex: branchIndex,
+                ),
+                _sideDestination(
+                  context,
+                  branchIndex: _indexEvents,
+                  outlineIcon: 'assets/icons/news_icon.svg',
+                  filledIcon: 'assets/icons/news_filled_icon.svg',
+                  label: 'Мероприятия',
+                  currentBranchIndex: branchIndex,
+                ),
+              ],
+            ),
           ),
-          navigationBarTheme: NavigationBarThemeData(
-            labelTextStyle: WidgetStateProperty.resolveWith((states) {
-              final isSelected = states.contains(WidgetState.selected);
-              return TextStyle(
-                fontSize: 12,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                color: isSelected ? _selectedColor : _unselectedColor(context),
-              );
-            }),
-          ),
-        ),
-        child: NavigationBar(
-          selectedIndex: index,
-          onDestinationSelected: (int i) => navigationShell.goBranch(i),
-          destinations: [
-            NavigationDestination(
-              icon: _navIcon(context, 'assets/icons/home_icon.svg', index == 0),
-              selectedIcon: _navIcon(context, 'assets/icons/home_filled_icon.svg', true),
-              label: 'Главная',
-            ),
-            NavigationDestination(
-              icon: _navIcon(context, 'assets/icons/grades_icon.svg', index == 1),
-              selectedIcon: _navIcon(context, 'assets/icons/grades_filled_icon.svg', true),
-              label: 'Оценки',
-            ),
-            NavigationDestination(
-              icon: _navIcon(context, 'assets/icons/news_icon.svg', index == 2),
-              selectedIcon: _navIcon(context, 'assets/icons/news_filled_icon.svg', true),
-              label: 'Новости',
-            ),
-            NavigationDestination(
-              icon: _navIcon(context, 'assets/icons/profile_icon.svg', index == 3),
-              selectedIcon: _navIcon(context, 'assets/icons/profile_filled_icon.svg', true),
-              label: 'Профиль',
-            ),
-          ],
-          indicatorColor: Colors.transparent,
-          overlayColor: const WidgetStatePropertyAll(Colors.transparent),
         ),
       ),
     );
