@@ -1,5 +1,6 @@
 import 'package:dgu_mobile/core/constants/app_colors.dart';
 import 'package:dgu_mobile/core/constants/app_ui.dart';
+import 'package:dgu_mobile/core/platform/native_date_range_picker.dart';
 import 'package:dgu_mobile/core/theme/app_text_styles.dart';
 import 'package:flutter/material.dart';
 
@@ -259,6 +260,40 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
     return '${_rangeStart.day}.${_rangeStart.month.toString().padLeft(2, '0')} — ${_rangeEnd.day}.${_rangeEnd.month.toString().padLeft(2, '0')}.${_rangeEnd.year}';
   }
 
+  /// Ширина «Сегодня» и периода в одну строку — чтобы при нехватке места перенести блок периода целиком на следующий ряд.
+  double _todayChipWidth() {
+    final tp = TextPainter(
+      text: TextSpan(
+        text: 'Сегодня',
+        style: AppTextStyle.inter(
+          fontWeight: FontWeight.w600,
+          fontSize: 13,
+          color: AppColors.textPrimary,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    return 24 + tp.width;
+  }
+
+  double _periodChipIntrinsicWidth(String label) {
+    final tp = TextPainter(
+      text: TextSpan(
+        text: label,
+        style: AppTextStyle.inter(
+          fontWeight: FontWeight.w600,
+          fontSize: 13,
+          height: 1.2,
+          color: AppColors.textPrimary,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+    )..layout();
+    // padding контейнера + две стрелки (padding + иконка)
+    return 8 + 26 + 26 + tp.width;
+  }
+
   void _goToToday() {
     setState(() {
       _rangeStart = DateTime.now();
@@ -292,7 +327,7 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
   }
 
   Future<void> _pickDateRange(BuildContext context) async {
-    final picked = await showDateRangePicker(
+    final picked = await showNativeOrMaterialDateRangePicker(
       context: context,
       firstDate: DateTime(2020),
       lastDate: DateTime.now().add(const Duration(days: 365)),
@@ -379,19 +414,43 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
                   if (idx == 0)
                     Padding(
                       padding: const EdgeInsets.fromLTRB(AppUi.screenPaddingH, 0, AppUi.screenPaddingH, 12),
-                      child: Row(
-                        children: [
-                          _TodayButton(onTap: _goToToday),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: _PeriodSelector(
-                              periodLabel: _periodLabel,
-                              onPrev: _prevPeriod,
-                              onNext: _nextPeriod,
-                              onTap: () => _showDatePickerSheet(context),
-                            ),
-                          ),
-                        ],
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          const gap = 12.0;
+                          final maxW = constraints.maxWidth;
+                          final stackPeriod =
+                              _todayChipWidth() + gap + _periodChipIntrinsicWidth(_periodLabel) > maxW;
+                          if (stackPeriod) {
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                _TodayButton(onTap: _goToToday),
+                                const SizedBox(height: 8),
+                                _PeriodSelector(
+                                  periodLabel: _periodLabel,
+                                  onPrev: _prevPeriod,
+                                  onNext: _nextPeriod,
+                                  onTap: () => _showDatePickerSheet(context),
+                                ),
+                              ],
+                            );
+                          }
+                          return Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              _TodayButton(onTap: _goToToday),
+                              const SizedBox(width: gap),
+                              Expanded(
+                                child: _PeriodSelector(
+                                  periodLabel: _periodLabel,
+                                  onPrev: _prevPeriod,
+                                  onNext: _nextPeriod,
+                                  onTap: () => _showDatePickerSheet(context),
+                                ),
+                              ),
+                            ],
+                          );
+                        },
                       ),
                     ),
                   Expanded(
@@ -481,38 +540,44 @@ class _PeriodSelector extends StatelessWidget {
           borderRadius: BorderRadius.circular(10),
         ),
         child: Row(
-        children: [
-          GestureDetector(
-            onTap: onPrev,
-            child: Padding(
-              padding: const EdgeInsets.all(4),
-              child: Icon(Icons.chevron_left, size: 18, color: AppColors.textPrimary),
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            GestureDetector(
+              onTap: onPrev,
+              child: Padding(
+                padding: const EdgeInsets.all(4),
+                child: Icon(Icons.chevron_left, size: 18, color: AppColors.textPrimary),
+              ),
             ),
-          ),
-          Expanded(
-            child: GestureDetector(
-              onTap: onTap,
-              behavior: HitTestBehavior.opaque,
-              child: Center(
-                child: Text(
-                  periodLabel,
-                  style: AppTextStyle.inter(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
-                    color: AppColors.textPrimary,
+            Expanded(
+              child: GestureDetector(
+                onTap: onTap,
+                behavior: HitTestBehavior.opaque,
+                child: Center(
+                  child: Text(
+                    periodLabel,
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    softWrap: false,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTextStyle.inter(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                      height: 1.0,
+                      color: AppColors.textPrimary,
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-          GestureDetector(
-            onTap: onNext,
-            child: Padding(
-              padding: const EdgeInsets.all(4),
-              child: Icon(Icons.chevron_right, size: 18, color: AppColors.textPrimary),
+            GestureDetector(
+              onTap: onNext,
+              child: Padding(
+                padding: const EdgeInsets.all(4),
+                child: Icon(Icons.chevron_right, size: 18, color: AppColors.textPrimary),
+              ),
             ),
-          ),
-        ],
+          ],
         ),
       ),
     );

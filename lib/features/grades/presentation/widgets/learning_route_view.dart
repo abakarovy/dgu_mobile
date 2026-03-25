@@ -8,6 +8,8 @@ class LearningRouteView extends StatelessWidget {
   const LearningRouteView({super.key});
 
   static const double _pillGap = 8;
+  /// Запас: измерение [TextPainter] и flex [Row] чуть расходятся с реальной отрисовкой.
+  static const double _pillRowLayoutFudge = 16;
 
   @override
   Widget build(BuildContext context) {
@@ -115,41 +117,67 @@ class _DisciplineSessionCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 14),
-          if (item.isPractice) ...[
-            _RoutePill(
-              label: 'Форма',
-              value: item.controlForm,
-              variant: _PillVariant.accent,
-            ),
-            const SizedBox(height: LearningRouteView._pillGap),
-            _RoutePill(
-              label: 'Период',
-              value: item.examDate,
-              variant: _PillVariant.date,
-              valueMaxLines: 2,
-            ),
-          ] else ...[
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: _RoutePill(
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final maxW = constraints.maxWidth;
+              final gap = LearningRouteView._pillGap;
+              final fudge = LearningRouteView._pillRowLayoutFudge;
+              final wForm = _RoutePill.intrinsicWidth(
+                context,
+                'Форма',
+                item.controlForm,
+                _PillVariant.accent,
+              );
+              final wDate = _RoutePill.intrinsicWidth(
+                context,
+                item.isPractice ? 'Период' : 'Дата',
+                item.examDate,
+                _PillVariant.date,
+              );
+              final fForm = wForm.ceil().clamp(1, 1000000);
+              final fDate = wDate.ceil().clamp(1, 1000000);
+              if (wForm + gap + wDate <= maxW - fudge) {
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      flex: fForm,
+                      child: _RoutePill(
+                        label: 'Форма',
+                        value: item.controlForm,
+                        variant: _PillVariant.accent,
+                      ),
+                    ),
+                    SizedBox(width: gap),
+                    Expanded(
+                      flex: fDate,
+                      child: _RoutePill(
+                        label: item.isPractice ? 'Период' : 'Дата',
+                        value: item.examDate,
+                        variant: _PillVariant.date,
+                      ),
+                    ),
+                  ],
+                );
+              }
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _RoutePill(
                     label: 'Форма',
                     value: item.controlForm,
                     variant: _PillVariant.accent,
                   ),
-                ),
-                SizedBox(width: LearningRouteView._pillGap),
-                Expanded(
-                  child: _RoutePill(
-                    label: 'Дата',
+                  SizedBox(height: gap),
+                  _RoutePill(
+                    label: item.isPractice ? 'Период' : 'Дата',
                     value: item.examDate,
                     variant: _PillVariant.date,
                   ),
-                ),
-              ],
-            ),
-          ],
+                ],
+              );
+            },
+          ),
         ],
       ),
     );
@@ -163,16 +191,58 @@ class _RoutePill extends StatelessWidget {
     required this.label,
     required this.value,
     required this.variant,
-    this.valueMaxLines = 3,
   });
 
   final String label;
   final String value;
   final _PillVariant variant;
-  /// Для длинного периода — перенос на вторую строку внутри чипа
-  final int valueMaxLines;
 
-  (Color labelColor, Color valueColor, Color bg, Color border) _style() {
+  /// Одна строка текста + горизонтальные отступы чипа (как в [build]).
+  static double intrinsicWidth(
+    BuildContext context,
+    String label,
+    String value,
+    _PillVariant variant,
+  ) {
+    final (lc, vc, _, _) = _palette(variant);
+    final tp = TextPainter(
+      text: TextSpan(
+        style: AppTextStyle.inter(
+          fontWeight: FontWeight.w600,
+          fontSize: 12,
+          height: 1.25,
+          color: lc,
+        ),
+        children: [
+          TextSpan(text: label),
+          TextSpan(
+            text: ' · ',
+            style: AppTextStyle.inter(
+              fontWeight: FontWeight.w400,
+              fontSize: 12,
+              color: AppColors.caption,
+            ),
+          ),
+          TextSpan(
+            text: value,
+            style: AppTextStyle.inter(
+              fontWeight: FontWeight.w800,
+              fontSize: 13,
+              height: 1.25,
+              color: vc,
+            ),
+          ),
+        ],
+      ),
+      textDirection: TextDirection.ltr,
+      textScaler: MediaQuery.textScalerOf(context),
+      locale: Localizations.maybeLocaleOf(context),
+      maxLines: 1,
+    )..layout();
+    return 24 + tp.width;
+  }
+
+  static (Color, Color, Color, Color) _palette(_PillVariant variant) {
     switch (variant) {
       case _PillVariant.accent:
         return (
@@ -190,6 +260,8 @@ class _RoutePill extends StatelessWidget {
         );
     }
   }
+
+  (Color labelColor, Color valueColor, Color bg, Color border) _style() => _palette(variant);
 
   @override
   Widget build(BuildContext context) {
@@ -239,9 +311,8 @@ class _RoutePill extends StatelessWidget {
           ],
         ),
         textAlign: TextAlign.center,
-        softWrap: true,
-        maxLines: valueMaxLines,
-        overflow: TextOverflow.ellipsis,
+        maxLines: 1,
+        overflow: TextOverflow.visible,
       ),
     );
   }

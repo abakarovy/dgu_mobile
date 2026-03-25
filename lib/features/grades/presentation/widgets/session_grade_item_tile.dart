@@ -5,8 +5,10 @@ import 'package:flutter/material.dart';
 import '../models/session_grade_breakdown.dart';
 import 'grade_item_tile.dart';
 
-/// Карточка сессии: только заполненные поля — чипы на всю ширину ряда (равные доли).
+/// Карточка сессии: ряды собираются по ширине текста без […]; при нехватке места чип переносится на следующий ряд.
 class SessionGradeItemTile extends StatelessWidget {
+  static const double _layoutFudge = 12;
+
   const SessionGradeItemTile({
     super.key,
     required this.subjectName,
@@ -54,16 +56,37 @@ class SessionGradeItemTile extends StatelessWidget {
     return out;
   }
 
+  /// Индексы чипов, сгруппированные в строки по [maxW] (жадно, без «…»).
+  static List<List<int>> _packRows(List<double> widths, double maxW, double gap) {
+    final rows = <List<int>>[];
+    var i = 0;
+    while (i < widths.length) {
+      final row = <int>[];
+      var sum = 0.0;
+      while (i < widths.length) {
+        final w = widths[i];
+        final add = row.isEmpty ? w : w + gap;
+        if (sum + add > maxW + 0.5) {
+          if (row.isEmpty) {
+            row.add(i);
+            i++;
+          }
+          break;
+        }
+        row.add(i);
+        sum += add;
+        i++;
+      }
+      if (row.isEmpty) break;
+      rows.add(row);
+    }
+    return rows;
+  }
+
   @override
   Widget build(BuildContext context) {
     final items = _filled();
-    const cols = 3;
     const gap = 8.0;
-    final rows = <List<({String label, String value})>>[];
-    for (var i = 0; i < items.length; i += cols) {
-      final end = i + cols > items.length ? items.length : i + cols;
-      rows.add(items.sublist(i, end));
-    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -80,41 +103,38 @@ class SessionGradeItemTile extends StatelessWidget {
         ),
         if (items.isNotEmpty) ...[
           const SizedBox(height: 14),
-          for (var r = 0; r < rows.length; r++) ...[
-            if (r > 0) const SizedBox(height: gap),
-            _SessionPillRow(
-              items: rows[r],
-              horizontalGap: gap,
-            ),
-          ],
-        ],
-      ],
-    );
-  }
-}
-
-class _SessionPillRow extends StatelessWidget {
-  const _SessionPillRow({
-    required this.items,
-    required this.horizontalGap,
-  });
-
-  final List<({String label, String value})> items;
-  final double horizontalGap;
-
-  @override
-  Widget build(BuildContext context) {
-    // Всегда ров на всю ширину: 1 → 100%, 2 → по 50%, 3 → по 33%.
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (var i = 0; i < items.length; i++) ...[
-          if (i > 0) SizedBox(width: horizontalGap),
-          Expanded(
-            child: _SessionPill(
-              label: items[i].label,
-              value: items[i].value,
-            ),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final maxW = constraints.maxWidth;
+              final widths = [
+                for (final e in items)
+                  _SessionPill.intrinsicWidth(context, e.label, e.value),
+              ];
+              final rowIndices = _packRows(widths, maxW - _layoutFudge, gap);
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (var r = 0; r < rowIndices.length; r++) ...[
+                    if (r > 0) const SizedBox(height: gap),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        for (var c = 0; c < rowIndices[r].length; c++) ...[
+                          if (c > 0) const SizedBox(width: gap),
+                          Expanded(
+                            flex: widths[rowIndices[r][c]].ceil().clamp(1, 1000000),
+                            child: _SessionPill(
+                              label: items[rowIndices[r][c]].label,
+                              value: items[rowIndices[r][c]].value,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ],
+              );
+            },
           ),
         ],
       ],
@@ -127,6 +147,50 @@ class _SessionPill extends StatelessWidget {
 
   final String label;
   final String value;
+
+  /// Горизонтальные отступы + одна строка «label · value».
+  static double intrinsicWidth(BuildContext context, String label, String value) {
+    final (valueColor, _, _) = _colorsFor(value);
+    final isGrade = _gradeCodeForValue(value) != null;
+    final labelColor = isGrade
+        ? valueColor.withValues(alpha: 0.85)
+        : AppColors.notificationSubtitle;
+    final tp = TextPainter(
+      text: TextSpan(
+        style: AppTextStyle.inter(
+          fontWeight: FontWeight.w600,
+          fontSize: 12,
+          height: 1.25,
+          color: labelColor,
+        ),
+        children: [
+          TextSpan(text: label),
+          TextSpan(
+            text: ' · ',
+            style: AppTextStyle.inter(
+              fontWeight: FontWeight.w400,
+              fontSize: 12,
+              color: AppColors.caption,
+            ),
+          ),
+          TextSpan(
+            text: value,
+            style: AppTextStyle.inter(
+              fontWeight: FontWeight.w800,
+              fontSize: 13,
+              height: 1.25,
+              color: valueColor,
+            ),
+          ),
+        ],
+      ),
+      textDirection: TextDirection.ltr,
+      textScaler: MediaQuery.textScalerOf(context),
+      locale: Localizations.maybeLocaleOf(context),
+      maxLines: 1,
+    )..layout();
+    return 24 + tp.width;
+  }
 
   /// неуд → 2, удовл → 3, хор → 4, отл → 5; цифры 1–5 как есть.
   static String? _gradeCodeForValue(String raw) {
@@ -209,8 +273,8 @@ class _SessionPill extends StatelessWidget {
           ],
         ),
         textAlign: TextAlign.center,
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
+        maxLines: 1,
+        overflow: TextOverflow.visible,
       ),
     );
   }
