@@ -5,7 +5,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_ui.dart';
+import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/navigation/nav_bar_edit_host.dart';
+import '../../../../features/home/presentation/widgets/home_header_title.dart';
 import '../../../../core/preferences/nav_bar_order_prefs.dart';
 import '../../../../shared/widgets/app_header.dart';
 
@@ -344,6 +346,41 @@ class _AppShellPageState extends State<AppShellPage> {
     );
   }
 
+  /// Заголовок AppBar: на «Главной» — логотип + «Колледж ДГУ», на остальных вкладках — логотип + название раздела.
+  Widget _shellAppBarTitle(int branchIndex) {
+    if (branchIndex == _indexHome) {
+      return const HomeHeaderTitle();
+    }
+    final meta = _metaForBranch(branchIndex);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Image.asset(
+          'assets/images/logo_icon.png',
+          height: AppUi.appBarIconSize,
+          width: AppUi.appBarIconSize,
+          fit: BoxFit.contain,
+        ),
+        const SizedBox(width: AppUi.spacingS),
+        Text(
+          meta.label,
+          style: AppTextStyle.montserrat(
+            fontSize: 20,
+            fontWeight: FontWeight.w800,
+            color: Colors.black,
+            shadows: const [
+              Shadow(
+                color: Colors.black,
+                offset: Offset(0.35, 0),
+                blurRadius: 0,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _editModeBanner() {
     return Material(
       color: AppColors.backgroundBlue,
@@ -389,12 +426,7 @@ class _AppShellPageState extends State<AppShellPage> {
       appBar: hideShellAppBar
           ? null
           : AppHeader(
-              headerTitle: Image.asset(
-                'assets/images/logo_icon.png',
-                height: AppUi.appBarIconSize,
-                width: AppUi.appBarIconSize,
-                fit: BoxFit.contain,
-              ),
+              headerTitle: _shellAppBarTitle(branchIndex),
             ),
       body: widget.navigationShell,
       bottomNavigationBar: Material(
