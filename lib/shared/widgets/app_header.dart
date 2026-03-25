@@ -21,22 +21,36 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hasLeading = leading != null;
     return AppBar(
+      automaticallyImplyLeading: false,
       backgroundColor: Colors.white,
-      leading: leading,
-      leadingWidth: leading != null ? 56 : null,
-      titleSpacing: leading != null ? 0 : null,
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      surfaceTintColor: Colors.transparent,
+      leading: hasLeading
+          ? Padding(
+              padding: const EdgeInsets.only(left: AppUi.appBarPaddingH),
+              child: leading,
+            )
+          : null,
+      leadingWidth: hasLeading ? AppUi.appBarPaddingH + 56 : null,
+      titleSpacing: 0,
       title: Padding(
         padding: EdgeInsets.only(
-          left: leading != null ? 0 : AppUi.screenPaddingH,
+          left: hasLeading ? 0 : AppUi.appBarPaddingH,
+          right: AppUi.appBarPaddingH,
         ),
-        child: headerTitle,
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: headerTitle,
+        ),
       ),
       centerTitle: false,
       actions: showNotificationIcon
           ? [
               Padding(
-                padding: const EdgeInsets.only(right: AppUi.screenPaddingH),
+                padding: const EdgeInsets.only(right: AppUi.appBarPaddingH),
                 child: IconButton(
                   style: IconButton.styleFrom(padding: const EdgeInsets.all(15)),
                   icon: SvgPicture.asset(

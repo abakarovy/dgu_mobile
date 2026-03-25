@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/constants/app_colors.dart';
@@ -218,12 +219,12 @@ class _LoginPageState extends State<LoginPage> {
           ],
         ),
         child: Center(
-          child: Image.asset(
-            'assets/icons/teach.png',
+          child: SvgPicture.asset(
+            'assets/icons/teach.svg',
             width: AppUi.loginIconSize,
             height: AppUi.loginIconSize,
             fit: BoxFit.contain,
-            errorBuilder: (_, _, _) => Icon(Icons.school, size: AppUi.loginIconSize, color: Colors.white),
+            colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
           ),
         ),
       ),

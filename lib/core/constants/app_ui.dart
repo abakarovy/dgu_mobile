@@ -57,7 +57,7 @@ abstract final class AppUi {
   static const double profileRowIconRadius = 12;
 
   // --- Shell / AppBar ---
-  static const double shellMinWidthForTitle = 240;
+  static const double appBarPaddingH = 20;
   static const double appBarIconSize = 38;
   static const double appBarNotifiSize = 20;
 

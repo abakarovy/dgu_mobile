@@ -27,63 +27,97 @@ class HomePage extends StatelessWidget {
     color: AppColors.caption,
   );
 
-  static const double _cardHeight = AppUi.homeCardHeight;
-  static const EdgeInsets _cardPadding = AppUi.homeCardPadding;
+  /// Компактные отступы и шрифты на узких экранах.
+  static bool _compactHome(BuildContext context) =>
+      MediaQuery.sizeOf(context).width < 400;
 
-  Widget _iconCaptionCard(Widget child, {VoidCallback? onPressed}) {
-    return SizedBox(
-      height: _cardHeight,
-      child: ElevatedButton(
-        style: ButtonStyle(
-          padding: const WidgetStatePropertyAll(_cardPadding),
-          alignment: AlignmentGeometry.centerLeft,
-          minimumSize: const WidgetStatePropertyAll(Size.zero),
-          backgroundColor: const WidgetStatePropertyAll(Colors.white),
-          surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
-          elevation: const WidgetStatePropertyAll(0),
-          shadowColor: const WidgetStatePropertyAll(Colors.transparent),
-          shape: WidgetStatePropertyAll(
-            RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(15),
-            ),
+  static EdgeInsets _cardPadding(BuildContext context) {
+    final w = MediaQuery.sizeOf(context).width;
+    if (w < 360) return const EdgeInsets.all(12);
+    if (w < 400) return const EdgeInsets.all(14);
+    return AppUi.homeCardPadding;
+  }
+
+  Widget _iconCaptionCard(
+    BuildContext context,
+    Widget child, {
+    VoidCallback? onPressed,
+  }) {
+    return ElevatedButton(
+      style: ButtonStyle(
+        padding: WidgetStatePropertyAll(_cardPadding(context)),
+        alignment: AlignmentGeometry.centerLeft,
+        minimumSize: const WidgetStatePropertyAll(Size.zero),
+        backgroundColor: const WidgetStatePropertyAll(Colors.white),
+        surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
+        elevation: const WidgetStatePropertyAll(0),
+        shadowColor: const WidgetStatePropertyAll(Colors.transparent),
+        shape: WidgetStatePropertyAll(
+          RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15),
           ),
         ),
-        onPressed: onPressed ?? () {},
-        child: child,
       ),
+      onPressed: onPressed ?? () {},
+      child: child,
     );
   }
+
+  TextStyle _cardTitleStyleFor(BuildContext context) {
+    final base = _cardTitleStyle(context);
+    if (_compactHome(context)) {
+      return base.copyWith(fontSize: 14);
+    }
+    return base;
+  }
+
+  TextStyle _cardSubtitleStyleFor(BuildContext context) {
+    final base = _cardSubtitleStyle(context);
+    if (_compactHome(context)) {
+      return base.copyWith(fontSize: 9);
+    }
+    return base;
+  }
+
   Widget _scheduleButton(BuildContext context) {
     final todayIndex = DateTime.now().weekday - 1;
     final count = scheduleLessonsForDay(todayIndex).length;
+    final compact = _compactHome(context);
+    final iconPad = compact ? 8.0 : 10.0;
+    final iconSize = compact ? 20.0 : 24.0;
+    final gapIcon = compact ? 8.0 : 12.0;
+    final gapTitle = compact ? 4.0 : 5.0;
     return _iconCaptionCard(
+      context,
       Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            padding: const EdgeInsets.all(10),
+            padding: EdgeInsets.all(iconPad),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(14),
               color: AppColors.backgroundBlue,
             ),
             child: SvgPicture.asset(
               "assets/icons/schedule_icon.svg",
-              width: 24,
-              height: 24,
+              width: iconSize,
+              height: iconSize,
               colorFilter: ColorFilter.mode(
                 AppColors.primaryBlue,
-                BlendMode.srcIn
+                BlendMode.srcIn,
               ),
             ),
           ),
-          const SizedBox(height: 12),
-          Text("Расписание", style: _cardTitleStyle(context)),
-          const SizedBox(height: 5),
+          SizedBox(height: gapIcon),
+          Text('Расписание', style: _cardTitleStyleFor(context)),
+          SizedBox(height: gapTitle),
           Text(
             count == 0 ? 'Нет пар' : '$count ${_pairWord(count)} сегодня',
-            style: _cardSubtitleStyle(context),
-          )
+            style: _cardSubtitleStyleFor(context),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
         ],
       ),
       onPressed: () => context.push('/app/schedule'),
@@ -96,41 +130,73 @@ class HomePage extends StatelessWidget {
     return 'пар';
   }
   Widget _taskButton(BuildContext context) {
+    final compact = _compactHome(context);
+    final iconPad = compact ? 8.0 : 10.0;
+    final iconSize = compact ? 20.0 : 24.0;
+    final gapIcon = compact ? 8.0 : 12.0;
+    final gapTitle = compact ? 4.0 : 5.0;
     return _iconCaptionCard(
+      context,
       Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            padding: const EdgeInsets.all(10),
+            padding: EdgeInsets.all(iconPad),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(14),
               color: AppColors.backgroundGreen,
             ),
             child: SvgPicture.asset(
-              "assets/icons/book_icon.svg",
-              width: 24,
-              height: 24,
-              colorFilter: ColorFilter.mode(AppColors.primaryGreen, BlendMode.srcIn),
+              'assets/icons/book_icon.svg',
+              width: iconSize,
+              height: iconSize,
+              colorFilter: const ColorFilter.mode(AppColors.primaryGreen, BlendMode.srcIn),
             ),
           ),
-          const SizedBox(height: 12),
-          Text("Задания", style: _cardTitleStyle(context)),
-          const SizedBox(height: 5),
-          Text("5 активных тем", style: _cardSubtitleStyle(context))
-
+          SizedBox(height: gapIcon),
+          Text('Задания', style: _cardTitleStyleFor(context)),
+          SizedBox(height: gapTitle),
+          Text(
+            '5 активных тем',
+            style: _cardSubtitleStyleFor(context),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
         ],
       ),
       onPressed: () => context.push('/app/tasks'),
     );
   }
+
   Widget _scheduleAndTasksSection(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(child: _scheduleButton(context)),
-        const SizedBox(width: AppUi.spacingBetweenCards),
-        Expanded(child: _taskButton(context)),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final gap = AppUi.spacingBetweenCards;
+        final slotW = (constraints.maxWidth - gap) / 2;
+        // Две колонки дают слишком узкую ячейку — вертикальная раскладка.
+        final useColumn = slotW < 112 || constraints.maxWidth < 340;
+        if (useColumn) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _scheduleButton(context),
+              SizedBox(height: gap),
+              _taskButton(context),
+            ],
+          );
+        }
+        return IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(child: _scheduleButton(context)),
+              SizedBox(width: gap),
+              Expanded(child: _taskButton(context)),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -173,8 +239,11 @@ class HomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final w = MediaQuery.sizeOf(context).width;
+    final padH = w < 360 ? 16.0 : AppUi.screenPaddingH;
+    final padV = w < 360 ? 20.0 : 24.0;
     return SingleChildScrollView(
-      padding: AppUi.screenPaddingAll,
+      padding: EdgeInsets.fromLTRB(padH, padV, padH, padV),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         spacing: 0,

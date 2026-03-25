@@ -8,7 +8,6 @@ import '../../../../core/constants/app_ui.dart';
 import '../../../../core/navigation/nav_bar_edit_host.dart';
 import '../../../../core/preferences/nav_bar_order_prefs.dart';
 import '../../../../shared/widgets/app_header.dart';
-import '../../../home/presentation/widgets/home_header_title.dart';
 
 /// Оболочка главного экрана: AppBar, нижняя навигация, контент.
 ///
@@ -65,10 +64,6 @@ class _AppShellPageState extends State<AppShellPage> {
 
   StatefulNavigationShell get _shell => widget.navigationShell;
 
-  static TextStyle _headerTitleStyle(BuildContext context) {
-    return Theme.of(context).appBarTheme.titleTextStyle ?? const TextStyle();
-  }
-
   static Color _unselectedColor(BuildContext context) =>
       Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6);
 
@@ -79,27 +74,6 @@ class _AppShellPageState extends State<AppShellPage> {
     if (path.startsWith('/app/news')) return _indexNews;
     if (path.startsWith('/app/events')) return _indexEvents;
     return shell.currentIndex;
-  }
-
-  Widget _titleForIndex(BuildContext context, int index) {
-    switch (index) {
-      case _indexProfile:
-        final style = _headerTitleStyle(context);
-        return Text('Профиль', style: style);
-      case _indexGrades:
-        final style = _headerTitleStyle(context);
-        return Text('Оценки', style: style);
-      case _indexHome:
-        return const HomeHeaderTitle();
-      case _indexNews:
-        final style = _headerTitleStyle(context);
-        return Text('Новости', style: style);
-      case _indexEvents:
-        final style = _headerTitleStyle(context);
-        return Text('Мероприятия', style: style);
-      default:
-        return const SizedBox.shrink();
-    }
   }
 
   static _BranchMeta _metaForBranch(int branchIndex) {
@@ -124,8 +98,8 @@ class _AppShellPageState extends State<AppShellPage> {
         );
       case _indexEvents:
         return const _BranchMeta(
-          outlineIcon: 'assets/icons/news_icon.svg',
-          filledIcon: 'assets/icons/news_filled_icon.svg',
+          outlineIcon: 'assets/icons/events.svg',
+          filledIcon: 'assets/icons/events_filed.svg',
           label: 'Мероприятия',
         );
       default:
@@ -406,8 +380,6 @@ class _AppShellPageState extends State<AppShellPage> {
   Widget build(BuildContext context) {
     final path = GoRouterState.of(context).uri.path;
     final branchIndex = _branchIndexFromPath(path, _shell);
-    final width = MediaQuery.sizeOf(context).width;
-    final showTitle = width >= AppUi.shellMinWidthForTitle;
     final isNotificationsScreen = path.endsWith('notifications');
     final isSupportScreen = path.endsWith('support');
     final isStudentIdScreen = path.endsWith('student-id');
@@ -417,14 +389,12 @@ class _AppShellPageState extends State<AppShellPage> {
       appBar: hideShellAppBar
           ? null
           : AppHeader(
-              headerTitle: showTitle
-                  ? _titleForIndex(context, branchIndex)
-                  : Image.asset(
-                      'assets/images/logo_icon.png',
-                      height: AppUi.appBarIconSize,
-                      width: AppUi.appBarIconSize,
-                      fit: BoxFit.contain,
-                    ),
+              headerTitle: Image.asset(
+                'assets/images/logo_icon.png',
+                height: AppUi.appBarIconSize,
+                width: AppUi.appBarIconSize,
+                fit: BoxFit.contain,
+              ),
             ),
       body: widget.navigationShell,
       bottomNavigationBar: Material(
