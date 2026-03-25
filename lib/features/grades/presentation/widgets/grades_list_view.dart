@@ -2,7 +2,9 @@ import 'package:dgu_mobile/core/constants/app_colors.dart';
 import 'package:dgu_mobile/core/constants/app_ui.dart';
 import 'package:flutter/material.dart';
 
+import '../models/session_grade_breakdown.dart';
 import 'grade_item_tile.dart';
+import 'session_grade_item_tile.dart';
 
 /// Элемент для отображения в списке оценок.
 class GradeListItem {
@@ -12,6 +14,7 @@ class GradeListItem {
     required this.subtitle,
     this.date,
     this.type,
+    this.sessionBreakdown,
   });
 
   final String subjectName;
@@ -19,6 +22,9 @@ class GradeListItem {
   final String subtitle;
   final DateTime? date;
   final String? type;
+
+  /// Если задано — вкладка «Сессия»: карточка с аттестациями и формами (не общий вид с оценкой справа).
+  final SessionGradeBreakdown? sessionBreakdown;
 
   /// Типы, у которых текст окрашивается в цвет оценки (контрольная, аттестация и т.д.).
   static const specialTypes = {
@@ -171,6 +177,11 @@ class _GradeCard extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(AppUi.radiusS),
+        splashFactory: NoSplash.splashFactory,
+        splashColor: Colors.transparent,
+        highlightColor: Colors.transparent,
+        hoverColor: Colors.transparent,
+        focusColor: Colors.transparent,
         child: Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(AppUi.radiusS),
@@ -184,13 +195,18 @@ class _GradeCard extends StatelessWidget {
             ],
           ),
           padding: const EdgeInsets.symmetric(horizontal: AppUi.contentPaddingH, vertical: AppUi.contentPaddingV),
-          child: GradeItemTile(
-            subjectName: item.subjectName,
-            grade: item.grade,
-            subtitle: item.subtitle,
-            type: item.type,
-            isSpecialType: item.isSpecialType,
-          ),
+          child: item.sessionBreakdown != null
+              ? SessionGradeItemTile(
+                  subjectName: item.subjectName,
+                  breakdown: item.sessionBreakdown!,
+                )
+              : GradeItemTile(
+                  subjectName: item.subjectName,
+                  grade: item.grade,
+                  subtitle: item.subtitle,
+                  type: item.type,
+                  isSpecialType: item.isSpecialType,
+                ),
         ),
       ),
     );

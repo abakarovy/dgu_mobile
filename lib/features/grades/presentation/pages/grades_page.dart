@@ -3,6 +3,7 @@ import 'package:dgu_mobile/core/constants/app_ui.dart';
 import 'package:dgu_mobile/core/theme/app_text_styles.dart';
 import 'package:flutter/material.dart';
 
+import '../models/session_grade_breakdown.dart';
 import '../widgets/grades_list_view.dart';
 import '../widgets/subject_grades_sheet.dart';
 
@@ -54,16 +55,58 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
     ),
   ];
 
-  static final List<GradeListItem> _semesterGrades = const [
+  /// Сессия: карточки как раньше, внутри — аттестации и формы (Атт 1… Экз), не таблица.
+  static const List<GradeListItem> _semesterGrades = [
     GradeListItem(
-      subjectName: 'Веб разработка',
-      grade: '5',
-      subtitle: 'Зачёт, 20.01.2025',
+      subjectName: 'Разработка мобильных приложений',
+      grade: '',
+      subtitle: '',
+      sessionBreakdown: SessionGradeBreakdown(
+        att1: 'атт',
+        att2: 'атт',
+        ekz: 'отл',
+      ),
+    ),
+    GradeListItem(
+      subjectName: 'Веб-программирование',
+      grade: '',
+      subtitle: '',
+      sessionBreakdown: SessionGradeBreakdown(
+        att1: 'атт',
+        att2: 'атт',
+        ekz: 'отл',
+      ),
+    ),
+    GradeListItem(
+      subjectName: 'Системное программирование',
+      grade: '',
+      subtitle: '',
+      sessionBreakdown: SessionGradeBreakdown(
+        att1: 'атт',
+        att2: 'атт',
+        zach: 'отл',
+      ),
+    ),
+    GradeListItem(
+      subjectName: 'Математическое моделирование',
+      grade: '',
+      subtitle: '',
+      sessionBreakdown: SessionGradeBreakdown(
+        att1: 'атт',
+        att2: 'атт',
+        zach: 'отл',
+      ),
     ),
     GradeListItem(
       subjectName: 'Базы данных',
-      grade: '4',
-      subtitle: 'Экзамен, 22.01.2025',
+      grade: '',
+      subtitle: '',
+      sessionBreakdown: SessionGradeBreakdown(
+        att1: 'атт',
+        att2: 'атт',
+        dfk: 'удовл',
+        zach: 'отл',
+      ),
     ),
   ];
 
