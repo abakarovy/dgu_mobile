@@ -5,9 +5,10 @@ import 'package:flutter/material.dart';
 
 import '../models/session_grade_breakdown.dart';
 import '../widgets/grades_list_view.dart';
+import '../widgets/learning_route_view.dart';
 import '../widgets/subject_grades_sheet.dart';
 
-/// Вкладка «Оценки»: 3 таба (Текущие, Сессия, Итого).
+/// Вкладка «Оценки»: 3 таба (Текущие, Сессия, Учебный маршрут).
 /// Текущие: выбор периода (неделя по умолчанию), стрелки, календарь; оценки с датами и типами.
 class GradesPage extends StatefulWidget {
   const GradesPage({super.key});
@@ -17,7 +18,7 @@ class GradesPage extends StatefulWidget {
 }
 
 class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateMixin {
-  static const List<String> _tabLabels = ['Текущие', 'Сессия', 'Итого'];
+  static const List<String> _tabLabels = ['Текущие', 'Сессия', 'Маршрут'];
 
   late TabController _tabController;
   DateTime _rangeStart = DateTime.now();
@@ -107,34 +108,6 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
         dfk: 'удовл',
         zach: 'отл',
       ),
-    ),
-  ];
-
-  static final List<GradeListItem> _totalGrades = const [
-    GradeListItem(
-      subjectName: 'Веб разработка',
-      grade: '4.75',
-      subtitle: 'средний балл',
-    ),
-    GradeListItem(
-      subjectName: 'Базы данных',
-      grade: '4.50',
-      subtitle: 'средний балл',
-    ),
-    GradeListItem(
-      subjectName: 'Математика',
-      grade: '4.33',
-      subtitle: 'средний балл',
-    ),
-    GradeListItem(
-      subjectName: 'Физика',
-      grade: '3.80',
-      subtitle: 'средний балл',
-    ),
-    GradeListItem(
-      subjectName: 'Иностранный язык',
-      grade: '5.00',
-      subtitle: 'средний балл',
     ),
   ];
 
@@ -429,10 +402,7 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
                         GradesListView(
                           items: _semesterGrades,
                         ),
-                        GradesListView(
-                          items: _totalGrades,
-                          onSubjectTap: (name) => _showSubjectGrades(context, name),
-                        ),
+                        const LearningRouteView(),
                       ],
                     ),
                   ),
