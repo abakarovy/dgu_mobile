@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "285524873118",
+    "project_id": "dgu-mobile",
+    "storage_bucket": "dgu-mobile.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:285524873118:android:fa26dad853cf974eca508f",
+        "android_client_info": {
+          "package_name": "ru.dgu.college.dgu_mobile.android"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBy_PB_eTNMNSjdW2MviO8JDME-LzEu9YI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

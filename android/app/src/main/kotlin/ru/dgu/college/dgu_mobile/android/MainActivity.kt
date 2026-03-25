@@ -1,4 +1,4 @@
-package com.example.dgu_mobile
+package ru.dgu.college.dgu_mobile.android
 
 import com.google.android.material.datepicker.CalendarConstraints
 import com.google.android.material.datepicker.MaterialDatePicker
