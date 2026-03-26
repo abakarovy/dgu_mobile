@@ -1,6 +1,5 @@
 import 'package:go_router/go_router.dart';
 
-import '../../core/di/app_container.dart';
 import '../../features/events/presentation/pages/events_page.dart';
 import '../../features/events/data/event_item.dart';
 import '../../features/events/presentation/pages/event_detail_page.dart';
@@ -133,19 +132,12 @@ final GoRouter appRouter = GoRouter(
       },
     ),
   ],
+  // Backend/auth отключены: всегда пускаем в /app/*
   redirect: (context, state) async {
     final path = state.uri.path;
 
     // Нормализуем /app → /app/home
     if (path == '/app' || path == '/app/') return '/app/home';
-
-    final isLoggedIn = await AppContainer.authRepository.isLoggedIn();
-
-    // Не логин: запрещаем любые /app/*
-    if (!isLoggedIn && path.startsWith('/app')) return '/login';
-
-    // Уже залогинен: не показываем /login
-    if (isLoggedIn && path.startsWith('/login')) return '/app/home';
 
     return null;
   },
