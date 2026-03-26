@@ -1,6 +1,8 @@
 import 'package:go_router/go_router.dart';
 
 import '../../features/events/presentation/pages/events_page.dart';
+import '../../features/events/data/event_item.dart';
+import '../../features/events/presentation/pages/event_detail_page.dart';
 import '../../features/grades/presentation/pages/grades_page.dart';
 import '../../features/home/presentation/pages/home_page.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
@@ -124,6 +126,15 @@ final GoRouter appRouter = GoRouter(
         final item = state.extra as NewsItem?;
         if (item == null) return const NewsPage();
         return NewsDetailPage(item: item);
+      },
+    ),
+    GoRoute(
+      path: '/app/events/detail',
+      name: 'eventDetail',
+      builder: (context, state) {
+        final item = state.extra as EventItem?;
+        if (item == null) return const EventsPage();
+        return EventDetailPage(item: item);
       },
     ),
   ],
