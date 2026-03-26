@@ -30,6 +30,7 @@ class EventsPage extends StatefulWidget {
   static const double _imageHeight = 225;
   static const double _imageRadius = 24;
   static const double _afterCarouselGap = 16;
+  static const double _carouselItemGap = 12;
   static const double _afterIndicatorsToHeaderGap = 24;
   static const double _afterHeaderGap = 16;
   static const double _cardsGap = 16;
@@ -61,6 +62,7 @@ class _EventsPageState extends State<EventsPage> {
     super.initState();
     _pageController = PageController(
       initialPage: EventsPage._kInitialPage,
+      // Keep full-width; we add visible gap via per-page padding.
       viewportFraction: 1,
     );
     _pageController.addListener(_onPageScroll);
@@ -140,7 +142,10 @@ class _EventsPageState extends State<EventsPage> {
                     },
                     itemBuilder: (context, index) {
                       final i = index % EventsPage._kImageCount;
-                      return Center(
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: EventsPage._carouselItemGap / 2,
+                        ),
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(
                             EventsPage._imageRadius,

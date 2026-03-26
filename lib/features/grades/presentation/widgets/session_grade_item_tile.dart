@@ -57,6 +57,7 @@ class SessionGradeItemTile extends StatelessWidget {
   }
 
   /// Индексы чипов, сгруппированные в строки по [maxW] (жадно, без «…»).
+  /// В строке максимум 2 контейнера.
   static List<List<int>> _packRows(List<double> widths, double maxW, double gap) {
     final rows = <List<int>>[];
     var i = 0;
@@ -64,6 +65,7 @@ class SessionGradeItemTile extends StatelessWidget {
       final row = <int>[];
       var sum = 0.0;
       while (i < widths.length) {
+        if (row.length >= 2) break;
         final w = widths[i];
         final add = row.isEmpty ? w : w + gap;
         if (sum + add > maxW + 0.5) {
@@ -122,7 +124,9 @@ class SessionGradeItemTile extends StatelessWidget {
                         for (var c = 0; c < rowIndices[r].length; c++) ...[
                           if (c > 0) const SizedBox(width: gap),
                           Expanded(
-                            flex: widths[rowIndices[r][c]].ceil().clamp(1, 1000000),
+                            // Внутри одной строки чипы всегда одинаковой ширины:
+                            // 2 в ряд => 50/50, 1 в ряд => 100%.
+                            flex: 1,
                             child: _SessionPill(
                               label: items[rowIndices[r][c]].label,
                               value: items[rowIndices[r][c]].value,
