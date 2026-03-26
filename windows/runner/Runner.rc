@@ -89,13 +89,13 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.example" "\0"
-            VALUE "FileDescription", "dgu_mobile" "\0"
+            VALUE "CompanyName", "ru.dgu.college" "\0"
+            VALUE "FileDescription", "Колледж ДГУ" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "dgu_mobile" "\0"
+            VALUE "InternalName", "college_dgu" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2026 com.example. All rights reserved." "\0"
             VALUE "OriginalFilename", "dgu_mobile.exe" "\0"
-            VALUE "ProductName", "dgu_mobile" "\0"
+            VALUE "ProductName", "Колледж ДГУ" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END
