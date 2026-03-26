@@ -420,7 +420,9 @@ class _AppShellPageState extends State<AppShellPage> {
     final isNotificationsScreen = path.endsWith('notifications');
     final isSupportScreen = path.endsWith('support');
     final isStudentIdScreen = path.endsWith('student-id');
-    final hideShellAppBar = isNotificationsScreen || isSupportScreen || isStudentIdScreen;
+    final hideShellAppBar = isNotificationsScreen ||
+        isSupportScreen ||
+        isStudentIdScreen;
 
     return Scaffold(
       appBar: hideShellAppBar
