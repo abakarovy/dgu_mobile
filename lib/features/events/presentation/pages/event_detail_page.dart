@@ -18,6 +18,7 @@ class EventDetailPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
+    final safeTop = MediaQuery.paddingOf(context).top;
     final paddingH = width > 0
         ? (AppUi.screenPaddingH * width / 448).clamp(16.0, 32.0)
         : AppUi.screenPaddingH;
@@ -50,7 +51,7 @@ class EventDetailPage extends StatelessWidget {
                 ),
                 Positioned(
                   left: paddingH,
-                  top: paddingH,
+                  top: safeTop + paddingH,
                   child: _BackButton(size: AppUi.newsDetailBackButtonSize),
                 ),
               ],

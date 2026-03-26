@@ -1,5 +1,6 @@
 import 'package:go_router/go_router.dart';
 
+import '../../core/di/app_container.dart';
 import '../../features/events/presentation/pages/events_page.dart';
 import '../../features/events/data/event_item.dart';
 import '../../features/events/presentation/pages/event_detail_page.dart';
@@ -17,18 +18,12 @@ import '../../features/support/presentation/pages/support_page.dart';
 import '../../features/profile/presentation/pages/student_id_page.dart';
 import '../../features/tasks/presentation/pages/tasks_page.dart';
 import '../../features/shell/presentation/pages/app_shell_page.dart';
-import '../../features/splash/presentation/pages/splash_page.dart';
 
 /// Конфигурация маршрутизации приложения.
 /// StatefulShellRoute.indexedStack устраняет дублирование GlobalKey при переключении вкладок.
 final GoRouter appRouter = GoRouter(
-  initialLocation: '/',
+  initialLocation: '/app/home',
   routes: [
-    GoRoute(
-      path: '/',
-      name: 'splash',
-      builder: (context, state) => const SplashPage(),
-    ),
     GoRoute(
       path: '/login',
       name: 'login',
@@ -138,9 +133,20 @@ final GoRouter appRouter = GoRouter(
       },
     ),
   ],
-  redirect: (context, state) {
+  redirect: (context, state) async {
     final path = state.uri.path;
+
+    // Нормализуем /app → /app/home
     if (path == '/app' || path == '/app/') return '/app/home';
+
+    final isLoggedIn = await AppContainer.authRepository.isLoggedIn();
+
+    // Не логин: запрещаем любые /app/*
+    if (!isLoggedIn && path.startsWith('/app')) return '/login';
+
+    // Уже залогинен: не показываем /login
+    if (isLoggedIn && path.startsWith('/login')) return '/app/home';
+
     return null;
   },
 );

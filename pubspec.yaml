@@ -1,7 +1,7 @@
 name: dgu_mobile
 description: "A new Flutter project."
 publish_to: 'none'
-version: 0.1.0
+version: 1.0.0
 
 environment:
   sdk: ^3.10.7
@@ -22,6 +22,7 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  flutter_native_splash: ^2.4.6
 
 flutter:
   uses-material-design: true
@@ -45,3 +46,13 @@ flutter:
         - asset: assets/fonts/Montserrat-Regular.ttf
         - asset: assets/fonts/Montserrat-ExtraBold.ttf
           weight: 800
+
+flutter_native_splash:
+  color: "#003B73"
+  image: assets/images/splash_logo.png
+  android: true
+  ios: true
+  web: true
+  android_12:
+    color: "#003B73"
+    image: assets/images/splash_logo.png
