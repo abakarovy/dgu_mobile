@@ -49,10 +49,23 @@ flutter:
 
 flutter_native_splash:
   color: "#003B73"
-  image: assets/images/splash_logo.png
+  # Android/iOS splash must use different center logo images.
+  # Center logo (main splash image):
+  image_android: assets/splash/android_image.png
+  image_ios: assets/splash/ios_image.png
+
+  # Brand (bottom branding image):
+  branding_android: assets/splash/android_text.png
+  branding_ios: assets/splash/ios_text.png
+
+  # Fallback for platforms where the platform-specific keys are not used.
+  image: assets/splash/android_image.png
+  branding: assets/splash/android_text.png
   android: true
   ios: true
   web: true
   android_12:
     color: "#003B73"
-    image: assets/images/splash_logo.png
+    # Android 12+ uses the center logo and branding differently.
+    image: assets/splash/android_image.png
+    branding: assets/splash/android_text.png
