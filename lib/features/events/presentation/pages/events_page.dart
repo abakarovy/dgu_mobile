@@ -8,7 +8,8 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../data/event_item.dart';
-import '../../data/events_mock_data.dart';
+import '../../../../core/di/app_container.dart';
+import '../../../../data/models/event_model.dart';
 
 /// Вкладка «Мероприятия»: карусель и индикаторы.
 class EventsPage extends StatefulWidget {
@@ -56,6 +57,7 @@ class _EventsPageState extends State<EventsPage> {
   late final PageController _pageController;
   Timer? _timer;
   bool _programmaticAdvance = false;
+  late final Future<List<EventItem>> _eventsFuture;
 
   @override
   void initState() {
@@ -67,6 +69,8 @@ class _EventsPageState extends State<EventsPage> {
     );
     _pageController.addListener(_onPageScroll);
     _scheduleNextAdvance(seconds: 5);
+
+    _eventsFuture = _loadEvents();
   }
 
   @override
@@ -120,93 +124,139 @@ class _EventsPageState extends State<EventsPage> {
             ? (_pageController.page ?? EventsPage._kInitialPage.toDouble())
             : EventsPage._kInitialPage.toDouble();
 
-        return SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: EventsPage._horizontalPadding,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const SizedBox(height: EventsPage._afterAppBarGap),
-                SizedBox(
-                  height: EventsPage._imageHeight,
-                  child: PageView.builder(
-                    controller: _pageController,
-                    onPageChanged: (_) {
-                      if (_programmaticAdvance) {
-                        _programmaticAdvance = false;
-                        return;
-                      }
-                      _onUserChangedPage();
-                    },
-                    itemBuilder: (context, index) {
-                      final i = index % EventsPage._kImageCount;
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: EventsPage._carouselItemGap / 2,
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(
-                            EventsPage._imageRadius,
-                          ),
-                          child: SizedBox(
-                            width: imageW,
-                            height: EventsPage._imageHeight,
-                            child: Image.asset(
-                              EventsPage._imageAssets[i],
-                              fit: BoxFit.fill,
-                              errorBuilder: (context, error, stackTrace) =>
-                                  ColoredBox(
-                                color: AppColors.backgroundSecondary,
-                                child: Icon(
-                                  Icons.image_outlined,
-                                  size: 48,
-                                  color: AppColors.caption,
+        return FutureBuilder<List<EventItem>>(
+          future: _eventsFuture,
+          builder: (context, snap) {
+            final events = snap.data ?? const <EventItem>[];
+
+            return SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: EventsPage._horizontalPadding,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const SizedBox(height: EventsPage._afterAppBarGap),
+                    SizedBox(
+                      height: EventsPage._imageHeight,
+                      child: PageView.builder(
+                        controller: _pageController,
+                        onPageChanged: (_) {
+                          if (_programmaticAdvance) {
+                            _programmaticAdvance = false;
+                            return;
+                          }
+                          _onUserChangedPage();
+                        },
+                        itemBuilder: (context, index) {
+                          final i = index % EventsPage._kImageCount;
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: EventsPage._carouselItemGap / 2,
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(
+                                EventsPage._imageRadius,
+                              ),
+                              child: SizedBox(
+                                width: imageW,
+                                height: EventsPage._imageHeight,
+                                child: Image.asset(
+                                  EventsPage._imageAssets[i],
+                                  fit: BoxFit.fill,
+                                  errorBuilder: (context, error, stackTrace) =>
+                                      ColoredBox(
+                                    color: AppColors.backgroundSecondary,
+                                    child: Icon(
+                                      Icons.image_outlined,
+                                      size: 48,
+                                      color: AppColors.caption,
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: EventsPage._afterCarouselGap),
+                    Center(
+                      child: _EventDotsIndicator(page: page),
+                    ),
+                    const SizedBox(height: EventsPage._afterIndicatorsToHeaderGap),
+                    Text(
+                      'Все события',
+                      textAlign: TextAlign.left,
+                      style: AppTextStyle.inter(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        height: 28 / 18,
+                        color: EventsPage._titleColor,
+                      ),
+                    ),
+                    const SizedBox(height: EventsPage._afterHeaderGap),
+                    if (snap.connectionState != ConnectionState.done && events.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 20),
+                        child: Center(child: CircularProgressIndicator()),
+                      )
+                    else if (events.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 10),
+                        child: Center(child: Text('Нет мероприятий')),
+                      )
+                    else
+                      for (int i = 0; i < events.length; i++) ...[
+                        _EventCard(
+                          data: events[i],
+                          onTap: () => context.push('/app/events/detail', extra: events[i]),
                         ),
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(height: EventsPage._afterCarouselGap),
-                Center(
-                  child: _EventDotsIndicator(page: page),
-                ),
-                const SizedBox(height: EventsPage._afterIndicatorsToHeaderGap),
-                Text(
-                  'Все события',
-                  textAlign: TextAlign.left,
-                  style: AppTextStyle.inter(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    height: 28 / 18,
-                    color: EventsPage._titleColor,
-                  ),
-                ),
-                const SizedBox(height: EventsPage._afterHeaderGap),
-                for (int i = 0; i < _events.length; i++) ...[
-                  _EventCard(
-                    data: _events[i],
-                    onTap: () => context.push('/app/events/detail', extra: _events[i]),
-                  ),
-                  if (i != _events.length - 1)
+                        if (i != events.length - 1)
+                          const SizedBox(height: EventsPage._cardsGap),
+                      ],
                     const SizedBox(height: EventsPage._cardsGap),
-                ],
-                const SizedBox(height: EventsPage._cardsGap),
-              ],
-            ),
-          ),
+                  ],
+                ),
+              ),
+            );
+          },
         );
       },
     );
   }
-}
 
-final List<EventItem> _events = eventItems();
+  Future<List<EventItem>> _loadEvents() async {
+    const cacheKey = 'events:list';
+    try {
+      final fresh = await AppContainer.eventsApi.getEvents();
+      await AppContainer.jsonCache
+          .setJson(cacheKey, [for (final e in fresh) e.toJson()]);
+      return fresh.map(_toEventItem).toList();
+    } catch (_) {
+      final cached = AppContainer.jsonCache.getJsonList(cacheKey);
+      if (cached == null) rethrow;
+      final models = cached
+          .whereType<Map<String, dynamic>>()
+          .map(EventModel.fromJson)
+          .toList();
+      return models.map(_toEventItem).toList();
+    }
+  }
+
+  static EventItem _toEventItem(EventModel e) {
+    return EventItem(
+      imageUrl: e.imageUrl,
+      imageAsset: 'assets/images/img1.png',
+      category: (e.category?.isNotEmpty ?? false) ? e.category! : 'Мероприятие',
+      title: e.title,
+      description: e.description,
+      dateRange: e.dateRangeLabel.isNotEmpty ? e.dateRangeLabel : '—',
+      location: (e.location?.isNotEmpty ?? false) ? e.location! : '—',
+    );
+  }
+}
 
 class _EventCard extends StatelessWidget {
   const _EventCard({required this.data, this.onTap});
@@ -251,18 +301,31 @@ class _EventCard extends StatelessWidget {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  Image.asset(
-                    data.imageAsset,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => ColoredBox(
-                      color: AppColors.backgroundSecondary,
-                      child: Icon(
-                        Icons.image_outlined,
-                        size: 48,
-                        color: AppColors.caption,
-                      ),
-                    ),
-                  ),
+                  (data.imageUrl != null && data.imageUrl!.isNotEmpty)
+                      ? Image.network(
+                          data.imageUrl!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) => ColoredBox(
+                            color: AppColors.backgroundSecondary,
+                            child: Icon(
+                              Icons.image_outlined,
+                              size: 48,
+                              color: AppColors.caption,
+                            ),
+                          ),
+                        )
+                      : Image.asset(
+                          data.imageAsset ?? 'assets/images/img1.png',
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) => ColoredBox(
+                            color: AppColors.backgroundSecondary,
+                            child: Icon(
+                              Icons.image_outlined,
+                              size: 48,
+                              color: AppColors.caption,
+                            ),
+                          ),
+                        ),
                   Positioned(
                     left: 16,
                     top: 14,

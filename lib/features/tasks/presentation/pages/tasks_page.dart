@@ -4,9 +4,8 @@ import 'package:dgu_mobile/core/theme/app_text_styles.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../data/tasks_mock_data.dart';
 import '../../../../shared/widgets/app_header.dart';
-import '../widgets/task_card.dart';
+// import '../widgets/task_card.dart';
 
 /// Экран заданий: аппбар как у расписания, 2 таба (Активные / Завершенные), список карточек.
 class TasksPage extends StatelessWidget {
@@ -80,12 +79,30 @@ class TasksPage extends StatelessWidget {
             Expanded(
               child: TabBarView(
                 children: [
-                  _TasksList(items: activeTasks()),
-                  _TasksList(items: completedTasks()),
+                  const _EmptyTasks(),
+                  const _EmptyTasks(),
                 ],
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyTasks extends StatelessWidget {
+  const _EmptyTasks();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Text(
+        'Нет данных (бэк не подключен)',
+        style: AppTextStyle.inter(
+          fontWeight: FontWeight.w600,
+          fontSize: 14,
+          color: AppColors.caption,
         ),
       ),
     );
@@ -131,50 +148,4 @@ class _TasksTab extends StatelessWidget {
   }
 }
 
-class _TasksList extends StatelessWidget {
-  const _TasksList({required this.items});
-
-  final List<TaskItem> items;
-
-  @override
-  Widget build(BuildContext context) {
-    if (items.isEmpty) {
-      return Center(
-        child: Text(
-          'Нет заданий',
-          style: AppTextStyle.inter(
-            fontWeight: FontWeight.w600,
-            fontSize: 14,
-            color: AppColors.caption,
-          ),
-        ),
-      );
-    }
-    return ListView.separated(
-      padding: const EdgeInsets.symmetric(horizontal: AppUi.screenPaddingH),
-      itemCount: items.length,
-      separatorBuilder: (_, _) => const SizedBox(height: AppUi.taskCardSpacing),
-      itemBuilder: (context, index) {
-        final task = items[index];
-        return Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(AppUi.radiusS),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.06),
-                offset: const Offset(0, 2),
-                blurRadius: 4,
-              ),
-            ],
-          ),
-          padding: const EdgeInsets.all(AppUi.spacingM),
-          child: TaskCard(
-            task: task,
-            onTap: () {},
-          ),
-        );
-      },
-    );
-  }
-}
+// _TasksList / TaskCard оставлены на случай будущего подключения бэка (эндпоинта заданий).

@@ -2,7 +2,7 @@ import 'package:dgu_mobile/core/constants/app_colors.dart';
 import 'package:dgu_mobile/core/theme/app_text_styles.dart';
 import 'package:flutter/material.dart';
 
-import '../../data/schedule_mock_data.dart';
+import '../../data/schedule_lesson.dart';
 
 /// Карточка одной пары в списке расписания.
 class ScheduleLessonTile extends StatelessWidget {

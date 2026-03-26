@@ -25,27 +25,17 @@ class AuthApi {
   final ApiClient _api;
   final TokenStorage _tokenStorage;
 
-  /// POST /api/auth/login — username (email или номер зачётки), password.
-  /// Токен и пользователь приходят в заголовках Authorization, X-User-Data.
-  Future<UserModel> login({required String username, required String password}) async {
-    final response = await _api.dio.post<dynamic>(
-      ApiConstants.authLoginPath,
-      data: <String, String>{'username': username, 'password': password},
-      options: Options(
-        contentType: Headers.formUrlEncodedContentType,
-        validateStatus: (s) => s != null && s < 500,
-      ),
-    );
+  static const String _studentVerify1cPath = '/auth/student/verify-1c';
+  static const String _studentRegisterPath = '/auth/student/register';
 
-    if (response.statusCode != 200) {
-      final detail = _extractDetail(response);
-      throw ApiException(detail ?? 'Ошибка входа', response.statusCode);
-    }
-
-    final token = response.headers.value('Authorization')?.replaceFirst('Bearer ', '').trim() ??
+  Future<UserModel> _saveAuthFromHeadersOrFetchMe(Response<dynamic> response) async {
+    final token = response.headers
+            .value('Authorization')
+            ?.replaceFirst('Bearer ', '')
+            .trim() ??
         response.headers.value('X-Auth-Token');
     if (token == null || token.isEmpty) {
-      throw ApiException('Сервер не вернул токен');
+      throw ApiException('Сервер не вернул токен', response.statusCode);
     }
     await _tokenStorage.setToken(token);
 
@@ -65,6 +55,69 @@ class AuthApi {
     final json = jsonEncode(me.toJson());
     await _tokenStorage.setUserDataJson(json);
     return me;
+  }
+
+  /// POST /api/auth/login — username (email или номер зачётки), password.
+  /// Токен и пользователь приходят в заголовках Authorization, X-User-Data.
+  Future<UserModel> login({required String username, required String password}) async {
+    final response = await _api.dio.post<dynamic>(
+      ApiConstants.authLoginPath,
+      data: <String, String>{'username': username, 'password': password},
+      options: Options(
+        contentType: Headers.formUrlEncodedContentType,
+        validateStatus: (s) => s != null && s < 500,
+      ),
+    );
+
+    if (response.statusCode != 200) {
+      final detail = _extractDetail(response);
+      throw ApiException(detail ?? 'Ошибка входа', response.statusCode);
+    }
+
+    return _saveAuthFromHeadersOrFetchMe(response);
+  }
+
+  /// POST /api/auth/student/verify-1c — проверка студента в 1С (без регистрации).
+  Future<void> verifyStudentIn1c({
+    required String fullName,
+    required String studentBookNumber,
+  }) async {
+    final response = await _api.dio.post<dynamic>(
+      _studentVerify1cPath,
+      data: <String, dynamic>{
+        'full_name': fullName.trim(),
+        'student_book_number': studentBookNumber.trim(),
+      },
+      options: Options(validateStatus: (s) => s != null && s < 500),
+    );
+    if (response.statusCode != 200) {
+      final detail = _extractDetail(response);
+      throw ApiException(detail ?? 'Не удалось проверить данные в 1С', response.statusCode);
+    }
+  }
+
+  /// POST /api/auth/student/register — регистрация студента (возвращает токен в заголовках).
+  Future<UserModel> registerStudent({
+    required String fullName,
+    required String studentBookNumber,
+    required String email,
+    required String password,
+  }) async {
+    final response = await _api.dio.post<dynamic>(
+      _studentRegisterPath,
+      data: <String, dynamic>{
+        'full_name': fullName.trim(),
+        'student_book_number': studentBookNumber.trim(),
+        'email': email.trim(),
+        'password': password,
+      },
+      options: Options(validateStatus: (s) => s != null && s < 500),
+    );
+    if (response.statusCode != 201) {
+      final detail = _extractDetail(response);
+      throw ApiException(detail ?? 'Не удалось зарегистрироваться', response.statusCode);
+    }
+    return _saveAuthFromHeadersOrFetchMe(response);
   }
 
   /// GET /api/auth/me — текущий пользователь (Bearer).

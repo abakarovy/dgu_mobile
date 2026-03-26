@@ -36,18 +36,31 @@ class EventDetailPage extends StatelessWidget {
                 SizedBox(
                   width: double.infinity,
                   height: imageHeight,
-                  child: Image.asset(
-                    item.imageAsset,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => Container(
-                      color: AppColors.backgroundSecondary,
-                      child: const Icon(
-                        Icons.image_outlined,
-                        size: 48,
-                        color: AppColors.caption,
-                      ),
-                    ),
-                  ),
+                  child: (item.imageUrl != null && item.imageUrl!.isNotEmpty)
+                      ? Image.network(
+                          item.imageUrl!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) => Container(
+                            color: AppColors.backgroundSecondary,
+                            child: const Icon(
+                              Icons.image_outlined,
+                              size: 48,
+                              color: AppColors.caption,
+                            ),
+                          ),
+                        )
+                      : Image.asset(
+                          item.imageAsset ?? 'assets/images/img1.png',
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) => Container(
+                            color: AppColors.backgroundSecondary,
+                            child: const Icon(
+                              Icons.image_outlined,
+                              size: 48,
+                              color: AppColors.caption,
+                            ),
+                          ),
+                        ),
                 ),
                 Positioned(
                   left: paddingH,

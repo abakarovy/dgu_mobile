@@ -4,7 +4,8 @@ import 'package:dgu_mobile/core/theme/app_text_styles.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../data/schedule_mock_data.dart';
+import '../../data/schedule_lesson.dart';
+import '../../../../core/di/app_container.dart';
 import '../../../../shared/widgets/app_header.dart';
 import '../widgets/schedule_lesson_tile.dart';
 
@@ -28,6 +29,8 @@ class SchedulePage extends StatefulWidget {
 class _SchedulePageState extends State<SchedulePage> {
   late DateTime _mondayOfWeek;
   late int _selectedDayIndex;
+  List<ScheduleLesson> _week = const <ScheduleLesson>[];
+  bool _loading = true;
 
   @override
   void initState() {
@@ -35,6 +38,7 @@ class _SchedulePageState extends State<SchedulePage> {
     final now = DateTime.now();
     _mondayOfWeek = now.subtract(Duration(days: now.weekday - 1));
     _selectedDayIndex = now.weekday - 1;
+    _loadFromCacheThenRefresh();
   }
 
   DateTime _dateFor(int index) => _mondayOfWeek.add(Duration(days: index));
@@ -165,7 +169,20 @@ class _SchedulePageState extends State<SchedulePage> {
   }
 
   Widget _buildLessonsList() {
-    final items = scheduleLessonsForDay(_selectedDayIndex);
+    final items = _week
+        .where((e) => e.weekdayIndex == null || e.weekdayIndex == _selectedDayIndex)
+        .toList();
+    if (_loading && _week.isEmpty) {
+      // На первом запуске, если по какой-то причине кэша нет.
+      return const Padding(
+        padding: EdgeInsets.only(top: 24),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+    return _buildLessonsColumn(items);
+  }
+
+  Widget _buildLessonsColumn(List<ScheduleLesson> items) {
     if (items.isEmpty) {
       return Padding(
         padding: const EdgeInsets.only(top: 16),
@@ -202,5 +219,58 @@ class _SchedulePageState extends State<SchedulePage> {
         );
       }).toList(),
     );
+  }
+
+  Future<void> _loadFromCacheThenRefresh() async {
+    const cacheKey = 'schedule:week';
+    // 1) Мгновенно рисуем кэш (он прогревается на splash).
+    final cached = AppContainer.jsonCache.getJsonList(cacheKey);
+    if (cached != null) {
+      final list = cached
+          .whereType<Map>()
+          .map((m) => Map<String, dynamic>.from(m))
+          .map(
+            (j) => ScheduleLesson(
+              weekdayIndex: j['weekday_index'] is int ? (j['weekday_index'] as int) : null,
+              subject: (j['subject'] as String?) ?? '',
+              time: (j['time'] as String?) ?? '',
+              teacher: (j['teacher'] as String?) ?? '',
+              auditorium: (j['auditorium'] as String?) ?? '',
+            ),
+          )
+          .toList();
+      if (mounted) {
+        setState(() {
+          _week = list;
+          _loading = false;
+        });
+      }
+    }
+
+    // 2) Тихо обновляем из сети (без блокировки UI).
+    try {
+      final fresh = await AppContainer.scheduleApi.getWeek();
+      await AppContainer.jsonCache.setJson(
+        cacheKey,
+        [
+          for (final l in fresh)
+            {
+              'weekday_index': l.weekdayIndex,
+              'subject': l.subject,
+              'time': l.time,
+              'teacher': l.teacher,
+              'auditorium': l.auditorium,
+            }
+        ],
+      );
+      if (mounted) {
+        setState(() {
+          _week = fresh;
+          _loading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 }

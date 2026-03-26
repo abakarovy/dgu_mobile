@@ -23,17 +23,16 @@ class _LoginPageState extends State<LoginPage> {
   final _firstNameController = TextEditingController();
   final _patronymicController = TextEditingController();
   final _studentIdController = TextEditingController();
-  final _passwordController = TextEditingController();
 
   final _lastNameFocusNode = FocusNode();
   final _firstNameFocusNode = FocusNode();
   final _patronymicFocusNode = FocusNode();
   final _studentIdFocusNode = FocusNode();
-  final _passwordFocusNode = FocusNode();
 
   final Set<String> _errorFields = {};
   bool _showWrongCredentialsError = false;
   String _credentialsErrorMessage = 'Неверные Ф.И.О. или № зач. книжки!';
+  bool _submitting = false;
 
   @override
   void initState() {
@@ -70,14 +69,6 @@ class _LoginPageState extends State<LoginPage> {
         });
       }
     });
-    _passwordFocusNode.addListener(() {
-      if (_passwordFocusNode.hasFocus) {
-        setState(() {
-          _errorFields.remove('password');
-          _showWrongCredentialsError = false;
-        });
-      }
-    });
   }
 
   @override
@@ -86,22 +77,29 @@ class _LoginPageState extends State<LoginPage> {
     _firstNameController.dispose();
     _patronymicController.dispose();
     _studentIdController.dispose();
-    _passwordController.dispose();
     _lastNameFocusNode.dispose();
     _firstNameFocusNode.dispose();
     _patronymicFocusNode.dispose();
     _studentIdFocusNode.dispose();
-    _passwordFocusNode.dispose();
     super.dispose();
   }
 
+  String _fullName() {
+    final parts = [
+      _lastNameController.text.trim(),
+      _firstNameController.text.trim(),
+      _patronymicController.text.trim(),
+    ].where((e) => e.isNotEmpty).toList();
+    return parts.join(' ');
+  }
+
   Future<void> _submit() async {
+    if (_submitting) return;
     final errors = <String>{};
     if (_lastNameController.text.trim().isEmpty) errors.add('lastName');
     if (_firstNameController.text.trim().isEmpty) errors.add('firstName');
     if (_patronymicController.text.trim().isEmpty) errors.add('patronymic');
     if (_studentIdController.text.trim().isEmpty) errors.add('studentId');
-    if (_passwordController.text.trim().isEmpty) errors.add('password');
     setState(() {
       _errorFields
         ..clear()
@@ -110,18 +108,37 @@ class _LoginPageState extends State<LoginPage> {
     });
     if (errors.isNotEmpty) return;
 
+    final fullName = _fullName();
     final bookNumber = _studentIdController.text.trim();
-    final password = _passwordController.text.trim();
     try {
-      await AppContainer.authRepository.login(username: bookNumber, password: password);
+      setState(() => _submitting = true);
+      // Проверяем студента в 1С. Дальше — регистрация/вход по email.
+      await AppContainer.authRepository.verifyStudentIn1c(
+        fullName: fullName,
+        studentBookNumber: bookNumber,
+      );
       if (!mounted) return;
-      context.go('/app/home');
+      context.go(
+        '/login/email',
+        extra: {'mode': 'register', 'fullName': fullName, 'book': bookNumber},
+      );
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() {
         _showWrongCredentialsError = true;
-        _credentialsErrorMessage = e.message;
+        final msg = e.message;
+        if (e.statusCode == 404) {
+          _credentialsErrorMessage = 'Неверные данные';
+        } else if (e.statusCode == 400 &&
+            msg.toLowerCase().contains('уже зарегистр')) {
+          _credentialsErrorMessage =
+              'Этот номер зачётки уже зарегистрирован, войдите по E-mail';
+        } else {
+          _credentialsErrorMessage = msg;
+        }
       });
+    } finally {
+      if (mounted) setState(() => _submitting = false);
     }
   }
 
@@ -244,8 +261,6 @@ class _LoginPageState extends State<LoginPage> {
           _buildField(key: 'patronymic', label: 'Отчество', hint: 'Иванович', controller: _patronymicController, focusNode: _patronymicFocusNode),
           const SizedBox(height: 12),
           _buildField(key: 'studentId', label: 'Номер з/к', hint: '12345', controller: _studentIdController, focusNode: _studentIdFocusNode, keyboardType: TextInputType.number),
-          const SizedBox(height: 12),
-          _buildField(key: 'password', label: 'Пароль', hint: '••••••••', controller: _passwordController, focusNode: _passwordFocusNode, obscureText: true),
         ],
       ),
     );
@@ -297,7 +312,7 @@ class _LoginPageState extends State<LoginPage> {
               fontWeight: FontWeight.w400,
               fontSize: 14,
               height: 1.0,
-              color: const Color(0x801E293B),
+              color: AppColors.textPrimary.withValues(alpha: 0.45),
             ),
             filled: true,
             fillColor: AppColors.backgroundSecondary,
@@ -314,7 +329,7 @@ class _LoginPageState extends State<LoginPage> {
             fontWeight: FontWeight.w400,
             fontSize: 14,
             height: 1.0,
-            color: const Color(0x801E293B),
+            color: AppColors.textPrimary,
           ),
         ),
       ],

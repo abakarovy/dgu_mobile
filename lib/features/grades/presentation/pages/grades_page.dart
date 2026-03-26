@@ -2,12 +2,14 @@ import 'package:dgu_mobile/core/constants/app_colors.dart';
 import 'package:dgu_mobile/core/constants/app_ui.dart';
 import 'package:dgu_mobile/core/platform/native_date_range_picker.dart';
 import 'package:dgu_mobile/core/theme/app_text_styles.dart';
+import 'package:dgu_mobile/core/di/app_container.dart';
 import 'package:flutter/material.dart';
 
 import '../models/session_grade_breakdown.dart';
 import '../widgets/grades_list_view.dart';
 import '../widgets/learning_route_view.dart';
 import '../widgets/subject_grades_sheet.dart';
+import '../../../grades/domain/entities/grade_entity.dart';
 
 /// Вкладка «Оценки»: 3 таба (Текущие, Сессия, Учебный маршрут).
 /// Текущие: выбор периода (неделя по умолчанию), стрелки, календарь; оценки с датами и типами.
@@ -26,225 +28,31 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
   DateTime _rangeEnd = DateTime.now();
   bool _isWeekMode = true;
 
-  static final List<GradeListItem> _currentGrades = [
-    GradeListItem(
-      subjectName: 'Веб разработка',
-      grade: '5',
-      subtitle: 'Алиева А.М.',
-      date: DateTime.now().subtract(const Duration(days: 1)),
-      type: 'Опрос',
-    ),
-    GradeListItem(
-      subjectName: 'Базы данных',
-      grade: '4',
-      subtitle: 'Иванов И.И.',
-      date: DateTime.now().subtract(const Duration(days: 1)),
-      type: 'Введение тетради',
-    ),
-    GradeListItem(
-      subjectName: 'Математика',
-      grade: '5',
-      subtitle: 'Петрова П.П.',
-      date: DateTime.now(),
-      type: 'Контрольная работа',
-    ),
-    GradeListItem(
-      subjectName: 'Физика',
-      grade: '3',
-      subtitle: 'Сидоров С.С.',
-      date: DateTime.now().subtract(const Duration(days: 2)),
-      type: 'Промежуточная аттестация',
-    ),
-  ];
+  late final Future<List<GradeEntity>> _gradesFuture;
 
-  /// Сессия: карточки как раньше, внутри — аттестации и формы (Атт 1… Экз), не таблица.
-  static const List<GradeListItem> _semesterGrades = [
-    GradeListItem(
-      subjectName: 'Разработка мобильных приложений',
-      grade: '',
-      subtitle: '',
-      sessionBreakdown: SessionGradeBreakdown(
-        att1: 'атт',
-        att2: 'атт',
-        ekz: 'отл',
-      ),
-    ),
-    GradeListItem(
-      subjectName: 'Веб-программирование',
-      grade: '',
-      subtitle: '',
-      sessionBreakdown: SessionGradeBreakdown(
-        att1: 'атт',
-        att2: 'атт',
-        ekz: 'отл',
-      ),
-    ),
-    GradeListItem(
-      subjectName: 'Системное программирование',
-      grade: '',
-      subtitle: '',
-      sessionBreakdown: SessionGradeBreakdown(
-        att1: 'атт',
-        att2: 'атт',
-        zach: 'отл',
-      ),
-    ),
-    GradeListItem(
-      subjectName: 'Математическое моделирование',
-      grade: '',
-      subtitle: '',
-      sessionBreakdown: SessionGradeBreakdown(
-        att1: 'атт',
-        att2: 'атт',
-        zach: 'отл',
-      ),
-    ),
-    GradeListItem(
-      subjectName: 'Базы данных',
-      grade: '',
-      subtitle: '',
-      sessionBreakdown: SessionGradeBreakdown(
-        att1: 'атт',
-        att2: 'атт',
-        dfk: 'удовл',
-        zach: 'отл',
-      ),
-    ),
-  ];
-
-  /// Все оценки по предметам для детализации при нажатии.
-  static Map<String, List<GradeListItem>> get _allGradesBySubject {
-    final now = DateTime.now();
-    return {
-      'Веб разработка': [
-        GradeListItem(
-          subjectName: 'Веб разработка',
-          grade: '5',
-          subtitle: 'Алиева А.М.',
-          date: now.subtract(const Duration(days: 1)),
-          type: 'Опрос',
-        ),
-        GradeListItem(
-          subjectName: 'Веб разработка',
-          grade: '5',
-          subtitle: 'Алиева А.М.',
-          date: now.subtract(const Duration(days: 14)),
-          type: 'Домашняя работа',
-        ),
-        GradeListItem(
-          subjectName: 'Веб разработка',
-          grade: '4',
-          subtitle: 'Алиева А.М.',
-          date: now.subtract(const Duration(days: 21)),
-          type: 'Контрольная работа',
-        ),
-        GradeListItem(
-          subjectName: 'Веб разработка',
-          grade: '5',
-          subtitle: 'Алиева А.М.',
-          date: now.subtract(const Duration(days: 28)),
-          type: 'Введение тетради',
-        ),
-      ],
-      'Базы данных': [
-        GradeListItem(
-          subjectName: 'Базы данных',
-          grade: '4',
-          subtitle: 'Иванов И.И.',
-          date: now.subtract(const Duration(days: 1)),
-          type: 'Введение тетради',
-        ),
-        GradeListItem(
-          subjectName: 'Базы данных',
-          grade: '5',
-          subtitle: 'Иванов И.И.',
-          date: now.subtract(const Duration(days: 8)),
-          type: 'Опрос',
-        ),
-        GradeListItem(
-          subjectName: 'Базы данных',
-          grade: '4',
-          subtitle: 'Иванов И.И.',
-          date: now.subtract(const Duration(days: 15)),
-          type: 'Практическая работа',
-        ),
-      ],
-      'Математика': [
-        GradeListItem(
-          subjectName: 'Математика',
-          grade: '5',
-          subtitle: 'Петрова П.П.',
-          date: now,
-          type: 'Контрольная работа',
-        ),
-        GradeListItem(
-          subjectName: 'Математика',
-          grade: '4',
-          subtitle: 'Петрова П.П.',
-          date: now.subtract(const Duration(days: 10)),
-          type: 'Опрос',
-        ),
-        GradeListItem(
-          subjectName: 'Математика',
-          grade: '4',
-          subtitle: 'Петрова П.П.',
-          date: now.subtract(const Duration(days: 17)),
-          type: 'Домашняя работа',
-        ),
-      ],
-      'Физика': [
-        GradeListItem(
-          subjectName: 'Физика',
-          grade: '3',
-          subtitle: 'Сидоров С.С.',
-          date: now.subtract(const Duration(days: 2)),
-          type: 'Промежуточная аттестация',
-        ),
-        GradeListItem(
-          subjectName: 'Физика',
-          grade: '4',
-          subtitle: 'Сидоров С.С.',
-          date: now.subtract(const Duration(days: 9)),
-          type: 'Лабораторная работа',
-        ),
-        GradeListItem(
-          subjectName: 'Физика',
-          grade: '4',
-          subtitle: 'Сидоров С.С.',
-          date: now.subtract(const Duration(days: 16)),
-          type: 'Опрос',
-        ),
-      ],
-      'Иностранный язык': [
-        GradeListItem(
-          subjectName: 'Иностранный язык',
-          grade: '5',
-          subtitle: 'Кузнецова К.К.',
-          date: now.subtract(const Duration(days: 3)),
-          type: 'Устный ответ',
-        ),
-        GradeListItem(
-          subjectName: 'Иностранный язык',
-          grade: '5',
-          subtitle: 'Кузнецова К.К.',
-          date: now.subtract(const Duration(days: 10)),
-          type: 'Домашнее чтение',
-        ),
-        GradeListItem(
-          subjectName: 'Иностранный язык',
-          grade: '5',
-          subtitle: 'Кузнецова К.К.',
-          date: now.subtract(const Duration(days: 17)),
-          type: 'Тест',
-        ),
-      ],
-    };
+  static bool _isSessionType(String? t) {
+    final s = (t ?? '').toLowerCase();
+    if (s.isEmpty) return false;
+    return s.contains('аттестация') ||
+        s.contains('экзам') ||
+        s.contains('зач') ||
+        s.contains('дифф') ||
+        s.contains('курсов');
   }
 
-  List<GradeListItem> get _filteredCurrentGrades {
+  /// Все оценки по предметам для детализации при нажатии.
+  static Map<String, List<GradeListItem>> _groupBySubject(List<GradeListItem> items) {
+    final map = <String, List<GradeListItem>>{};
+    for (final e in items) {
+      map.putIfAbsent(e.subjectName, () => []).add(e);
+    }
+    return map;
+  }
+
+  List<GradeListItem> _filtered(List<GradeListItem> items) {
     final start = DateTime(_rangeStart.year, _rangeStart.month, _rangeStart.day);
     final end = DateTime(_rangeEnd.year, _rangeEnd.month, _rangeEnd.day).add(const Duration(days: 1));
-    return _currentGrades.where((e) {
+    return items.where((e) {
       if (e.date == null) return false;
       final d = DateTime(e.date!.year, e.date!.month, e.date!.day);
       return !d.isBefore(start) && d.isBefore(end);
@@ -347,11 +155,15 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
   }
 
   void _showSubjectGrades(BuildContext context, String subjectName) {
-    final grades = _allGradesBySubject[subjectName] ?? [];
+    // В новой схеме sheet строим из уже загруженных данных (snap.data).
+    // Если данных нет — будет пусто.
+    final grades = _lastBySubject[subjectName] ?? [];
     if (context.mounted) {
       showSubjectGradesSheet(context, subjectName: subjectName, grades: grades);
     }
   }
+
+  Map<String, List<GradeListItem>> _lastBySubject = const {};
 
   @override
   void initState() {
@@ -362,6 +174,8 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
     final mondayOffset = weekday == 7 ? 6 : weekday - 1;
     _rangeStart = now.subtract(Duration(days: mondayOffset));
     _rangeEnd = _rangeStart.add(const Duration(days: 6));
+
+    _gradesFuture = _loadGrades();
   }
 
   @override
@@ -458,9 +272,7 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
                       controller: _tabController,
                       children: [
                         _buildCurrentTab(context),
-                        GradesListView(
-                          items: _semesterGrades,
-                        ),
+                        _buildSessionTab(),
                         const LearningRouteView(),
                       ],
                     ),
@@ -475,11 +287,152 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
   }
 
   Widget _buildCurrentTab(BuildContext context) {
-    return GradesListView(
-      items: _filteredCurrentGrades,
-      groupByDate: true,
-      onSubjectTap: (name) => _showSubjectGrades(context, name),
+    return FutureBuilder<List<GradeEntity>>(
+      future: _gradesFuture,
+      builder: (context, snap) {
+        final all = (snap.data ?? const <GradeEntity>[]);
+        final currentEntities =
+            all.where((g) => !_isSessionType(g.gradeType)).toList();
+        final list = currentEntities.map(_toListItem).toList();
+        final filtered = _filtered(list);
+        _lastBySubject = _groupBySubject(list);
+
+        if (snap.connectionState != ConnectionState.done && list.isEmpty) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (filtered.isEmpty) {
+          return Center(
+            child: Text(
+              'Нет текущих оценок',
+              style: Theme.of(context)
+                  .textTheme
+                  .bodyLarge
+                  ?.copyWith(color: AppColors.caption),
+            ),
+          );
+        }
+        return GradesListView(
+          items: filtered,
+          groupByDate: true,
+          onSubjectTap: (name) => _showSubjectGrades(context, name),
+        );
+      },
     );
+  }
+
+  Widget _buildSessionTab() {
+    return FutureBuilder<List<GradeEntity>>(
+      future: _gradesFuture,
+      builder: (context, snap) {
+        final all = (snap.data ?? const <GradeEntity>[])
+            .where((g) => _isSessionType(g.gradeType))
+            .toList();
+        if (snap.connectionState != ConnectionState.done && all.isEmpty) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (all.isEmpty) {
+          return Center(
+            child: Text(
+              'Нет данных сессии',
+              style: Theme.of(context)
+                  .textTheme
+                  .bodyLarge
+                  ?.copyWith(color: AppColors.caption),
+            ),
+          );
+        }
+
+        final bySubject = <String, List<GradeEntity>>{};
+        for (final g in all) {
+          bySubject.putIfAbsent(g.subjectName, () => []).add(g);
+        }
+        final subjects = bySubject.keys.toList()..sort();
+
+        final items = <GradeListItem>[];
+        for (final s in subjects) {
+          final breakdown = _breakdownFor(bySubject[s]!);
+          items.add(
+            GradeListItem(
+              subjectName: s,
+              grade: '',
+              subtitle: '',
+              sessionBreakdown: breakdown,
+            ),
+          );
+        }
+
+        return GradesListView(items: items);
+      },
+    );
+  }
+
+  SessionGradeBreakdown _breakdownFor(List<GradeEntity> grades) {
+    String? pick(bool Function(String s) p) {
+      for (final g in grades) {
+        final t = (g.gradeType ?? '').toLowerCase();
+        if (p(t)) return g.grade;
+      }
+      return null;
+    }
+
+    return SessionGradeBreakdown(
+      // Аттестации — бинарный статус (есть/нет), без числовых оценок в UI.
+      att1: pick((s) => s.contains('аттестация 1') || s.contains('атт 1')) != null
+          ? 'атт'
+          : null,
+      att2: pick((s) => s.contains('аттестация 2') || s.contains('атт 2')) != null
+          ? 'атт'
+          : null,
+      dfk: pick((s) => s.contains('дифф')),
+      kurs: pick((s) => s.contains('курсов')),
+      zach: pick((s) => s.contains('зач') && !s.contains('дифф')),
+      ekz: pick((s) => s.contains('экзам')),
+    );
+  }
+
+  GradeListItem _toListItem(GradeEntity e) {
+    return GradeListItem(
+      subjectName: e.subjectName,
+      grade: e.grade,
+      subtitle: e.teacherName ?? '',
+      date: e.date,
+      type: e.gradeType,
+    );
+  }
+
+  Future<List<GradeEntity>> _loadGrades() async {
+    const cacheKey = 'grades:my';
+    try {
+      final fresh = await AppContainer.gradesApi.getMyGrades();
+      await AppContainer.jsonCache.setJson(
+        cacheKey,
+        [
+          for (final g in fresh)
+            {
+              'subject_name': g.subjectName,
+              'grade': g.grade,
+              'grade_type': g.gradeType,
+              'teacher_name': g.teacherName,
+              'date': g.date?.toIso8601String(),
+            }
+        ],
+      );
+      return fresh;
+    } catch (_) {
+      final cached = AppContainer.jsonCache.getJsonList(cacheKey);
+      if (cached == null) rethrow;
+      return cached
+          .whereType<Map>()
+          .map((m) => Map<String, dynamic>.from(m))
+          .map((j) => GradeEntity(
+                subjectName: (j['subject_name'] as String?) ?? '',
+                grade: (j['grade'] as String?) ?? '',
+                gradeType: (j['grade_type'] as String?),
+                teacherName: (j['teacher_name'] as String?),
+                date: DateTime.tryParse((j['date'] as String?) ?? ''),
+              ))
+          .toList();
+    }
   }
 }
 

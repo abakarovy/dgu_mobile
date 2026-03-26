@@ -4,7 +4,7 @@ import 'package:dgu_mobile/core/theme/app_text_styles.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
-import '../../data/tasks_mock_data.dart';
+import '../../data/task_item.dart';
 
 /// Карточка одного задания: чип предмета, название, срок с иконкой часов.
 class TaskCard extends StatelessWidget {

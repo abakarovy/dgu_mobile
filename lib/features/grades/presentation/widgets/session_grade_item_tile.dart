@@ -19,12 +19,12 @@ class SessionGradeItemTile extends StatelessWidget {
   final SessionGradeBreakdown breakdown;
 
   static const List<({String key, String label})> _keys = [
-    (key: 'att1', label: 'Атт 1'),
-    (key: 'att2', label: 'Атт 2'),
+    (key: 'att1', label: 'Аттестация 1'),
+    (key: 'att2', label: 'Аттестация 2'),
     (key: 'dfk', label: 'ДФК'),
-    (key: 'kurs', label: 'Кур'),
-    (key: 'zach', label: 'Зач'),
-    (key: 'ekz', label: 'Экз'),
+    (key: 'kurs', label: 'Курсовая'),
+    (key: 'zach', label: 'Зачет'),
+    (key: 'ekz', label: 'Экзамен'),
   ];
 
   String? _raw(String key) {
@@ -130,6 +130,11 @@ class SessionGradeItemTile extends StatelessWidget {
                             child: _SessionPill(
                               label: items[rowIndices[r][c]].label,
                               value: items[rowIndices[r][c]].value,
+                              kind: items[rowIndices[r][c]].label
+                                      .toLowerCase()
+                                      .contains('аттестация')
+                                  ? _SessionPillKind.attestation
+                                  : _SessionPillKind.gradeOrText,
                             ),
                           ),
                         ],
@@ -146,16 +151,27 @@ class SessionGradeItemTile extends StatelessWidget {
   }
 }
 
+enum _SessionPillKind { attestation, gradeOrText }
+
 class _SessionPill extends StatelessWidget {
-  const _SessionPill({required this.label, required this.value});
+  const _SessionPill({
+    required this.label,
+    required this.value,
+    required this.kind,
+  });
 
   final String label;
   final String value;
+  final _SessionPillKind kind;
 
   /// Горизонтальные отступы + одна строка «label · value».
   static double intrinsicWidth(BuildContext context, String label, String value) {
-    final (valueColor, _, _) = _colorsFor(value);
-    final isGrade = _gradeCodeForValue(value) != null;
+    final kind = label.toLowerCase().contains('аттестация')
+        ? _SessionPillKind.attestation
+        : _SessionPillKind.gradeOrText;
+    final (valueColor, _, _) = _colorsFor(value, kind);
+    final isGrade =
+        kind == _SessionPillKind.gradeOrText && _gradeCodeForValue(value) != null;
     final labelColor = isGrade
         ? valueColor.withValues(alpha: 0.85)
         : AppColors.notificationSubtitle;
@@ -206,17 +222,27 @@ class _SessionPill extends StatelessWidget {
     if (lower == 'удовл') return '3';
     if (lower == 'хор') return '4';
     if (lower == 'отл') return '5';
+    if (lower == 'зачет' || lower == 'зачёт') return '5';
     return null;
   }
 
-  static (Color text, Color bg, Color border) _colorsFor(String value) {
+  static (Color text, Color bg, Color border) _colorsFor(
+    String value,
+    _SessionPillKind kind,
+  ) {
+    if (kind == _SessionPillKind.attestation) {
+      return (
+        AppColors.primaryBlue,
+        AppColors.backgroundBlue,
+        const Color(0x332563EB),
+      );
+    }
     final code = _gradeCodeForValue(value);
     if (code != null) {
       final (text, bg) = GradeItemTile.colorsForGrade(code);
       final border = Color.lerp(text, bg, 0.35)!;
       return (text, bg, border);
     }
-    // аттестации и пр. — как раньше, нейтраль + синий акцент
     return (
       AppColors.primaryBlue,
       AppColors.backgroundBlue,
@@ -226,8 +252,10 @@ class _SessionPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (valueColor, bg, borderColor) = _colorsFor(value);
-    final isGrade = _gradeCodeForValue(value) != null;
+    final shownValue = kind == _SessionPillKind.attestation ? 'Аттестация' : value;
+    final (valueColor, bg, borderColor) = _colorsFor(value, kind);
+    final isGrade =
+        kind == _SessionPillKind.gradeOrText && _gradeCodeForValue(value) != null;
     final labelColor = isGrade
         ? valueColor.withValues(alpha: 0.85)
         : AppColors.notificationSubtitle;
@@ -266,7 +294,7 @@ class _SessionPill extends StatelessWidget {
               ),
             ),
             TextSpan(
-              text: value,
+              text: shownValue,
               style: AppTextStyle.inter(
                 fontWeight: FontWeight.w800,
                 fontSize: 13,

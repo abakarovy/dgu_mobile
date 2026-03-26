@@ -10,7 +10,9 @@ import '../../../../data/api/auth_api.dart';
 
 /// Экран входа по E-Mail: те же заголовок и оформление, поля E-Mail и Пароль, кнопка «Войти» и «Войти по № з/к».
 class LoginEmailPage extends StatefulWidget {
-  const LoginEmailPage({super.key});
+  const LoginEmailPage({super.key, this.extra});
+
+  final Object? extra;
 
   @override
   State<LoginEmailPage> createState() => _LoginEmailPageState();
@@ -24,6 +26,24 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
   final Set<String> _errorFields = {};
   bool _showWrongCredentialsError = false;
   String _credentialsErrorMessage = 'Неверный E-Mail или пароль';
+  bool _submitting = false;
+
+  bool get _isRegisterMode {
+    final e = widget.extra;
+    return e is Map && e['mode'] == 'register';
+  }
+
+  String? get _verifiedFullName {
+    final e = widget.extra;
+    if (e is Map) return e['fullName'] as String?;
+    return null;
+  }
+
+  String? get _verifiedBookNumber {
+    final e = widget.extra;
+    if (e is Map) return e['book'] as String?;
+    return null;
+  }
 
   @override
   void initState() {
@@ -56,6 +76,7 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
   }
 
   Future<void> _submit() async {
+    if (_submitting) return;
     final errors = <String>{};
     if (_emailController.text.trim().isEmpty) errors.add('email');
     if (_passwordController.text.trim().isEmpty) errors.add('password');
@@ -70,15 +91,37 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
     try {
-      await AppContainer.authRepository.login(username: email, password: password);
+      setState(() => _submitting = true);
+      if (_isRegisterMode) {
+        final fullName = _verifiedFullName;
+        final book = _verifiedBookNumber;
+        if (fullName == null || book == null) {
+          throw ApiException('Нет данных зачётки для регистрации');
+        }
+        await AppContainer.authRepository.registerStudent(
+          fullName: fullName,
+          studentBookNumber: book,
+          email: email,
+          password: password,
+        );
+      } else {
+        await AppContainer.authRepository.login(username: email, password: password);
+      }
       if (!mounted) return;
       context.go('/app/home');
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() {
         _showWrongCredentialsError = true;
-        _credentialsErrorMessage = e.message;
+        // Если пытались зарегистрировать студента, а он уже зарегистрирован — просим вход по email.
+        if (_isRegisterMode && (e.statusCode == 400 || e.statusCode == 409)) {
+          _credentialsErrorMessage = 'Аккаунт уже существует. Войдите по E‑Mail.';
+        } else {
+          _credentialsErrorMessage = e.message;
+        }
       });
+    } finally {
+      if (mounted) setState(() => _submitting = false);
     }
   }
 
@@ -113,7 +156,7 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
               ),
               Center(
                 child: Text(
-                  'Введите ваши данные для входа',
+                  _isRegisterMode ? 'Регистрация по E‑Mail' : 'Введите ваши данные для входа',
                   textAlign: TextAlign.center,
                   style: AppTextStyle.inter(
                     fontWeight: FontWeight.w400,
@@ -143,7 +186,10 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
               const SizedBox(height: 32),
               _buildSubmitButton(),
               const SizedBox(height: 12),
-              _buildSwitchButton(label: 'Войти по № з/к', onTap: () => context.go('/login')),
+              _buildSwitchButton(
+                label: _isRegisterMode ? 'Назад' : 'Войти по № з/к',
+                onTap: () => context.go('/login'),
+              ),
             ],
           ),
         ),
@@ -244,7 +290,7 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
               fontWeight: FontWeight.w400,
               fontSize: 14,
               height: 1.0,
-              color: const Color(0x801E293B),
+              color: AppColors.textPrimary.withValues(alpha: 0.45),
             ),
             filled: true,
             fillColor: AppColors.backgroundSecondary,
@@ -261,7 +307,7 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
             fontWeight: FontWeight.w400,
             fontSize: 14,
             height: 1.0,
-            color: const Color(0x801E293B),
+            color: AppColors.textPrimary,
           ),
         ),
       ],
@@ -284,7 +330,7 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
           height: 24 / 16,
         ),
       ),
-      child: const Text('Войти'),
+      child: Text(_isRegisterMode ? 'Зарегистрироваться' : 'Войти'),
     );
   }
 

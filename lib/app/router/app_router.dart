@@ -1,5 +1,7 @@
 import 'package:go_router/go_router.dart';
 
+import '../bootstrap/bootstrap_page.dart';
+import '../../core/di/app_container.dart';
 import '../../features/events/presentation/pages/events_page.dart';
 import '../../features/events/data/event_item.dart';
 import '../../features/events/presentation/pages/event_detail_page.dart';
@@ -7,7 +9,7 @@ import '../../features/grades/presentation/pages/grades_page.dart';
 import '../../features/home/presentation/pages/home_page.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/pages/login_email_page.dart';
-import '../../features/news/data/news_item.dart';
+import '../../data/models/news_model.dart';
 import '../../features/news/presentation/pages/news_detail_page.dart';
 import '../../features/news/presentation/pages/news_page.dart';
 import '../../features/notifications/presentation/pages/notifications_page.dart';
@@ -21,8 +23,13 @@ import '../../features/shell/presentation/pages/app_shell_page.dart';
 /// Конфигурация маршрутизации приложения.
 /// StatefulShellRoute.indexedStack устраняет дублирование GlobalKey при переключении вкладок.
 final GoRouter appRouter = GoRouter(
-  initialLocation: '/app/home',
+  initialLocation: '/bootstrap',
   routes: [
+    GoRoute(
+      path: '/bootstrap',
+      name: 'bootstrap',
+      builder: (context, state) => const BootstrapPage(),
+    ),
     GoRoute(
       path: '/login',
       name: 'login',
@@ -31,7 +38,7 @@ final GoRouter appRouter = GoRouter(
         GoRoute(
           path: 'email',
           name: 'loginEmail',
-          builder: (context, state) => const LoginEmailPage(),
+          builder: (context, state) => LoginEmailPage(extra: state.extra),
         ),
       ],
     ),
@@ -117,7 +124,7 @@ final GoRouter appRouter = GoRouter(
       path: '/app/news/detail',
       name: 'newsDetail',
       builder: (context, state) {
-        final item = state.extra as NewsItem?;
+        final item = state.extra as NewsModel?;
         if (item == null) return const NewsPage();
         return NewsDetailPage(item: item);
       },
@@ -132,12 +139,21 @@ final GoRouter appRouter = GoRouter(
       },
     ),
   ],
-  // Backend/auth отключены: всегда пускаем в /app/*
   redirect: (context, state) async {
     final path = state.uri.path;
 
+    if (path == '/bootstrap') return null;
+
     // Нормализуем /app → /app/home
     if (path == '/app' || path == '/app/') return '/app/home';
+
+    final isLoggedIn = await AppContainer.authRepository.isLoggedIn();
+
+    // Не логин: запрещаем любые /app/*
+    if (!isLoggedIn && path.startsWith('/app')) return '/login';
+
+    // Уже залогинен: не показываем /login
+    if (isLoggedIn && path.startsWith('/login')) return '/app/home';
 
     return null;
   },

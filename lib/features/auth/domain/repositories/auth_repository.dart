@@ -5,6 +5,17 @@ abstract class AuthRepository {
   /// Вход по email или номеру зачётки и паролю. Сохраняет токен и пользователя.
   Future<UserEntity> login({required String username, required String password});
 
+  /// Проверка студента в 1С (по ФИО и № зачётки) перед регистрацией.
+  Future<void> verifyStudentIn1c({required String fullName, required String studentBookNumber});
+
+  /// Регистрация студента (создаёт аккаунт и сразу авторизует по токену из заголовков).
+  Future<UserEntity> registerStudent({
+    required String fullName,
+    required String studentBookNumber,
+    required String email,
+    required String password,
+  });
+
   /// Выход: удаление токена и данных пользователя.
   Future<void> logout();
 

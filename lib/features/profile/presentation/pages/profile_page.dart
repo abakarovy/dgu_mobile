@@ -12,6 +12,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../../data/models/user_model.dart';
 import '../widgets/profile_row_button.dart';
 
 /// Вкладка «Профиль» — данные аккаунта, образование, личные данные и настройки.
@@ -24,11 +25,13 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   String? _savedAvatarPath;
+  late final Future<UserModel> _meFuture;
 
   @override
   void initState() {
     super.initState();
     _loadAvatarPath();
+    _meFuture = _loadMe();
   }
 
   Future<void> _loadAvatarPath() async {
@@ -76,7 +79,13 @@ class _ProfilePageState extends State<ProfilePage> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const SizedBox(height: AppUi.spacingXl),
-          _buildAccountInfo(context),
+          FutureBuilder<UserModel>(
+            future: _meFuture,
+            builder: (context, snap) {
+              final me = snap.data;
+              return _buildAccountInfo(context, me);
+            },
+          ),
           const SizedBox(height: AppUi.spacingXl),
           _buildEducationInfo(context),
           const SizedBox(height: 28),
@@ -191,10 +200,13 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  Widget _buildAccountInfo(BuildContext context) {
+  Widget _buildAccountInfo(BuildContext context, UserModel? me) {
     final hasAvatar = _savedAvatarPath != null &&
         _savedAvatarPath!.isNotEmpty &&
         File(_savedAvatarPath!).existsSync();
+
+    final fullName = me?.fullName ?? '—';
+    final groupLine = _buildGroupLine(me);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -269,7 +281,7 @@ class _ProfilePageState extends State<ProfilePage> {
         ),
         const SizedBox(height: AppUi.spacingM),
         Text(
-          'Имя Фамилия',
+          fullName,
           style: AppTextStyle.inter(
             fontWeight: FontWeight.w800,
             fontSize: 24,
@@ -280,7 +292,7 @@ class _ProfilePageState extends State<ProfilePage> {
         ),
         const SizedBox(height: AppUi.spacingXs),
         Text(
-          'ИСИП-41 • Информационные системы и программирование',
+          groupLine,
           style: AppTextStyle.inter(
             fontWeight: FontWeight.w600,
             fontSize: 14,
@@ -291,6 +303,31 @@ class _ProfilePageState extends State<ProfilePage> {
         ),
       ],
     );
+  }
+
+  String _buildGroupLine(UserModel? me) {
+    final course = me?.course;
+    final direction = me?.direction;
+    final groupId = me?.groupId;
+
+    final parts = <String>[];
+    if (groupId != null) parts.add('Группа $groupId');
+    if (course != null) parts.add('$course курс');
+    if (direction != null && direction.trim().isNotEmpty) parts.add(direction.trim());
+    return parts.isEmpty ? '—' : parts.join(' • ');
+  }
+
+  Future<UserModel> _loadMe() async {
+    const cacheKey = 'auth:me';
+    try {
+      final fresh = await AppContainer.authApi.getMe();
+      await AppContainer.jsonCache.setJson(cacheKey, fresh.toJson());
+      return fresh;
+    } catch (_) {
+      final cached = AppContainer.jsonCache.getJsonMap(cacheKey);
+      if (cached == null) rethrow;
+      return UserModel.fromJson(cached);
+    }
   }
 
   Widget _buildEducationInfo(BuildContext context) {

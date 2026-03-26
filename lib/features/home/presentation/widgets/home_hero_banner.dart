@@ -9,10 +9,23 @@ import '../../../../core/theme/app_text_styles.dart';
 
 /// Баннер на главной: контейнер с приветствием и данными студента, картинка card.svg справа снизу.
 class HomeHeroBanner extends StatelessWidget {
-  const HomeHeroBanner({super.key});
+  const HomeHeroBanner({
+    super.key,
+    required this.fullName,
+    this.groupLabel,
+    this.performanceLabel,
+  });
+
+  final String fullName;
+  final String? groupLabel;
+  final String? performanceLabel;
 
   @override
   Widget build(BuildContext context) {
+    final groupValue = (groupLabel ?? '').trim().isEmpty ? '-' : groupLabel!.trim();
+    final perfValue =
+        (performanceLabel ?? '').trim().isEmpty ? '-' : performanceLabel!.trim();
+
     return Container(
       constraints: const BoxConstraints(minHeight: 140),
       decoration: BoxDecoration(
@@ -48,7 +61,7 @@ class HomeHeroBanner extends StatelessWidget {
                 ),
                 const SizedBox(height: AppUi.spacingXs),
                 Text(
-                  'Имя Фамилия',
+                  fullName,
                   style: AppTextStyle.inter(
                     fontWeight: FontWeight.w700,
                     fontSize: 24,
@@ -60,9 +73,9 @@ class HomeHeroBanner extends StatelessWidget {
                 Wrap(
                   spacing: AppUi.spacingM,
                   runSpacing: AppUi.spacingS,
-                  children: const [
-                    _InfoChip(label: 'Группа', value: 'ИСИП-41'),
-                    _InfoChip(label: 'Успеваемость', value: '4.92'),
+                  children: [
+                    _InfoChip(label: 'Группа', value: groupValue),
+                    _InfoChip(label: 'Успеваемость', value: perfValue),
                   ],
                 ),
               ],

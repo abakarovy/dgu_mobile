@@ -7,13 +7,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../data/news_item.dart';
+import '../../../../data/models/news_model.dart';
 
 /// Экран детали новости: без аппбара, картинка 320, стрелка назад в круге, категория, дата, заголовок, текст.
 class NewsDetailPage extends StatelessWidget {
   const NewsDetailPage({super.key, required this.item});
 
-  final NewsItem item;
+  final NewsModel item;
 
   @override
   Widget build(BuildContext context) {
@@ -32,14 +32,19 @@ class NewsDetailPage extends StatelessWidget {
                 SizedBox(
                   width: double.infinity,
                   height: imageHeight,
-                  child: Image.asset(
-                    item.imageAsset,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => Container(
-                      color: AppColors.backgroundSecondary,
-                      child: const Icon(Icons.image_outlined, size: 48, color: AppColors.caption),
-                    ),
-                  ),
+                  child: (item.imageUrl != null && item.imageUrl!.isNotEmpty)
+                      ? Image.network(
+                          item.imageUrl!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) => Container(
+                            color: AppColors.backgroundSecondary,
+                            child: const Icon(Icons.image_outlined, size: 48, color: AppColors.caption),
+                          ),
+                        )
+                      : Container(
+                          color: AppColors.backgroundSecondary,
+                          child: const Icon(Icons.image_outlined, size: 48, color: AppColors.caption),
+                        ),
                 ),
                 Positioned(
                   left: paddingH,
@@ -54,7 +59,10 @@ class NewsDetailPage extends StatelessWidget {
             sliver: SliverList(
               delegate: SliverChildListDelegate([
                 const SizedBox(height: AppUi.spacingXl),
-                _CategoryAndDate(category: item.category, date: item.date),
+                _CategoryAndDate(
+                  category: 'Новости',
+                  date: item.createdAt.toIso8601String().split('T').first,
+                ),
                 const SizedBox(height: 16),
                 Text(
                   item.title,
@@ -66,50 +74,19 @@ class NewsDetailPage extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 24),
-                _buildBody(item),
+                Text(
+                  item.content,
+                  style: AppTextStyle.inter(
+                    fontWeight: FontWeight.w400,
+                    fontSize: 16,
+                    height: 26 / 16,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
               ]),
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildBody(NewsItem item) {
-    if (item.bodyBlocks != null && item.bodyBlocks!.isNotEmpty) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: item.bodyBlocks!.map((b) {
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: Text(
-              b.text,
-              style: b.italic
-                  ? AppTextStyle.inter(
-                      fontWeight: FontWeight.w400,
-                      fontStyle: FontStyle.italic,
-                      fontSize: 14,
-                      height: 22.75 / 14,
-                      color: AppColors.newsDetailQuote,
-                    )
-                  : AppTextStyle.inter(
-                      fontWeight: FontWeight.w400,
-                      fontSize: 16,
-                      height: 26 / 16,
-                      color: AppColors.textPrimary,
-                    ),
-            ),
-          );
-        }).toList(),
-      );
-    }
-    return Text(
-      item.body,
-      style: AppTextStyle.inter(
-        fontWeight: FontWeight.w400,
-        fontSize: 16,
-        height: 26 / 16,
-        color: AppColors.textPrimary,
       ),
     );
   }

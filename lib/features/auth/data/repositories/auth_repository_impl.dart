@@ -22,6 +22,33 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
+  Future<void> verifyStudentIn1c({
+    required String fullName,
+    required String studentBookNumber,
+  }) async {
+    await _authApi.verifyStudentIn1c(
+      fullName: fullName.trim(),
+      studentBookNumber: studentBookNumber.trim(),
+    );
+  }
+
+  @override
+  Future<UserEntity> registerStudent({
+    required String fullName,
+    required String studentBookNumber,
+    required String email,
+    required String password,
+  }) async {
+    final user = await _authApi.registerStudent(
+      fullName: fullName.trim(),
+      studentBookNumber: studentBookNumber.trim(),
+      email: email.trim(),
+      password: password,
+    );
+    return user.toEntity();
+  }
+
+  @override
   Future<void> logout() async {
     await _tokenStorage.clear();
   }
