@@ -114,33 +114,43 @@ abstract final class AppContainer {
   static Future<void> _prefetchGrades() async {
     try {
       final fresh = await gradesApi.getMyGrades();
-      await jsonCache.setJson(
-        'grades:my',
-        [
-          for (final g in fresh)
-            {
-              'subject_name': g.subjectName,
-              'grade': g.grade,
-              'grade_type': g.gradeType,
-              'teacher_name': g.teacherName,
-              'date': g.date?.toIso8601String(),
-            }
-        ],
-      );
+      final hasCached = jsonCache.getJsonList('grades:my') != null;
+      // Не перетираем рабочий кэш пустым ответом.
+      if (fresh.isNotEmpty || !hasCached) {
+        await jsonCache.setJson(
+          'grades:my',
+          [
+            for (final g in fresh)
+              {
+                'subject_name': g.subjectName,
+                'grade': g.grade,
+                'grade_type': g.gradeType,
+                'teacher_name': g.teacherName,
+                'date': g.date?.toIso8601String(),
+              }
+          ],
+        );
+      }
     } catch (_) {}
   }
 
   static Future<void> _prefetchNews() async {
     try {
       final fresh = await newsApi.getNews(limit: 30);
-      await jsonCache.setJson('news:list', [for (final n in fresh) n.toJson()]);
+      final hasCached = jsonCache.getJsonList('news:list') != null;
+      if (fresh.isNotEmpty || !hasCached) {
+        await jsonCache.setJson('news:list', [for (final n in fresh) n.toJson()]);
+      }
     } catch (_) {}
   }
 
   static Future<void> _prefetchEvents() async {
     try {
       final fresh = await eventsApi.getEvents();
-      await jsonCache.setJson('events:list', [for (final e in fresh) e.toJson()]);
+      final hasCached = jsonCache.getJsonList('events:list') != null;
+      if (fresh.isNotEmpty || !hasCached) {
+        await jsonCache.setJson('events:list', [for (final e in fresh) e.toJson()]);
+      }
     } catch (_) {}
   }
 

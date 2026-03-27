@@ -86,10 +86,11 @@ class _ProfilePageState extends State<ProfilePage> {
               return _buildAccountInfo(context, me);
             },
           ),
-          const SizedBox(height: AppUi.spacingXl),
-          _buildEducationInfo(context),
           const SizedBox(height: 28),
-          _buildPersonalDataSection(context),
+          FutureBuilder<UserModel>(
+            future: _meFuture,
+            builder: (context, snap) => _buildPersonalDataSection(context, snap.data),
+          ),
           const SizedBox(height: 20),
           _buildSettingsSection(context),
           const SizedBox(height: 30),
@@ -115,7 +116,7 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  Widget _buildPersonalDataSection(BuildContext context) {
+  Widget _buildPersonalDataSection(BuildContext context, UserModel? me) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -133,7 +134,9 @@ class _ProfilePageState extends State<ProfilePage> {
         ProfileRowButton(
           iconPath: 'assets/icons/profile.svg',
           title: 'Студенческий билет',
-          subtitle: '2021-0452',
+          subtitle: (me?.studentBookNumber == null || me!.studentBookNumber!.isEmpty)
+              ? '-'
+              : me.studentBookNumber!,
           onTap: () => context.push('/app/profile/student-id'),
           titleColor: AppColors.textPrimary,
           iconColor: AppColors.primaryBlue,
@@ -330,84 +333,4 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  Widget _buildEducationInfo(BuildContext context) {
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-        Expanded(
-          child: _StatCard(label: 'Курс', value: '4'),
-        ),
-        const SizedBox(width: AppUi.spacingBetweenCards),
-        Expanded(
-          child: _StatCard(label: 'Средний балл', value: '4.92'),
-        ),
-        const SizedBox(width: AppUi.spacingBetweenCards),
-          Expanded(
-            child: _StatCard(label: 'Пропуски', value: '4ч'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatCard extends StatelessWidget {
-  const _StatCard({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: AppUi.contentPaddingV, horizontal: AppUi.spacingS),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(AppUi.statCardRadius),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            offset: const Offset(0, 2),
-            blurRadius: 4,
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          SizedBox(
-            height: AppUi.statCardLabelHeight,
-            child: Center(
-              child: Text(
-                label.toUpperCase(),
-                style: AppTextStyle.inter(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 10,
-                  height: 15 / 10,
-                  letterSpacing: 1,
-                  color: AppColors.caption,
-                ),
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            value,
-            style: AppTextStyle.inter(
-              fontWeight: FontWeight.w800,
-              fontSize: 18,
-              height: 27 / 18,
-              color: AppColors.textPrimary,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
 }

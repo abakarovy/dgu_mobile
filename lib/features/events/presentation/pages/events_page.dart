@@ -229,19 +229,28 @@ class _EventsPageState extends State<EventsPage> {
 
   Future<List<EventItem>> _loadEvents() async {
     const cacheKey = 'events:list';
-    try {
-      final fresh = await AppContainer.eventsApi.getEvents();
-      await AppContainer.jsonCache
-          .setJson(cacheKey, [for (final e in fresh) e.toJson()]);
-      return fresh.map(_toEventItem).toList();
-    } catch (_) {
+    List<EventItem> decodeCached() {
       final cached = AppContainer.jsonCache.getJsonList(cacheKey);
-      if (cached == null) rethrow;
+      if (cached == null) return const <EventItem>[];
       final models = cached
           .whereType<Map<String, dynamic>>()
           .map(EventModel.fromJson)
           .toList();
       return models.map(_toEventItem).toList();
+    }
+
+    final cachedFirst = decodeCached();
+    if (cachedFirst.isNotEmpty) return cachedFirst;
+
+    try {
+      final fresh = await AppContainer.eventsApi.getEvents();
+      if (fresh.isNotEmpty || cachedFirst.isEmpty) {
+        await AppContainer.jsonCache
+            .setJson(cacheKey, [for (final e in fresh) e.toJson()]);
+      }
+      return fresh.map(_toEventItem).toList();
+    } catch (_) {
+      return cachedFirst;
     }
   }
 

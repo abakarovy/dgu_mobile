@@ -76,8 +76,12 @@ class _NewsPageState extends State<NewsPage> {
           .toList();
     }
     // Если кэша нет — один раз загрузим сетью и сохраним.
-    final fresh = await AppContainer.newsApi.getNews(limit: 30);
-    await AppContainer.jsonCache.setJson(cacheKey, [for (final n in fresh) n.toJson()]);
-    return fresh;
+    try {
+      final fresh = await AppContainer.newsApi.getNews(limit: 30);
+      await AppContainer.jsonCache.setJson(cacheKey, [for (final n in fresh) n.toJson()]);
+      return fresh;
+    } catch (_) {
+      return const <NewsModel>[];
+    }
   }
 }

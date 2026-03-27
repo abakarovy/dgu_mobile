@@ -355,8 +355,8 @@ class _AppShellPageState extends State<AppShellPage> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Image.asset(
-          'assets/images/logo_icon.png',
+        SvgPicture.asset(
+          'assets/icons/logo.svg',
           height: AppUi.appBarIconSize,
           width: AppUi.appBarIconSize,
           fit: BoxFit.contain,

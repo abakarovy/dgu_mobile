@@ -402,25 +402,9 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
 
   Future<List<GradeEntity>> _loadGrades() async {
     const cacheKey = 'grades:my';
-    try {
-      final fresh = await AppContainer.gradesApi.getMyGrades();
-      await AppContainer.jsonCache.setJson(
-        cacheKey,
-        [
-          for (final g in fresh)
-            {
-              'subject_name': g.subjectName,
-              'grade': g.grade,
-              'grade_type': g.gradeType,
-              'teacher_name': g.teacherName,
-              'date': g.date?.toIso8601String(),
-            }
-        ],
-      );
-      return fresh;
-    } catch (_) {
+    List<GradeEntity> decodeCached() {
       final cached = AppContainer.jsonCache.getJsonList(cacheKey);
-      if (cached == null) rethrow;
+      if (cached == null) return const <GradeEntity>[];
       return cached
           .whereType<Map>()
           .map((m) => Map<String, dynamic>.from(m))
@@ -432,6 +416,31 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
                 date: DateTime.tryParse((j['date'] as String?) ?? ''),
               ))
           .toList();
+    }
+
+    try {
+      final fresh = await AppContainer.gradesApi.getMyGrades();
+      final cached = decodeCached();
+      // При пустом ответе сервера сохраняем старый кэш.
+      if (fresh.isNotEmpty || cached.isEmpty) {
+        await AppContainer.jsonCache.setJson(
+          cacheKey,
+          [
+            for (final g in fresh)
+              {
+                'subject_name': g.subjectName,
+                'grade': g.grade,
+                'grade_type': g.gradeType,
+                'teacher_name': g.teacherName,
+                'date': g.date?.toIso8601String(),
+              }
+          ],
+        );
+        return fresh;
+      }
+      return cached;
+    } catch (_) {
+      return decodeCached();
     }
   }
 }
