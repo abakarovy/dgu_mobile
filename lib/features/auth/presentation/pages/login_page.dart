@@ -133,6 +133,8 @@ class _LoginPageState extends State<LoginPage> {
             msg.toLowerCase().contains('уже зарегистр')) {
           _credentialsErrorMessage =
               'Этот номер зачётки уже зарегистрирован, войдите по E-mail';
+        } else if (e.statusCode == 400) {
+          _credentialsErrorMessage = 'Данные не верны';
         } else {
           _credentialsErrorMessage = msg;
         }

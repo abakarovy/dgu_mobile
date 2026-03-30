@@ -14,9 +14,22 @@ abstract final class ApiConstants {
     const fromDefine = String.fromEnvironment('API_BASE_URL', defaultValue: '');
     return fromDefine.trim().isNotEmpty ? fromDefine.trim() : fallback;
   }
-  static const Duration connectTimeout = Duration(seconds: 15);
-  static const Duration receiveTimeout = Duration(seconds: 30);
+  /// Запросы к API: после этого времени клиент обрывает ожидание (кэш / деградация).
+  static const Duration connectTimeout = Duration(seconds: 5);
+  static const Duration receiveTimeout = Duration(seconds: 5);
+
+  /// `/1c/schedule` у 1С часто отвечает дольше 5 с; отдельный лимит на приём тела ответа.
+  static const Duration scheduleReceiveTimeout = Duration(seconds: 90);
+
+  /// Тот же лимит для параллельного прогрева кэша на splash.
+  static const Duration prefetchRequestTimeout = Duration(seconds: 5);
+
+  /// Прогрев недели — до 7 последовательных запросов расписания.
+  static const Duration prefetchScheduleTimeout = Duration(seconds: 120);
 
   static const String authLoginPath = '/auth/login';
   static const String authMePath = '/auth/me';
+
+  /// Профиль студента из 1С (HTTP-сервис зачётки + оценки).
+  static const String oneCMyProfilePath = '/1c/my-profile';
 }

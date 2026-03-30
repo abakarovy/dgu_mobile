@@ -8,8 +8,10 @@ import '../../../../core/constants/app_ui.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/navigation/nav_bar_edit_host.dart';
 import '../../../../features/home/presentation/widgets/home_header_title.dart';
+import '../../../../core/network/app_network_banner_controller.dart';
 import '../../../../core/preferences/nav_bar_order_prefs.dart';
 import '../../../../shared/widgets/app_header.dart';
+import '../../../../shared/widgets/network_degraded_banner.dart';
 
 /// Оболочка главного экрана: AppBar, нижняя навигация, контент.
 ///
@@ -116,6 +118,7 @@ class _AppShellPageState extends State<AppShellPage> {
   @override
   void initState() {
     super.initState();
+    AppNetworkBannerController.instance.startConnectivityListener();
     NavBarEditHost.register(_openNavEditMode);
     _movableOrder = List<int>.from(NavBarOrderPrefs.defaultOrder);
     NavBarOrderPrefs.load().then((o) {
@@ -424,41 +427,49 @@ class _AppShellPageState extends State<AppShellPage> {
         isSupportScreen ||
         isStudentIdScreen;
 
-    return Scaffold(
-      appBar: hideShellAppBar
-          ? null
-          : AppHeader(
-              headerTitle: _shellAppBarTitle(branchIndex),
-            ),
-      body: widget.navigationShell,
-      bottomNavigationBar: Material(
-        color: Colors.white,
-        elevation: 8,
-        shadowColor: Colors.black.withValues(alpha: 0.08),
-        clipBehavior: Clip.none,
-        child: SafeArea(
-          top: false,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (_navEditMode) _editModeBanner(),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 8),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const NetworkDegradedBanner(),
+        Expanded(
+          child: Scaffold(
+            appBar: hideShellAppBar
+                ? null
+                : AppHeader(
+                    headerTitle: _shellAppBarTitle(branchIndex),
+                  ),
+            body: widget.navigationShell,
+            bottomNavigationBar: Material(
+              color: Colors.white,
+              elevation: 8,
+              shadowColor: Colors.black.withValues(alpha: 0.08),
+              clipBehavior: Clip.none,
+              child: SafeArea(
+                top: false,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    _movableSlot(context, 0, branchIndex),
-                    _movableSlot(context, 1, branchIndex),
-                    _homeDestination(context, currentBranchIndex: branchIndex),
-                    _movableSlot(context, 2, branchIndex),
-                    _movableSlot(context, 3, branchIndex),
+                    if (_navEditMode) _editModeBanner(),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 8),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          _movableSlot(context, 0, branchIndex),
+                          _movableSlot(context, 1, branchIndex),
+                          _homeDestination(context, currentBranchIndex: branchIndex),
+                          _movableSlot(context, 2, branchIndex),
+                          _movableSlot(context, 3, branchIndex),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ),
-            ],
+            ),
           ),
         ),
-      ),
+      ],
     );
   }
 }

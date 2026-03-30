@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import '../../../../core/auth/auth_session.dart';
+import '../../../../core/cache/json_cache.dart';
 import '../../../../data/api/auth_api.dart';
 import '../../../../data/models/user_model.dart';
 import '../../../../data/services/token_storage.dart';
@@ -8,16 +10,22 @@ import '../../domain/repositories/auth_repository.dart';
 
 /// Реализация AuthRepository через College DGU API и TokenStorage.
 class AuthRepositoryImpl implements AuthRepository {
-  AuthRepositoryImpl({required AuthApi authApi, required TokenStorage tokenStorage})
-      : _authApi = authApi,
-        _tokenStorage = tokenStorage;
+  AuthRepositoryImpl({
+    required AuthApi authApi,
+    required TokenStorage tokenStorage,
+    required JsonCache jsonCache,
+  })  : _authApi = authApi,
+        _tokenStorage = tokenStorage,
+        _jsonCache = jsonCache;
 
   final AuthApi _authApi;
   final TokenStorage _tokenStorage;
+  final JsonCache _jsonCache;
 
   @override
   Future<UserEntity> login({required String username, required String password}) async {
     final user = await _authApi.login(username: username.trim(), password: password);
+    AuthSession.bump();
     return user.toEntity();
   }
 
@@ -45,12 +53,15 @@ class AuthRepositoryImpl implements AuthRepository {
       email: email.trim(),
       password: password,
     );
+    AuthSession.bump();
     return user.toEntity();
   }
 
   @override
   Future<void> logout() async {
     await _tokenStorage.clear();
+    await _jsonCache.clearAll();
+    AuthSession.bump();
   }
 
   @override

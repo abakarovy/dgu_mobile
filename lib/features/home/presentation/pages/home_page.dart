@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dgu_mobile/core/constants/app_colors.dart';
 import 'package:dgu_mobile/core/constants/app_ui.dart';
 import 'package:dgu_mobile/core/theme/app_text_styles.dart';
@@ -6,9 +8,11 @@ import 'package:flutter_svg/svg.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../schedule/data/schedule_lesson.dart';
+import '../../../schedule/domain/schedule_calendar_filter.dart';
 import '../../../schedule/presentation/widgets/schedule_lesson_tile.dart';
 import '../../../../core/di/app_container.dart';
 import '../../../../data/models/group_model.dart';
+import '../../../../data/models/one_c_my_profile.dart';
 import '../../../../data/models/user_model.dart';
 import '../../../grades/domain/entities/grade_entity.dart';
 import '../widgets/home_hero_banner.dart';
@@ -20,18 +24,71 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
-  late final Future<_BannerData> _bannerFuture;
-  late final Future<int> _todayCountFuture;
-  late final Future<List<ScheduleLesson>> _todayLessonsFuture;
+class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
+  late _BannerData _banner;
+  List<ScheduleLesson> _todayLessons = const <ScheduleLesson>[];
 
   @override
   void initState() {
     super.initState();
-    final todayIndex = DateTime.now().weekday - 1;
-    _bannerFuture = _loadBannerData();
-    _todayCountFuture = _loadTodayCount(todayIndex);
-    _todayLessonsFuture = _loadTodayLessons(todayIndex);
+    WidgetsBinding.instance.addObserver(this);
+    _banner = _readBannerData();
+    _hydrateTodayFromCache();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() => _banner = _readBannerData());
+      unawaited(_refreshTodayScheduleSilent());
+    });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _hydrateTodayFromCache();
+      if (mounted) setState(() => _banner = _readBannerData());
+      unawaited(_refreshTodayScheduleSilent());
+    }
+  }
+
+  void _hydrateTodayFromCache() {
+    var list = _mapCacheToLessons(AppContainer.jsonCache.getJsonList('schedule:week:v2'));
+    if (list.isEmpty) {
+      list = _mapCacheToLessons(AppContainer.jsonCache.getJsonList('schedule:today'));
+    }
+    final filtered = filterScheduleForCalendarToday(list);
+    if (!mounted) return;
+    setState(() => _todayLessons = filtered);
+  }
+
+  List<ScheduleLesson> _mapCacheToLessons(List<dynamic>? cached) {
+    if (cached == null) return const <ScheduleLesson>[];
+    return cached
+        .whereType<Map>()
+        .map((m) => ScheduleLesson.fromJsonMap(Map<String, dynamic>.from(m)))
+        .toList();
+  }
+
+  Future<void> _refreshTodayScheduleSilent() async {
+    try {
+      final fresh =
+          await AppContainer.scheduleApi.getWeekForCalendar(DateTime.now());
+      await AppContainer.jsonCache.setJson(
+        'schedule:week:v2',
+        [for (final l in fresh) l.toJsonMap()],
+      );
+      final shown = filterScheduleForCalendarToday(fresh);
+      await AppContainer.jsonCache.setJson(
+        'schedule:today',
+        [for (final l in shown) l.toJsonMap()],
+      );
+      if (!mounted) return;
+      setState(() => _todayLessons = shown);
+    } catch (_) {}
   }
 
   static TextStyle _cardTitleStyle(BuildContext context) => AppTextStyle.inter(
@@ -101,51 +158,46 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _scheduleButton(BuildContext context) {
-    return FutureBuilder<int>(
-      future: _todayCountFuture,
-      builder: (context, snap) {
-        final count = snap.data ?? 0;
-        final compact = _compactHome(context);
-        final iconPad = compact ? 8.0 : 10.0;
-        final iconSize = compact ? 20.0 : 24.0;
-        final gapIcon = compact ? 8.0 : 12.0;
-        final gapTitle = compact ? 4.0 : 5.0;
-        return _iconCaptionCard(
-          context,
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: EdgeInsets.all(iconPad),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(14),
-                  color: AppColors.backgroundBlue,
-                ),
-                child: SvgPicture.asset(
-                  "assets/icons/schedule_icon.svg",
-                  width: iconSize,
-                  height: iconSize,
-                  colorFilter: ColorFilter.mode(
-                    AppColors.primaryBlue,
-                    BlendMode.srcIn,
-                  ),
-                ),
+    final count = _todayLessons.length;
+    final compact = _compactHome(context);
+    final iconPad = compact ? 8.0 : 10.0;
+    final iconSize = compact ? 20.0 : 24.0;
+    final gapIcon = compact ? 8.0 : 12.0;
+    final gapTitle = compact ? 4.0 : 5.0;
+    return _iconCaptionCard(
+      context,
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: EdgeInsets.all(iconPad),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              color: AppColors.backgroundBlue,
+            ),
+            child: SvgPicture.asset(
+              "assets/icons/schedule_icon.svg",
+              width: iconSize,
+              height: iconSize,
+              colorFilter: ColorFilter.mode(
+                AppColors.primaryBlue,
+                BlendMode.srcIn,
               ),
-              SizedBox(height: gapIcon),
-              Text('Расписание', style: _cardTitleStyleFor(context)),
-              SizedBox(height: gapTitle),
-              Text(
-                count == 0 ? 'Нет пар' : '$count ${_pairWord(count)} сегодня',
-                style: _cardSubtitleStyleFor(context),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
+            ),
           ),
-          onPressed: () => context.push('/app/schedule'),
-        );
-      },
+          SizedBox(height: gapIcon),
+          Text('Расписание', style: _cardTitleStyleFor(context)),
+          SizedBox(height: gapTitle),
+          Text(
+            count == 0 ? 'Нет пар' : '$count ${_pairWord(count)} сегодня',
+            style: _cardSubtitleStyleFor(context),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+      onPressed: () => context.push('/app/schedule'),
     );
   }
 
@@ -232,47 +284,42 @@ class _HomePageState extends State<HomePage> {
       height: 1.0,
       color: AppColors.textPrimary,
     );
-    return FutureBuilder<List<ScheduleLesson>>(
-      future: _todayLessonsFuture,
-      builder: (context, snap) {
-        final items = snap.data ?? const <ScheduleLesson>[];
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('Расписание на сегодня', style: sectionTitleStyle),
-            const SizedBox(height: 16),
-            if (items.isEmpty)
-              Text(
-                'Нет пар',
-                style: AppTextStyle.inter(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 14,
-                  color: AppColors.caption,
-                ),
-              )
-            else
-              ...items.map((e) => Padding(
-                    padding: const EdgeInsets.only(bottom: AppUi.spacingBetweenCards),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(10),
-                        color: Colors.white,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withAlpha(20),
-                            offset: const Offset(0, 2),
-                            blurRadius: 4,
-                          ),
-                        ],
+    final items = _todayLessons;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text('Расписание на сегодня', style: sectionTitleStyle),
+        const SizedBox(height: 16),
+        if (items.isEmpty)
+          Text(
+            'Нет пар',
+            style: AppTextStyle.inter(
+              fontWeight: FontWeight.w600,
+              fontSize: 14,
+              color: AppColors.caption,
+            ),
+          )
+        else
+          ...items.map((e) => Padding(
+                padding: const EdgeInsets.only(bottom: AppUi.spacingBetweenCards),
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(10),
+                    color: Colors.white,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withAlpha(20),
+                        offset: const Offset(0, 2),
+                        blurRadius: 4,
                       ),
-                      padding: const EdgeInsets.all(12),
-                      child: ScheduleLessonTile(lesson: e),
-                    ),
-                  )),
-          ],
-        );
-      },
+                    ],
+                  ),
+                  padding: const EdgeInsets.all(12),
+                  child: ScheduleLessonTile(lesson: e),
+                ),
+              )),
+      ],
     );
   }
 
@@ -281,22 +328,23 @@ class _HomePageState extends State<HomePage> {
     final w = MediaQuery.sizeOf(context).width;
     final padH = w < 360 ? 16.0 : AppUi.screenPaddingH;
     final padV = w < 360 ? 20.0 : 24.0;
-    return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(padH, padV, padH, padV),
-      child: Column(
+    return RefreshIndicator(
+      onRefresh: () async {
+        _hydrateTodayFromCache();
+        await _refreshTodayScheduleSilent();
+        if (mounted) setState(() => _banner = _readBannerData());
+      },
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: EdgeInsets.fromLTRB(padH, padV, padH, padV),
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         spacing: 0,
         children: [
-          FutureBuilder<_BannerData>(
-            future: _bannerFuture,
-            builder: (context, snap) {
-              final data = snap.data;
-              return HomeHeroBanner(
-                fullName: _shortName(data?.me?.fullName),
-                groupLabel: data?.group?.displayLabel,
-                performanceLabel: data?.avgLabel,
-              );
-            },
+          HomeHeroBanner(
+            fullName: _shortName(_banner.me?.fullName),
+            groupLabel: _banner.groupLabel,
+            performanceLabel: _banner.avgLabel,
           ),
           const SizedBox(height: AppUi.spacingAfterBanner),
           _scheduleAndTasksSection(context),
@@ -304,14 +352,15 @@ class _HomePageState extends State<HomePage> {
           _scheduleSection(context),
         ],
       ),
+      ),
     );
   }
 }
 
 class _BannerData {
-  const _BannerData({required this.me, required this.group, required this.avgLabel});
+  const _BannerData({required this.me, this.groupLabel, this.avgLabel});
   final UserModel? me;
-  final GroupModel? group;
+  final String? groupLabel;
   final String? avgLabel;
 }
 
@@ -323,25 +372,38 @@ String _shortName(String? fullName) {
   return parts.first;
 }
 
-Future<_BannerData> _loadBannerData() async {
-  // В UI читаем из кэша (прогрев на splash). Сеть здесь не дергаем.
+/// Баннер читает только кэш (прогрев на splash). Группа: `1c:my-profile`, иначе `groups:my`.
+_BannerData _readBannerData() {
   UserModel? me;
+  try {
+    final c = AppContainer.jsonCache.getJsonMap('auth:me');
+    if (c != null) me = UserModel.fromJson(c);
+  } catch (_) {}
+
   GroupModel? group;
-  List<GradeEntity> grades = const <GradeEntity>[];
   try {
-    me = await _loadMe();
-  } catch (_) {}
-  try {
-    group = await _loadMyGroup();
-  } catch (_) {}
-  try {
-    grades = await _loadGrades();
+    final c = AppContainer.jsonCache.getJsonMap('groups:my');
+    if (c != null) group = GroupModel.fromJson(c);
   } catch (_) {}
 
+  OneCMyProfile? oneC;
+  try {
+    final o = AppContainer.jsonCache.getJsonMap('1c:my-profile');
+    oneC = o != null ? OneCMyProfile.fromJson(o) : null;
+  } catch (_) {}
+
+  final grades = _loadGradesFromCache();
   final avg = _calcAverage(grades);
-  final avgLabel = avg == null ? null : avg.toStringAsFixed(2);
+  final avgLabel = avg?.toStringAsFixed(2);
 
-  return _BannerData(me: me, group: group, avgLabel: avgLabel);
+  return _BannerData(
+    me: me,
+    groupLabel: OneCMyProfile.resolveGroupLabel(
+      groupFrom1c: oneC?.group,
+      groupFromApi: group?.displayLabel,
+    ),
+    avgLabel: avgLabel,
+  );
 }
 
 double? _calcAverage(List<GradeEntity> grades) {
@@ -356,14 +418,7 @@ double? _calcAverage(List<GradeEntity> grades) {
   return sum / nums.length;
 }
 
-Future<GroupModel?> _loadMyGroup() async {
-  const cacheKey = 'groups:my';
-  final cached = AppContainer.jsonCache.getJsonMap(cacheKey);
-  if (cached == null) return null;
-  return GroupModel.fromJson(cached);
-}
-
-Future<List<GradeEntity>> _loadGrades() async {
+List<GradeEntity> _loadGradesFromCache() {
   const cacheKey = 'grades:my';
   final cached = AppContainer.jsonCache.getJsonList(cacheKey);
   if (cached == null) return const <GradeEntity>[];
@@ -378,95 +433,5 @@ Future<List<GradeEntity>> _loadGrades() async {
             date: DateTime.tryParse((j['date'] as String?) ?? ''),
           ))
       .toList();
-}
-
-Future<UserModel> _loadMe() async {
-  const cacheKey = 'auth:me';
-  final cached = AppContainer.jsonCache.getJsonMap(cacheKey);
-  if (cached == null) throw StateError('no cached me');
-  return UserModel.fromJson(cached);
-}
-
-Future<int> _loadTodayCount(int todayIndex) async {
-  final lessons = await _loadWeekLessonsForDay(todayIndex);
-  return lessons.length;
-}
-
-Future<List<ScheduleLesson>> _loadTodayLessons(int todayIndex) async {
-  if (todayIndex != DateTime.now().weekday - 1) return const <ScheduleLesson>[];
-  const cacheKey = 'schedule:today';
-  try {
-    final fresh = await AppContainer.scheduleApi.getToday();
-    await AppContainer.jsonCache.setJson(
-      cacheKey,
-      [
-        for (final l in fresh)
-          {
-            'weekday_index': l.weekdayIndex,
-            'subject': l.subject,
-            'time': l.time,
-            'teacher': l.teacher,
-            'auditorium': l.auditorium,
-          }
-      ],
-    );
-    // В текущем бэке /schedule/today может возвращать массив на неделю.
-    return fresh.where((e) => e.weekdayIndex == todayIndex).toList();
-  } catch (_) {
-    final cached = AppContainer.jsonCache.getJsonList(cacheKey);
-    if (cached == null) return const <ScheduleLesson>[];
-    final all = cached
-        .whereType<Map>()
-        .map((m) => Map<String, dynamic>.from(m))
-        .map(
-          (j) => ScheduleLesson(
-            weekdayIndex: j['weekday_index'] is int ? (j['weekday_index'] as int) : null,
-            subject: (j['subject'] as String?) ?? '',
-            time: (j['time'] as String?) ?? '',
-            teacher: (j['teacher'] as String?) ?? '',
-            auditorium: (j['auditorium'] as String?) ?? '',
-          ),
-        )
-        .toList();
-    return all.where((e) => e.weekdayIndex == todayIndex).toList();
-  }
-}
-
-Future<List<ScheduleLesson>> _loadWeekLessonsForDay(int dayIndex) async {
-  const cacheKey = 'schedule:week';
-  try {
-    final fresh = await AppContainer.scheduleApi.getWeek();
-    await AppContainer.jsonCache.setJson(
-      cacheKey,
-      [
-        for (final l in fresh)
-          {
-            'weekday_index': l.weekdayIndex,
-            'subject': l.subject,
-            'time': l.time,
-            'teacher': l.teacher,
-            'auditorium': l.auditorium,
-          }
-      ],
-    );
-    return fresh.where((e) => e.weekdayIndex == dayIndex).toList();
-  } catch (_) {
-    final cached = AppContainer.jsonCache.getJsonList(cacheKey);
-    if (cached == null) return const <ScheduleLesson>[];
-    final all = cached
-        .whereType<Map>()
-        .map((m) => Map<String, dynamic>.from(m))
-        .map(
-          (j) => ScheduleLesson(
-            weekdayIndex: j['weekday_index'] is int ? (j['weekday_index'] as int) : null,
-            subject: (j['subject'] as String?) ?? '',
-            time: (j['time'] as String?) ?? '',
-            teacher: (j['teacher'] as String?) ?? '',
-            auditorium: (j['auditorium'] as String?) ?? '',
-          ),
-        )
-        .toList();
-    return all.where((e) => e.weekdayIndex == dayIndex).toList();
-  }
 }
 

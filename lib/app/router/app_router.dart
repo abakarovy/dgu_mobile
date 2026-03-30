@@ -1,6 +1,8 @@
+import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 
 import '../bootstrap/bootstrap_page.dart';
+import '../../core/auth/auth_session.dart';
 import '../../core/di/app_container.dart';
 import '../../features/events/presentation/pages/events_page.dart';
 import '../../features/events/data/event_item.dart';
@@ -51,7 +53,8 @@ final GoRouter appRouter = GoRouter(
             GoRoute(
               path: '/app/profile',
               name: 'profile',
-              builder: (context, state) => const ProfilePage(),
+              builder: (context, state) =>
+                  ProfilePage(key: ValueKey(AuthSession.epoch)),
               routes: [
                 GoRoute(
                   path: 'notifications',
@@ -77,7 +80,8 @@ final GoRouter appRouter = GoRouter(
             GoRoute(
               path: '/app/grades',
               name: 'grades',
-              builder: (context, state) => const GradesPage(),
+              builder: (context, state) =>
+                  GradesPage(key: ValueKey(AuthSession.epoch)),
             ),
           ],
         ),
@@ -86,7 +90,8 @@ final GoRouter appRouter = GoRouter(
             GoRoute(
               path: '/app/home',
               name: 'home',
-              builder: (context, state) => const HomePage(),
+              builder: (context, state) =>
+                  HomePage(key: ValueKey(AuthSession.epoch)),
             ),
           ],
         ),
@@ -95,7 +100,8 @@ final GoRouter appRouter = GoRouter(
             GoRoute(
               path: '/app/news',
               name: 'news',
-              builder: (context, state) => const NewsPage(),
+              builder: (context, state) =>
+                  NewsPage(key: ValueKey(AuthSession.epoch)),
             ),
           ],
         ),
@@ -104,7 +110,8 @@ final GoRouter appRouter = GoRouter(
             GoRoute(
               path: '/app/events',
               name: 'events',
-              builder: (context, state) => const EventsPage(),
+              builder: (context, state) =>
+                  EventsPage(key: ValueKey(AuthSession.epoch)),
             ),
           ],
         ),
@@ -113,7 +120,8 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: '/app/schedule',
       name: 'schedule',
-      builder: (context, state) => const SchedulePage(),
+      builder: (context, state) =>
+          SchedulePage(key: ValueKey(AuthSession.epoch)),
     ),
     GoRoute(
       path: '/app/tasks',
@@ -153,7 +161,7 @@ final GoRouter appRouter = GoRouter(
     if (!isLoggedIn && path.startsWith('/app')) return '/login';
 
     // Уже залогинен: не показываем /login
-    if (isLoggedIn && path.startsWith('/login')) return '/app/home';
+    if (isLoggedIn && path.startsWith('/login')) return '/bootstrap';
 
     return null;
   },

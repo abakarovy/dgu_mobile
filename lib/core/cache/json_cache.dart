@@ -41,5 +41,15 @@ class JsonCache {
       return null;
     }
   }
+
+  /// Удаляет все записи кэша (`cache:*`), не трогая токен и прочие ключи SharedPreferences.
+  Future<void> clearAll() async {
+    final keys = _prefs.getKeys().toList();
+    for (final key in keys) {
+      if (key.startsWith('cache:')) {
+        await _prefs.remove(key);
+      }
+    }
+  }
 }
 

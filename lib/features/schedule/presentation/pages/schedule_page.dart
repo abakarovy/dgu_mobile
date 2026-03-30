@@ -5,8 +5,11 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../data/schedule_lesson.dart';
+import '../../domain/schedule_calendar_filter.dart';
 import '../../../../core/di/app_container.dart';
+import '../../../../data/api/schedule_api.dart';
 import '../../../../shared/widgets/app_header.dart';
+import '../../../../shared/widgets/network_degraded_banner.dart';
 import '../widgets/schedule_lesson_tile.dart';
 
 /// Экран расписания: аппбар как у уведомлений, неделя (ПН–ВС), дата, список пар.
@@ -36,12 +39,15 @@ class _SchedulePageState extends State<SchedulePage> {
   void initState() {
     super.initState();
     final now = DateTime.now();
-    _mondayOfWeek = now.subtract(Duration(days: now.weekday - 1));
+    _mondayOfWeek = ScheduleApi.mondayOfWeekContaining(now);
     _selectedDayIndex = now.weekday - 1;
     _loadFromCacheThenRefresh();
   }
 
-  DateTime _dateFor(int index) => _mondayOfWeek.add(Duration(days: index));
+  DateTime _dateFor(int index) {
+    final m = DateTime(_mondayOfWeek.year, _mondayOfWeek.month, _mondayOfWeek.day);
+    return m.add(Duration(days: index));
+  }
 
   /// Формат: "ВТОРНИК, 12 МАЯ" (все заглавными).
   String _formatDateCaption(DateTime d, int weekdayIndex) {
@@ -52,38 +58,46 @@ class _SchedulePageState extends State<SchedulePage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppHeader(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 20),
-          onPressed: () => context.pop(),
-          color: AppColors.textPrimary,
-        ),
-        headerTitle: Text(
-          'Расписание',
-          style: AppTextStyle.inter(
-            fontWeight: FontWeight.w700,
-            fontSize: 18,
-            height: 24 / 18,
-            color: AppColors.textPrimary,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const NetworkDegradedBanner(),
+        Expanded(
+          child: Scaffold(
+            appBar: AppHeader(
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back_ios_new, size: 20),
+                onPressed: () => context.pop(),
+                color: AppColors.textPrimary,
+              ),
+              headerTitle: Text(
+                'Расписание',
+                style: AppTextStyle.inter(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 18,
+                  height: 24 / 18,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ),
+            body: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: AppUi.screenPaddingH),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const SizedBox(height: AppUi.spacingXl),
+                  _buildWeekStrip(),
+                  const SizedBox(height: 24),
+                  _buildDateCaption(),
+                  const SizedBox(height: AppUi.spacingM),
+                  _buildLessonsList(),
+                  const SizedBox(height: 30),
+                ],
+              ),
+            ),
           ),
         ),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: AppUi.screenPaddingH),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const SizedBox(height: AppUi.spacingXl),
-            _buildWeekStrip(),
-            const SizedBox(height: 24),
-            _buildDateCaption(),
-            const SizedBox(height: AppUi.spacingM),
-            _buildLessonsList(),
-            const SizedBox(height: 30),
-          ],
-        ),
-      ),
+      ],
     );
   }
 
@@ -169,9 +183,8 @@ class _SchedulePageState extends State<SchedulePage> {
   }
 
   Widget _buildLessonsList() {
-    final items = _week
-        .where((e) => e.weekdayIndex == null || e.weekdayIndex == _selectedDayIndex)
-        .toList();
+    final selectedDate = _dateFor(_selectedDayIndex);
+    final items = lessonsForSelectedCalendarDay(_week, selectedDate);
     if (_loading && _week.isEmpty) {
       // На первом запуске, если по какой-то причине кэша нет.
       return const Padding(
@@ -222,22 +235,14 @@ class _SchedulePageState extends State<SchedulePage> {
   }
 
   Future<void> _loadFromCacheThenRefresh() async {
-    const cacheKey = 'schedule:week';
+    // v2: неделя из нескольких запросов `GET /1c/schedule?for_date=…`.
+    const cacheKey = 'schedule:week:v2';
     // 1) Мгновенно рисуем кэш (он прогревается на splash).
     final cached = AppContainer.jsonCache.getJsonList(cacheKey);
     if (cached != null) {
       final list = cached
           .whereType<Map>()
-          .map((m) => Map<String, dynamic>.from(m))
-          .map(
-            (j) => ScheduleLesson(
-              weekdayIndex: j['weekday_index'] is int ? (j['weekday_index'] as int) : null,
-              subject: (j['subject'] as String?) ?? '',
-              time: (j['time'] as String?) ?? '',
-              teacher: (j['teacher'] as String?) ?? '',
-              auditorium: (j['auditorium'] as String?) ?? '',
-            ),
-          )
+          .map((m) => ScheduleLesson.fromJsonMap(Map<String, dynamic>.from(m)))
           .toList();
       if (mounted) {
         setState(() {
@@ -249,19 +254,11 @@ class _SchedulePageState extends State<SchedulePage> {
 
     // 2) Тихо обновляем из сети (без блокировки UI).
     try {
-      final fresh = await AppContainer.scheduleApi.getWeek();
+      final fresh = await AppContainer.scheduleApi
+          .getWeekForCalendar(_mondayOfWeek);
       await AppContainer.jsonCache.setJson(
         cacheKey,
-        [
-          for (final l in fresh)
-            {
-              'weekday_index': l.weekdayIndex,
-              'subject': l.subject,
-              'time': l.time,
-              'teacher': l.teacher,
-              'auditorium': l.auditorium,
-            }
-        ],
+        [for (final l in fresh) l.toJsonMap()],
       );
       if (mounted) {
         setState(() {

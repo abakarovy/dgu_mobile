@@ -40,6 +40,10 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
         s.contains('курсов');
   }
 
+  /// В журнале с бэка часто приходят строки без оценки (grade_value: null) — для «Текущие» их не показываем,
+  /// иначе справа остаётся пустой цветной квадрат.
+  static bool _hasGradeValue(GradeEntity g) => g.grade.trim().isNotEmpty;
+
   /// Все оценки по предметам для детализации при нажатии.
   static Map<String, List<GradeListItem>> _groupBySubject(List<GradeListItem> items) {
     final map = <String, List<GradeListItem>>{};
@@ -291,8 +295,10 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
       future: _gradesFuture,
       builder: (context, snap) {
         final all = (snap.data ?? const <GradeEntity>[]);
-        final currentEntities =
-            all.where((g) => !_isSessionType(g.gradeType)).toList();
+        final currentEntities = all
+            .where((g) => !_isSessionType(g.gradeType))
+            .where(_hasGradeValue)
+            .toList();
         final list = currentEntities.map(_toListItem).toList();
         final filtered = _filtered(list);
         _lastBySubject = _groupBySubject(list);

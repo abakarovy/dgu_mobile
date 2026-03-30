@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../shared/widgets/app_header.dart';
+import '../../../../shared/widgets/network_degraded_banner.dart';
 // import '../widgets/task_card.dart';
 
 /// Экран заданий: аппбар как у расписания, 2 таба (Активные / Завершенные), список карточек.
@@ -15,78 +16,86 @@ class TasksPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 2,
-      child: Scaffold(
-        appBar: AppHeader(
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new, size: 20),
-            onPressed: () => context.pop(),
-            color: AppColors.textPrimary,
-          ),
-          headerTitle: Text(
-            'Задания',
-            style: AppTextStyle.inter(
-              fontWeight: FontWeight.w700,
-              fontSize: 18,
-              height: 24 / 18,
-              color: AppColors.textPrimary,
-            ),
-          ),
-        ),
-        body: Column(
-          children: [
-            Builder(
-              builder: (context) {
-                final controller = DefaultTabController.of(context);
-                return Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    AppUi.screenPaddingH,
-                    8,
-                    AppUi.screenPaddingH,
-                    12,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const NetworkDegradedBanner(),
+        Expanded(
+          child: DefaultTabController(
+            length: 2,
+            child: Scaffold(
+              appBar: AppHeader(
+                leading: IconButton(
+                  icon: const Icon(Icons.arrow_back_ios_new, size: 20),
+                  onPressed: () => context.pop(),
+                  color: AppColors.textPrimary,
+                ),
+                headerTitle: Text(
+                  'Задания',
+                  style: AppTextStyle.inter(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 18,
+                    height: 24 / 18,
+                    color: AppColors.textPrimary,
                   ),
-                  child: ListenableBuilder(
-                    listenable: controller,
-                    builder: (context, _) {
-                      return Container(
-                        padding: const EdgeInsets.all(5),
-                        decoration: BoxDecoration(
-                          color: AppColors.backgroundSecondary,
-                          borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              body: Column(
+                children: [
+                  Builder(
+                    builder: (context) {
+                      final controller = DefaultTabController.of(context);
+                      return Padding(
+                        padding: const EdgeInsets.fromLTRB(
+                          AppUi.screenPaddingH,
+                          8,
+                          AppUi.screenPaddingH,
+                          12,
                         ),
-                        child: Row(
-                          children: [
-                            for (int i = 0; i < 2; i++) ...[
-                              if (i > 0) const SizedBox(width: 8),
-                              Expanded(
-                                child: _TasksTab(
-                                  label: _tabLabels[i],
-                                  selected: controller.index == i,
-                                  onTap: () => controller.animateTo(i),
-                                ),
+                        child: ListenableBuilder(
+                          listenable: controller,
+                          builder: (context, _) {
+                            return Container(
+                              padding: const EdgeInsets.all(5),
+                              decoration: BoxDecoration(
+                                color: AppColors.backgroundSecondary,
+                                borderRadius: BorderRadius.circular(10),
                               ),
-                            ],
-                          ],
+                              child: Row(
+                                children: [
+                                  for (int i = 0; i < 2; i++) ...[
+                                    if (i > 0) const SizedBox(width: 8),
+                                    Expanded(
+                                      child: _TasksTab(
+                                        label: _tabLabels[i],
+                                        selected: controller.index == i,
+                                        onTap: () => controller.animateTo(i),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            );
+                          },
                         ),
                       );
                     },
                   ),
-                );
-              },
-            ),
-            const SizedBox(height: 24),
-            Expanded(
-              child: TabBarView(
-                children: [
-                  const _EmptyTasks(),
-                  const _EmptyTasks(),
+                  const SizedBox(height: 24),
+                  Expanded(
+                    child: TabBarView(
+                      children: [
+                        const _EmptyTasks(),
+                        const _EmptyTasks(),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
-          ],
+          ),
         ),
-      ),
+      ],
     );
   }
 }

@@ -46,3 +46,6 @@ app.*.map.json
 
 # Local environment config (API base URL, etc.)
 .env
+
+# Локальные логи при flutter run -d windows/linux/macos (debug)
+/logs/

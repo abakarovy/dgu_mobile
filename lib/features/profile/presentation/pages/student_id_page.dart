@@ -1,14 +1,20 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../../core/constants/api_constants.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/constants/app_constants.dart';
 import '../../../../core/constants/app_ui.dart';
 import '../../../../core/di/app_container.dart';
 import '../../../../core/theme/app_text_styles.dart';
+import '../../../../data/models/group_model.dart';
+import '../../../../data/models/one_c_my_profile.dart';
 import '../../../../data/models/user_model.dart';
 import '../../../../shared/widgets/app_header.dart';
 
@@ -21,8 +27,11 @@ class StudentIdPage extends StatefulWidget {
 }
 
 class _StudentIdPageState extends State<StudentIdPage> {
-  late final Future<UserModel> _meFuture;
-  static const String _studentPhotoAsset = 'assets/images/alibek.png';
+  UserModel? _me;
+  OneCMyProfile? _oneC;
+  GroupModel? _group;
+  String? _avatarPath;
+  bool _meLoading = true;
   static const double _photoWidth = 150;
   static const double _photoHeight = 200;
 
@@ -50,7 +59,84 @@ class _StudentIdPageState extends State<StudentIdPage> {
   @override
   void initState() {
     super.initState();
-    _meFuture = _loadMe();
+    _me = _readCachedMe();
+    _oneC = _readCachedOneC();
+    _group = _readCachedGroup();
+    if (_me != null) _meLoading = false;
+    unawaited(_loadAvatarPath());
+    _loadMeAsync();
+    unawaited(_loadGroupAsync());
+  }
+
+  UserModel? _readCachedMe() {
+    final cached = AppContainer.jsonCache.getJsonMap('auth:me');
+    if (cached == null) return null;
+    try {
+      return UserModel.fromJson(cached);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  GroupModel? _readCachedGroup() {
+    final cached = AppContainer.jsonCache.getJsonMap('groups:my');
+    if (cached == null) return null;
+    try {
+      return GroupModel.fromJson(cached);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  OneCMyProfile? _readCachedOneC() {
+    final cached = AppContainer.jsonCache.getJsonMap('1c:my-profile');
+    if (cached == null) return null;
+    try {
+      return OneCMyProfile.fromJson(cached);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _loadAvatarPath() async {
+    final prefs = await SharedPreferences.getInstance();
+    final path = prefs.getString(AppConstants.profileAvatarPathKey);
+    if (path != null && mounted) setState(() => _avatarPath = path);
+  }
+
+  Future<void> _loadGroupAsync() async {
+    try {
+      final g = await AppContainer.groupsApi
+          .getMyGroup()
+          .timeout(ApiConstants.prefetchRequestTimeout);
+      if (g != null) {
+        await AppContainer.jsonCache.setJson('groups:my', g.toJson());
+        if (mounted) setState(() => _group = g);
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _loadMeAsync() async {
+    try {
+      final fresh = await AppContainer.authApi
+          .getMe()
+          .timeout(ApiConstants.prefetchRequestTimeout);
+      await AppContainer.jsonCache.setJson('auth:me', fresh.toJson());
+      if (mounted) setState(() => _me = fresh);
+    } catch (_) {
+      // остаётся кэш или пусто
+    }
+    try {
+      final p = await AppContainer.profile1cApi
+          .getMyProfile()
+          .timeout(ApiConstants.scheduleReceiveTimeout);
+      await AppContainer.jsonCache.setJson('1c:my-profile', p.toJsonMap());
+      if (mounted) setState(() => _oneC = p);
+    } catch (_) {
+      // остаётся кэш или пусто
+    } finally {
+      if (mounted) setState(() => _meLoading = false);
+    }
   }
 
   @override
@@ -59,15 +145,15 @@ class _StudentIdPageState extends State<StudentIdPage> {
     super.dispose();
   }
 
-  String _copyableText(UserModel me) {
-    final fullName = _safe(me.fullName);
-    final id = _studentId(me);
-    final birthDate = _birthDate(me);
-    final department = _department(me);
-    final studyGroup = _studyGroup(me);
-    final admissionYear = _admissionYear(me);
-    final studyForm = _studyForm(me);
-    final status = _status(me);
+  String _copyableText(UserModel me, OneCMyProfile? oneC, GroupModel? group) {
+    final fullName = _displayFullName(me, oneC);
+    final id = _studentId(me, oneC);
+    final birthDate = _birthDate(me, oneC);
+    final department = _department(me, oneC);
+    final studyGroup = _studyGroup(me, oneC, group);
+    final admissionYear = _admissionYear(me, oneC);
+    final studyForm = _studyForm(me, oneC);
+    final status = _status(me, oneC);
     return '$fullName\n'
         'ID: $id\n'
         'Дата рождения: $birthDate\n'
@@ -79,7 +165,8 @@ class _StudentIdPageState extends State<StudentIdPage> {
   }
 
   Future<void> _copyToClipboard(BuildContext context, UserModel me) async {
-    await Clipboard.setData(ClipboardData(text: _copyableText(me)));
+    await Clipboard.setData(
+        ClipboardData(text: _copyableText(me, _oneC, _group)));
     if (!context.mounted) return;
     _copiedToastTimer?.cancel();
     setState(() => _copiedToastVisible = true);
@@ -117,22 +204,36 @@ class _StudentIdPageState extends State<StudentIdPage> {
               AppUi.screenPaddingH,
               AppUi.spacingXl,
             ),
-            child: FutureBuilder<UserModel>(
-              future: _meFuture,
-              builder: (context, snap) {
-                final me = snap.data;
+            child: Builder(
+              builder: (context) {
+                final me = _me;
                 if (me == null) {
-                  return const SizedBox.shrink();
+                  if (_meLoading) {
+                    return const Padding(
+                      padding: EdgeInsets.all(48),
+                      child: Center(child: CircularProgressIndicator()),
+                    );
+                  }
+                  return Padding(
+                    padding: const EdgeInsets.all(AppUi.spacingXl),
+                    child: Text(
+                      'Не удалось загрузить данные. Нажмите «Обновить» вверху или откройте экран позже.',
+                      style: AppTextStyle.inter(
+                        fontSize: 14,
+                        color: AppColors.caption,
+                      ),
+                    ),
+                  );
                 }
-                final fullName = _safe(me.fullName);
-                final id = _studentId(me);
-                final birthDate = _birthDate(me);
-                final department = _department(me);
-                final studyGroup = _studyGroup(me);
-                final course = _course(me);
-                final admissionYear = _admissionYear(me);
-                final studyForm = _studyForm(me);
-                final status = _status(me);
+                final fullName = _displayFullName(me, _oneC);
+                final id = _studentId(me, _oneC);
+                final birthDate = _birthDate(me, _oneC);
+                final department = _department(me, _oneC);
+                final studyGroup = _studyGroup(me, _oneC, _group);
+                final course = _course(me, _oneC);
+                final admissionYear = _admissionYear(me, _oneC);
+                final studyForm = _studyForm(me, _oneC);
+                final status = _status(me, _oneC);
 
                 return Container(
                   width: double.infinity,
@@ -173,15 +274,21 @@ class _StudentIdPageState extends State<StudentIdPage> {
                                   ],
                                 ),
                                 clipBehavior: Clip.antiAlias,
-                                child: Image.asset(
-                                  _studentPhotoAsset,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, _, _) => Icon(
-                                    Icons.person,
-                                    size: 56,
-                                    color: AppColors.caption,
-                                  ),
-                                ),
+                                child: _avatarPath != null
+                                    ? Image.file(
+                                        File(_avatarPath!),
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, _, _) => Icon(
+                                          Icons.person,
+                                          size: 56,
+                                          color: AppColors.caption,
+                                        ),
+                                      )
+                                    : Icon(
+                                        Icons.person,
+                                        size: 56,
+                                        color: AppColors.caption,
+                                      ),
                               ),
                             ),
                           ),
@@ -356,31 +463,68 @@ class _StudentIdPageState extends State<StudentIdPage> {
     );
   }
 
-  Future<UserModel> _loadMe() async {
-    const cacheKey = 'auth:me';
-    final cached = AppContainer.jsonCache.getJsonMap(cacheKey);
-    if (cached != null) return UserModel.fromJson(cached);
-    final fresh = await AppContainer.authApi.getMe();
-    await AppContainer.jsonCache.setJson(cacheKey, fresh.toJson());
-    return fresh;
-  }
-
   static String _safe(String? v) => (v == null || v.trim().isEmpty) ? '-' : v.trim();
 
-  static String _studentId(UserModel me) =>
-      _safe(me.studentBookNumber).replaceAll(' ', '');
+  static String _displayFullName(UserModel me, OneCMyProfile? c) {
+    final from1c = c?.fullName?.trim();
+    if (from1c != null && from1c.isNotEmpty) return from1c;
+    return _safe(me.fullName);
+  }
 
-  static String _birthDate(UserModel me) => '1.11.2008';
+  static String _studentId(UserModel me, OneCMyProfile? c) {
+    final from1c = c?.studentBookNumber?.trim();
+    if (from1c != null && from1c.isNotEmpty) {
+      return from1c.replaceAll(' ', '');
+    }
+    return _safe(me.studentBookNumber).replaceAll(' ', '');
+  }
 
-  static String _department(UserModel me) =>
-      'Право и организация социального обеспечения';
+  static String _birthDate(UserModel _, OneCMyProfile? c) {
+    final b = c?.birthDate?.trim();
+    if (b != null && b.isNotEmpty) return b;
+    return '-';
+  }
 
-  static String _studyGroup(UserModel me) => 'ПСО 1к 1г 2025';
+  static String _department(UserModel me, OneCMyProfile? c) {
+    final d1 = c?.department?.trim();
+    if (d1 != null && d1.isNotEmpty) return d1;
+    final dir1c = c?.direction?.trim();
+    if (dir1c != null && dir1c.isNotEmpty) return dir1c;
+    final d = me.department?.trim();
+    if (d != null && d.isNotEmpty) return d;
+    final dir = me.direction?.trim();
+    if (dir != null && dir.isNotEmpty) return dir;
+    return '-';
+  }
 
-  static String _admissionYear(UserModel me) => '2025';
+  static String _studyGroup(UserModel me, OneCMyProfile? c, GroupModel? g) {
+    final g1c = c?.group?.trim();
+    if (g1c != null && g1c.isNotEmpty) return g1c;
+    final label = g?.displayLabel?.trim();
+    if (label != null && label.isNotEmpty) return label;
+    return '-';
+  }
 
-  static String _studyForm(UserModel me) => me.role == 'student' ? 'Очная' : '-';
-  static String _course(UserModel me) => me.course?.toString() ?? '-';
+  static String _admissionYear(UserModel _, OneCMyProfile? c) {
+    final y = c?.admissionYear?.trim();
+    if (y != null && y.isNotEmpty) return y;
+    return '-';
+  }
 
-  static String _status(UserModel me) => me.isActive ? 'Обучается' : 'Неактивен';
+  static String _studyForm(UserModel me, OneCMyProfile? c) {
+    final f = c?.studyForm?.trim();
+    if (f != null && f.isNotEmpty) return f;
+    return me.role == 'student' ? 'Очная' : '-';
+  }
+
+  static String _course(UserModel me, OneCMyProfile? c) {
+    if (c?.course != null) return c!.course.toString();
+    return me.course?.toString() ?? '-';
+  }
+
+  static String _status(UserModel me, OneCMyProfile? c) {
+    final s = c?.status?.trim();
+    if (s != null && s.isNotEmpty) return s;
+    return me.isActive ? 'Обучается' : 'Неактивен';
+  }
 }

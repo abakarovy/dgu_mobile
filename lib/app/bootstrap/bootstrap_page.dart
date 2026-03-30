@@ -1,4 +1,5 @@
 import 'package:dgu_mobile/core/di/app_container.dart';
+import 'package:dgu_mobile/core/network/app_network_banner_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:go_router/go_router.dart';
@@ -27,7 +28,10 @@ class _BootstrapPageState extends State<BootstrapPage> {
       return;
     }
 
-    await AppContainer.prefetchAll();
+    final offline = await AppNetworkBannerController.checkDeviceOffline();
+    final allOk = await AppContainer.prefetchAll();
+    AppNetworkBannerController.instance
+        .applyAfterBootstrap(deviceOffline: offline, allPrefetchOk: allOk);
     FlutterNativeSplash.remove();
     if (mounted) context.go('/app/home');
   }

@@ -108,7 +108,8 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
         await AppContainer.authRepository.login(username: email, password: password);
       }
       if (!mounted) return;
-      context.go('/app/home');
+      // Как при холодном старте: прогрев кэша под тем же пользователем, иначе главная читает старый JsonCache.
+      context.go('/bootstrap');
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() {

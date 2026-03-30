@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:dgu_mobile/core/constants/api_constants.dart';
 import 'package:dgu_mobile/core/constants/app_colors.dart';
 import 'package:dgu_mobile/core/constants/app_constants.dart';
 import 'package:dgu_mobile/core/constants/app_ui.dart';
@@ -25,13 +26,34 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   String? _savedAvatarPath;
-  late final Future<UserModel> _meFuture;
+  UserModel? _me;
 
   @override
   void initState() {
     super.initState();
+    _me = _readCachedMe();
     _loadAvatarPath();
-    _meFuture = _loadMe();
+    _refreshMeInBackground();
+  }
+
+  UserModel? _readCachedMe() {
+    final cached = AppContainer.jsonCache.getJsonMap('auth:me');
+    if (cached == null) return null;
+    try {
+      return UserModel.fromJson(cached);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _refreshMeInBackground() async {
+    try {
+      final fresh = await AppContainer.authApi
+          .getMe()
+          .timeout(ApiConstants.prefetchRequestTimeout);
+      await AppContainer.jsonCache.setJson('auth:me', fresh.toJson());
+      if (mounted) setState(() => _me = fresh);
+    } catch (_) {}
   }
 
   Future<void> _loadAvatarPath() async {
@@ -79,18 +101,9 @@ class _ProfilePageState extends State<ProfilePage> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const SizedBox(height: AppUi.spacingXl),
-          FutureBuilder<UserModel>(
-            future: _meFuture,
-            builder: (context, snap) {
-              final me = snap.data;
-              return _buildAccountInfo(context, me);
-            },
-          ),
+          _buildAccountInfo(context, _me),
           const SizedBox(height: 28),
-          FutureBuilder<UserModel>(
-            future: _meFuture,
-            builder: (context, snap) => _buildPersonalDataSection(context, snap.data),
-          ),
+          _buildPersonalDataSection(context, _me),
           const SizedBox(height: 20),
           _buildSettingsSection(context),
           const SizedBox(height: 30),
@@ -318,19 +331,6 @@ class _ProfilePageState extends State<ProfilePage> {
     if (course != null) parts.add('$course курс');
     if (direction != null && direction.trim().isNotEmpty) parts.add(direction.trim());
     return parts.isEmpty ? '—' : parts.join(' • ');
-  }
-
-  Future<UserModel> _loadMe() async {
-    const cacheKey = 'auth:me';
-    try {
-      final fresh = await AppContainer.authApi.getMe();
-      await AppContainer.jsonCache.setJson(cacheKey, fresh.toJson());
-      return fresh;
-    } catch (_) {
-      final cached = AppContainer.jsonCache.getJsonMap(cacheKey);
-      if (cached == null) rethrow;
-      return UserModel.fromJson(cached);
-    }
   }
 
 }
