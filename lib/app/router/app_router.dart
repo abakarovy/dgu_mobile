@@ -11,6 +11,7 @@ import '../../features/grades/presentation/pages/grades_page.dart';
 import '../../features/home/presentation/pages/home_page.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/pages/login_email_page.dart';
+import '../../features/auth/presentation/pages/login_role_page.dart';
 import '../../data/models/news_model.dart';
 import '../../features/news/presentation/pages/news_detail_page.dart';
 import '../../features/news/presentation/pages/news_page.dart';
@@ -21,6 +22,8 @@ import '../../features/support/presentation/pages/support_page.dart';
 import '../../features/profile/presentation/pages/student_id_page.dart';
 import '../../features/tasks/presentation/pages/tasks_page.dart';
 import '../../features/shell/presentation/pages/app_shell_page.dart';
+import '../../features/account/presentation/pages/email_change_page.dart';
+import '../../features/account/presentation/pages/password_reset_page.dart';
 
 /// Конфигурация маршрутизации приложения.
 /// StatefulShellRoute.indexedStack устраняет дублирование GlobalKey при переключении вкладок.
@@ -35,8 +38,13 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: '/login',
       name: 'login',
-      builder: (context, state) => const LoginPage(),
+      builder: (context, state) => const LoginRolePage(),
       routes: [
+        GoRoute(
+          path: 'student',
+          name: 'loginStudent',
+          builder: (context, state) => const LoginPage(),
+        ),
         GoRoute(
           path: 'email',
           name: 'loginEmail',
@@ -122,6 +130,17 @@ final GoRouter appRouter = GoRouter(
       name: 'schedule',
       builder: (context, state) =>
           SchedulePage(key: ValueKey(AuthSession.epoch)),
+    ),
+    // Аккаунт: отдельные полноэкранные страницы БЕЗ нижнего меню.
+    GoRoute(
+      path: '/account/email-change',
+      name: 'accountEmailChange',
+      builder: (context, state) => const EmailChangePage(),
+    ),
+    GoRoute(
+      path: '/account/password-reset',
+      name: 'accountPasswordReset',
+      builder: (context, state) => const PasswordResetPage(),
     ),
     GoRoute(
       path: '/app/tasks',

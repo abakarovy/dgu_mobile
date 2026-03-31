@@ -4,16 +4,14 @@ import 'package:dio/dio.dart';
 
 import '../../core/constants/api_constants.dart';
 import 'api_client.dart';
+import 'api_error_parser.dart';
+import 'api_exception.dart';
 import '../models/user_model.dart';
 import '../services/token_storage.dart';
 
-/// Ошибка ответа API (detail от бэкенда).
-class ApiException implements Exception {
-  ApiException(this.message, [this.statusCode]);
-  final String message;
-  final int? statusCode;
-  @override
-  String toString() => message;
+class StudentVerify1cResult {
+  const StudentVerify1cResult({this.registrationToken});
+  final String? registrationToken;
 }
 
 /// Auth API: логин (email или № з/к), получение текущего пользователя.
@@ -27,6 +25,7 @@ class AuthApi {
 
   static const String _studentVerify1cPath = '/auth/student/verify-1c';
   static const String _studentRegisterPath = '/auth/student/register';
+  static const String _staffLoginPath = '/auth/staff/login';
 
   Future<UserModel> _saveAuthFromHeadersOrFetchMe(Response<dynamic> response) async {
     final token = response.headers
@@ -35,7 +34,8 @@ class AuthApi {
             .trim() ??
         response.headers.value('X-Auth-Token');
     if (token == null || token.isEmpty) {
-      throw ApiException('Сервер не вернул токен', response.statusCode);
+      // Без токена сообщение от бэка показать нельзя.
+      throw ApiException('Ошибка', response.statusCode);
     }
     await _tokenStorage.setToken(token);
 
@@ -70,15 +70,14 @@ class AuthApi {
     );
 
     if (response.statusCode != 200) {
-      final detail = _extractDetail(response);
-      throw ApiException(detail ?? 'Ошибка входа', response.statusCode);
+      throw ApiException(ApiErrorParser.fromResponseData(response.data) ?? 'Ошибка', response.statusCode);
     }
 
     return _saveAuthFromHeadersOrFetchMe(response);
   }
 
   /// POST /api/auth/student/verify-1c — проверка студента в 1С (без регистрации).
-  Future<void> verifyStudentIn1c({
+  Future<StudentVerify1cResult> verifyStudentIn1c({
     required String fullName,
     required String studentBookNumber,
   }) async {
@@ -91,9 +90,19 @@ class AuthApi {
       options: Options(validateStatus: (s) => s != null && s < 500),
     );
     if (response.statusCode != 200) {
-      final detail = _extractDetail(response);
-      throw ApiException(detail ?? 'Не удалось проверить данные в 1С', response.statusCode);
+      throw ApiException(
+        ApiErrorParser.fromResponseData(response.data) ?? 'Ошибка',
+        response.statusCode,
+      );
     }
+
+    final data = response.data;
+    if (data is Map<String, dynamic>) {
+      final t = (data['registration_token'] ?? data['registrationToken'] ?? data['token']);
+      final s = (t is String) ? t.trim() : (t == null ? '' : '$t').trim();
+      return StudentVerify1cResult(registrationToken: s.isEmpty ? null : s);
+    }
+    return const StudentVerify1cResult(registrationToken: null);
   }
 
   /// POST /api/auth/student/register — регистрация студента (возвращает токен в заголовках).
@@ -102,6 +111,7 @@ class AuthApi {
     required String studentBookNumber,
     required String email,
     required String password,
+    String? registrationToken,
   }) async {
     final response = await _api.dio.post<dynamic>(
       _studentRegisterPath,
@@ -110,12 +120,29 @@ class AuthApi {
         'student_book_number': studentBookNumber.trim(),
         'email': email.trim(),
         'password': password,
+        if (registrationToken != null && registrationToken.trim().isNotEmpty)
+          'registration_token': registrationToken.trim(),
       },
       options: Options(validateStatus: (s) => s != null && s < 500),
     );
     if (response.statusCode != 201) {
-      final detail = _extractDetail(response);
-      throw ApiException(detail ?? 'Не удалось зарегистрироваться', response.statusCode);
+      throw ApiException(
+        ApiErrorParser.fromResponseData(response.data) ?? 'Ошибка',
+        response.statusCode,
+      );
+    }
+    return _saveAuthFromHeadersOrFetchMe(response);
+  }
+
+  /// POST /api/auth/staff/login — вход сотрудника/админа (JSON username/password).
+  Future<UserModel> loginStaff({required String username, required String password}) async {
+    final response = await _api.dio.post<dynamic>(
+      _staffLoginPath,
+      data: <String, dynamic>{'username': username.trim(), 'password': password},
+      options: Options(validateStatus: (s) => s != null && s < 500),
+    );
+    if (response.statusCode != 200) {
+      throw ApiException(ApiErrorParser.fromResponseData(response.data) ?? 'Ошибка', response.statusCode);
     }
     return _saveAuthFromHeadersOrFetchMe(response);
   }
@@ -124,22 +151,11 @@ class AuthApi {
   Future<UserModel> getMe() async {
     final response = await _api.dio.get<Map<String, dynamic>>(ApiConstants.authMePath);
     if (response.statusCode != 200 || response.data == null) {
-      final detail = _extractDetail(response);
-      throw ApiException(detail ?? 'Не удалось загрузить профиль', response.statusCode);
+      throw ApiException(
+        ApiErrorParser.fromResponseData(response.data) ?? 'Ошибка',
+        response.statusCode,
+      );
     }
     return UserModel.fromJson(response.data!);
-  }
-
-  static String? _extractDetail(Response<dynamic> response) {
-    final data = response.data;
-    if (data is Map<String, dynamic>) {
-      final detail = data['detail'];
-      if (detail is String) return detail;
-      if (detail is List && detail.isNotEmpty) {
-        final first = detail.first;
-        if (first is Map && first['msg'] != null) return first['msg'] as String;
-      }
-    }
-    return null;
   }
 }

@@ -13,6 +13,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../../data/api/api_exception.dart';
 import '../../../../data/models/user_model.dart';
 import '../widgets/profile_row_button.dart';
 
@@ -27,13 +28,22 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   String? _savedAvatarPath;
   UserModel? _me;
+  final _parentEmailCtrl = TextEditingController();
+  bool _invitingParent = false;
 
   @override
   void initState() {
     super.initState();
     _me = _readCachedMe();
+    _parentEmailCtrl.text = (_me?.parentEmail ?? '').trim();
     _loadAvatarPath();
     _refreshMeInBackground();
+  }
+
+  @override
+  void dispose() {
+    _parentEmailCtrl.dispose();
+    super.dispose();
   }
 
   UserModel? _readCachedMe() {
@@ -52,8 +62,67 @@ class _ProfilePageState extends State<ProfilePage> {
           .getMe()
           .timeout(ApiConstants.prefetchRequestTimeout);
       await AppContainer.jsonCache.setJson('auth:me', fresh.toJson());
-      if (mounted) setState(() => _me = fresh);
+      if (mounted) {
+        setState(() {
+          _me = fresh;
+          if ((_parentEmailCtrl.text.trim().isEmpty) &&
+              ((fresh.parentEmail ?? '').trim().isNotEmpty)) {
+            _parentEmailCtrl.text = (fresh.parentEmail ?? '').trim();
+          }
+        });
+      }
     } catch (_) {}
+  }
+
+  Future<void> _inviteParent() async {
+    if (_invitingParent) return;
+    final me = _me;
+    if (me == null) return;
+    if (me.role != 'student') return;
+    if ((me.parentEmail ?? '').trim().isNotEmpty) return;
+
+    final email = _parentEmailCtrl.text.trim();
+    if (email.isEmpty) return;
+
+    setState(() => _invitingParent = true);
+    try {
+      await AppContainer.accountApi.inviteParent(parentEmail: email);
+
+      // Оптимистично отображаем сразу, а затем подтягиваем /auth/me.
+      final updated = UserModel(
+        id: me.id,
+        email: me.email,
+        fullName: me.fullName,
+        role: me.role,
+        studentBookNumber: me.studentBookNumber,
+        parentEmail: email,
+        course: me.course,
+        direction: me.direction,
+        groupId: me.groupId,
+        department: me.department,
+        bio: me.bio,
+        isActive: me.isActive,
+        createdAt: me.createdAt,
+      );
+      await AppContainer.jsonCache.setJson('auth:me', updated.toJson());
+      if (mounted) setState(() => _me = updated);
+
+      // Если бэк обновляет parent_email не сразу — это просто обновит кэш.
+      await _refreshMeInBackground();
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Приглашение отправлено')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      final msg = (e is ApiException) ? e.message : 'Ошибка';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(msg)),
+      );
+    } finally {
+      if (mounted) setState(() => _invitingParent = false);
+    }
   }
 
   Future<void> _loadAvatarPath() async {
@@ -130,6 +199,9 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _buildPersonalDataSection(BuildContext context, UserModel? me) {
+    final parentEmail = (me?.parentEmail ?? '').trim();
+    final canInviteParent = (me?.role == 'student') && parentEmail.isEmpty;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -155,6 +227,93 @@ class _ProfilePageState extends State<ProfilePage> {
           iconColor: AppColors.primaryBlue,
           iconBackgroundColor: const Color(0xFFEFF6FF),
         ),
+        const SizedBox(height: 10),
+        ProfileRowButton(
+          iconPath: 'assets/icons/card.svg',
+          title: 'Заказать справку',
+          subtitle: 'Справка c места учебы',
+          onTap: () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Скоро будет доступно')),
+            );
+          },
+          titleColor: AppColors.textPrimary,
+        ),
+        const SizedBox(height: 10),
+        ProfileRowButton(
+          iconPath: 'assets/icons/mail.svg',
+          title: 'E-mail',
+          subtitle: 'Подтверждение по коду из письма',
+          onTap: () => context.push('/account/email-change'),
+          titleColor: AppColors.textPrimary,
+        ),
+        const SizedBox(height: 10),
+        ProfileRowButton(
+          iconPath: 'assets/icons/card.svg',
+          title: 'Сброс пароля',
+          subtitle: 'Сброс по ссылке',
+          onTap: () => context.push('/account/password-reset'),
+          titleColor: AppColors.textPrimary,
+        ),
+        if (me?.role == 'student') ...[
+          const SizedBox(height: 18),
+          Text(
+            'РОДИТЕЛЬ',
+            style: AppTextStyle.inter(
+              fontWeight: FontWeight.w800,
+              fontSize: 11,
+              height: 16.5 / 11,
+              letterSpacing: 1.65,
+              color: AppColors.caption,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.backgroundSecondary,
+              borderRadius: BorderRadius.circular(AppUi.radiusM),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  parentEmail.isEmpty
+                      ? 'Укажите почту родителя — отправим приглашение.'
+                      : 'Приглашение отправлено на:',
+                  style: AppTextStyle.inter(
+                    fontWeight: FontWeight.w400,
+                    fontSize: 13,
+                    height: 18 / 13,
+                    color: AppColors.notificationSubtitle,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: _parentEmailCtrl,
+                  enabled: canInviteParent && !_invitingParent,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: InputDecoration(
+                    filled: true,
+                    fillColor: Colors.white,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(AppUi.radiusM),
+                      borderSide: BorderSide.none,
+                    ),
+                    hintText: 'parent@email.ru',
+                  ),
+                ),
+                if (canInviteParent) ...[
+                  const SizedBox(height: 10),
+                  FilledButton(
+                    onPressed: _invitingParent ? null : _inviteParent,
+                    child: Text(_invitingParent ? 'Отправляем…' : 'Пригласить'),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
       ],
     );
   }

@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import '../../../../core/auth/auth_session.dart';
 import '../../../../core/cache/json_cache.dart';
+import '../../../../core/push/push_registrar.dart';
+import '../../../../core/realtime/realtime_ws_client.dart';
 import '../../../../data/api/auth_api.dart';
 import '../../../../data/models/user_model.dart';
 import '../../../../data/services/token_storage.dart';
@@ -25,19 +27,22 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   Future<UserEntity> login({required String username, required String password}) async {
     final user = await _authApi.login(username: username.trim(), password: password);
+    PushRegistrar.instance.ensureRegistered();
+    RealtimeWsClient.instance.connectIfPossible();
     AuthSession.bump();
     return user.toEntity();
   }
 
   @override
-  Future<void> verifyStudentIn1c({
+  Future<String?> verifyStudentIn1c({
     required String fullName,
     required String studentBookNumber,
   }) async {
-    await _authApi.verifyStudentIn1c(
+    final r = await _authApi.verifyStudentIn1c(
       fullName: fullName.trim(),
       studentBookNumber: studentBookNumber.trim(),
     );
+    return r.registrationToken;
   }
 
   @override
@@ -46,19 +51,25 @@ class AuthRepositoryImpl implements AuthRepository {
     required String studentBookNumber,
     required String email,
     required String password,
+    String? registrationToken,
   }) async {
     final user = await _authApi.registerStudent(
       fullName: fullName.trim(),
       studentBookNumber: studentBookNumber.trim(),
       email: email.trim(),
       password: password,
+      registrationToken: registrationToken,
     );
+    PushRegistrar.instance.ensureRegistered();
+    RealtimeWsClient.instance.connectIfPossible();
     AuthSession.bump();
     return user.toEntity();
   }
 
   @override
   Future<void> logout() async {
+    await PushRegistrar.instance.unregisterCurrentDevice();
+    await RealtimeWsClient.instance.disconnect();
     await _tokenStorage.clear();
     await _jsonCache.clearAll();
     AuthSession.bump();

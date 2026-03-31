@@ -6,7 +6,7 @@ abstract class AuthRepository {
   Future<UserEntity> login({required String username, required String password});
 
   /// Проверка студента в 1С (по ФИО и № зачётки) перед регистрацией.
-  Future<void> verifyStudentIn1c({required String fullName, required String studentBookNumber});
+  Future<String?> verifyStudentIn1c({required String fullName, required String studentBookNumber});
 
   /// Регистрация студента (создаёт аккаунт и сразу авторизует по токену из заголовков).
   Future<UserEntity> registerStudent({
@@ -14,6 +14,7 @@ abstract class AuthRepository {
     required String studentBookNumber,
     required String email,
     required String password,
+    String? registrationToken,
   });
 
   /// Выход: удаление токена и данных пользователя.

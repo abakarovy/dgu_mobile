@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_ui.dart';
 import '../../../../core/theme/app_text_styles.dart';
+import '../../../../core/navigation/home_refresh_host.dart';
 import '../../../../core/navigation/nav_bar_edit_host.dart';
 import '../../../../features/home/presentation/widgets/home_header_title.dart';
 import '../../../../core/network/app_network_banner_controller.dart';
@@ -294,6 +295,7 @@ class _AppShellPageState extends State<AppShellPage> {
               _exitEditMode();
             } else {
               _shell.goBranch(_indexHome);
+              HomeRefreshHost.requestRefresh(force: false);
             }
           },
           customBorder: const CircleBorder(),

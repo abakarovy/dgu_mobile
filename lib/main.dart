@@ -10,6 +10,8 @@ import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'app/app.dart';
 import 'core/di/app_container.dart';
 import 'core/logging/app_log_file.dart';
+import 'core/push/push_registrar.dart';
+import 'core/realtime/realtime_ws_client.dart';
 import 'firebase_options.dart';
 
 void main() async {
@@ -46,6 +48,11 @@ void main() async {
   await AppContainer.init();
 
   await _requestNotificationsPermissionIfNeeded();
+
+  // Register current device token (best-effort).
+  // If user is not logged in yet, backend will reject; next bootstrap/login will retry.
+  PushRegistrar.instance.ensureRegistered();
+  RealtimeWsClient.instance.connectIfPossible();
 
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.green,

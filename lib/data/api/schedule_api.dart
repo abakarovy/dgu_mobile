@@ -3,11 +3,21 @@ import 'package:dio/dio.dart';
 import '../../core/constants/api_constants.dart';
 import '../../features/schedule/data/schedule_lesson.dart';
 import 'api_client.dart';
+import 'api_exception.dart';
 
 class ScheduleApi {
   ScheduleApi({required ApiClient apiClient}) : _api = apiClient;
 
   final ApiClient _api;
+
+  static final Map<String, Future<List<ScheduleLesson>>> _calendarWeekInFlightByKey =
+      {};
+
+  static String? _lastCalendarWeekKey;
+  static List<ScheduleLesson>? _lastCalendarWeekResult;
+  static DateTime? _lastCalendarWeekFetchAt;
+
+  static const Duration _calendarWeekMinRepeatInterval = Duration(minutes: 3);
 
   /// Календарная дата `yyyy-MM-dd` (локальная).
   static String ymd(DateTime d) =>
@@ -38,8 +48,46 @@ class ScheduleApi {
 
   /// Собирает ПН–ВС: для каждого дня `GET /api/1c/schedule?for_date=…`.
   /// Запросы **последовательно**, чтобы не упираться в таймауты и лимиты сервера.
-  Future<List<ScheduleLesson>> getWeekForCalendar(DateTime anyInWeek) async {
+  /// [forceRefresh] — игнорировать последний успешный ответ по этой неделе (например, pull-to-refresh).
+  Future<List<ScheduleLesson>> getWeekForCalendar(
+    DateTime anyInWeek, {
+    bool forceRefresh = false,
+  }) async {
     final monday = mondayOfWeekContaining(anyInWeek);
+    final key = ymd(monday);
+    final now = DateTime.now();
+
+    if (!forceRefresh) {
+      final lastAt = _lastCalendarWeekFetchAt;
+      final lastKey = _lastCalendarWeekKey;
+      final lastResult = _lastCalendarWeekResult;
+      if (lastKey == key &&
+          lastResult != null &&
+          lastAt != null &&
+          now.difference(lastAt) < _calendarWeekMinRepeatInterval) {
+        return List<ScheduleLesson>.from(lastResult);
+      }
+    }
+
+    final existing = _calendarWeekInFlightByKey[key];
+    if (existing != null) return existing;
+
+    final f = () async {
+      final list = await _getWeekForCalendarImpl(monday);
+      _lastCalendarWeekKey = key;
+      _lastCalendarWeekResult = list;
+      _lastCalendarWeekFetchAt = DateTime.now();
+      return list;
+    }();
+    _calendarWeekInFlightByKey[key] = f;
+    try {
+      return await f;
+    } finally {
+      _calendarWeekInFlightByKey.remove(key);
+    }
+  }
+
+  Future<List<ScheduleLesson>> _getWeekForCalendarImpl(DateTime monday) async {
     final chunks = <List<ScheduleLesson>>[];
     for (var i = 0; i < 7; i++) {
       try {
@@ -54,57 +102,63 @@ class ScheduleApi {
   }
 
   Future<List<ScheduleLesson>> _fetchScheduleForDate(String forDateYmd) async {
-    final res = await _api.dio.get<dynamic>(
-      '/1c/schedule',
-      queryParameters: {'for_date': forDateYmd},
-      options: Options(
-        validateStatus: (s) => s != null && s < 500,
-        receiveTimeout: ApiConstants.scheduleReceiveTimeout,
-      ),
-    );
-    if (res.statusCode != 200) {
-      throw DioException(
-        requestOptions: res.requestOptions,
-        response: res,
-        type: DioExceptionType.badResponse,
-        message: 'Не удалось загрузить расписание',
+    try {
+      final res = await _api.dio.get<dynamic>(
+        '/1c/schedule',
+        queryParameters: {'for_date': forDateYmd},
+        options: Options(
+          validateStatus: (s) => s != null && s < 500,
+          receiveTimeout: ApiConstants.scheduleReceiveTimeout,
+        ),
       );
-    }
-    final data = res.data;
-    var list = _parseSchedule(data);
-    if (data is Map<String, dynamic> &&
-        _scheduleScopeIsToday(data['schedule_scope'])) {
-      final anchor = DateTime.tryParse(forDateYmd);
-      if (anchor != null) {
-        list = _remapLessonsToAnchorDay(list, anchor);
+      if (res.statusCode != 200) {
+        throw DioException(
+          requestOptions: res.requestOptions,
+          response: res,
+          type: DioExceptionType.badResponse,
+        );
       }
+      final data = res.data;
+      var list = _parseSchedule(data);
+      if (data is Map<String, dynamic> &&
+          _scheduleScopeIsToday(data['schedule_scope'])) {
+        final anchor = DateTime.tryParse(forDateYmd);
+        if (anchor != null) {
+          list = _remapLessonsToAnchorDay(list, anchor);
+        }
+      }
+      return list;
+    } on DioException catch (e) {
+      throw ApiException.fromDio(e);
     }
-    return list;
   }
 
   Future<List<ScheduleLesson>> _fetchScheduleWeekFilter(
     String week,
     {required bool todayOnly}) async {
-    final res = await _api.dio.get<dynamic>(
-      '/1c/schedule',
-      queryParameters: {
-        'week': week,
-        'today_only': todayOnly,
-      },
-      options: Options(
-        validateStatus: (s) => s != null && s < 500,
-        receiveTimeout: ApiConstants.scheduleReceiveTimeout,
-      ),
-    );
-    if (res.statusCode != 200) {
-      throw DioException(
-        requestOptions: res.requestOptions,
-        response: res,
-        type: DioExceptionType.badResponse,
-        message: 'Не удалось загрузить расписание',
+    try {
+      final res = await _api.dio.get<dynamic>(
+        '/1c/schedule',
+        queryParameters: {
+          'week': week,
+          'today_only': todayOnly,
+        },
+        options: Options(
+          validateStatus: (s) => s != null && s < 500,
+          receiveTimeout: ApiConstants.scheduleReceiveTimeout,
+        ),
       );
+      if (res.statusCode != 200) {
+        throw DioException(
+          requestOptions: res.requestOptions,
+          response: res,
+          type: DioExceptionType.badResponse,
+        );
+      }
+      return _parseSchedule(res.data);
+    } on DioException catch (e) {
+      throw ApiException.fromDio(e);
     }
-    return _parseSchedule(res.data);
   }
 
   static bool _scheduleScopeIsToday(dynamic scope) {
@@ -170,30 +224,33 @@ class ScheduleApi {
 
   /// GET `/api/1c/schedule` без query — расписание на сегодня (поведение по умолчанию).
   Future<List<ScheduleLesson>> getToday() async {
-    final res = await _api.dio.get<dynamic>(
-      '/1c/schedule',
-      options: Options(
-        validateStatus: (s) => s != null && s < 500,
-        receiveTimeout: ApiConstants.scheduleReceiveTimeout,
-      ),
-    );
-    if (res.statusCode != 200) {
-      throw DioException(
-        requestOptions: res.requestOptions,
-        response: res,
-        type: DioExceptionType.badResponse,
-        message: 'Не удалось загрузить расписание',
+    try {
+      final res = await _api.dio.get<dynamic>(
+        '/1c/schedule',
+        options: Options(
+          validateStatus: (s) => s != null && s < 500,
+          receiveTimeout: ApiConstants.scheduleReceiveTimeout,
+        ),
       );
+      if (res.statusCode != 200) {
+        throw DioException(
+          requestOptions: res.requestOptions,
+          response: res,
+          type: DioExceptionType.badResponse,
+        );
+      }
+      final data = res.data;
+      var list = _parseSchedule(data);
+      if (data is Map<String, dynamic> &&
+          _scheduleScopeIsToday(data['schedule_scope'])) {
+        final now = DateTime.now();
+        final anchor = DateTime(now.year, now.month, now.day);
+        list = _remapLessonsToAnchorDay(list, anchor);
+      }
+      return list;
+    } on DioException catch (e) {
+      throw ApiException.fromDio(e);
     }
-    final data = res.data;
-    var list = _parseSchedule(data);
-    if (data is Map<String, dynamic> &&
-        _scheduleScopeIsToday(data['schedule_scope'])) {
-      final now = DateTime.now();
-      final anchor = DateTime(now.year, now.month, now.day);
-      list = _remapLessonsToAnchorDay(list, anchor);
-    }
-    return list;
   }
 
   List<ScheduleLesson> _parseSchedule(dynamic data) {

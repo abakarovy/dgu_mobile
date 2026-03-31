@@ -20,12 +20,12 @@ class AuthRepositoryLocal implements AuthRepository {
   }
 
   @override
-  Future<void> verifyStudentIn1c({
+  Future<String?> verifyStudentIn1c({
     required String fullName,
     required String studentBookNumber,
   }) async {
     // Локальный режим: считаем проверку успешной.
-    return;
+    return null;
   }
 
   @override
@@ -34,6 +34,7 @@ class AuthRepositoryLocal implements AuthRepository {
     required String studentBookNumber,
     required String email,
     required String password,
+    String? registrationToken,
   }) async {
     // Локальный режим: "регистрируем" и возвращаем пользователя.
     return UserEntity(

@@ -6,7 +6,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_ui.dart';
 import '../../../../core/di/app_container.dart';
 import '../../../../core/theme/app_text_styles.dart';
-import '../../../../data/api/auth_api.dart';
+import '../../../../data/api/api_exception.dart';
 
 /// Экран входа по E-Mail: те же заголовок и оформление, поля E-Mail и Пароль, кнопка «Войти» и «Войти по № з/к».
 class LoginEmailPage extends StatefulWidget {
@@ -33,6 +33,11 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
     return e is Map && e['mode'] == 'register';
   }
 
+  bool get _isParentRole {
+    final e = widget.extra;
+    return e is Map && e['role'] == 'parent';
+  }
+
   String? get _verifiedFullName {
     final e = widget.extra;
     if (e is Map) return e['fullName'] as String?;
@@ -42,6 +47,12 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
   String? get _verifiedBookNumber {
     final e = widget.extra;
     if (e is Map) return e['book'] as String?;
+    return null;
+  }
+
+  String? get _registrationToken {
+    final e = widget.extra;
+    if (e is Map) return e['registrationToken'] as String?;
     return null;
   }
 
@@ -96,13 +107,14 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
         final fullName = _verifiedFullName;
         final book = _verifiedBookNumber;
         if (fullName == null || book == null) {
-          throw ApiException('Нет данных зачётки для регистрации');
+          throw ApiException('Ошибка');
         }
         await AppContainer.authRepository.registerStudent(
           fullName: fullName,
           studentBookNumber: book,
           email: email,
           password: password,
+          registrationToken: _registrationToken,
         );
       } else {
         await AppContainer.authRepository.login(username: email, password: password);
@@ -188,9 +200,18 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
               _buildSubmitButton(),
               const SizedBox(height: 12),
               _buildSwitchButton(
-                label: _isRegisterMode ? 'Назад' : 'Войти по № з/к',
-                onTap: () => context.go('/login'),
+                label: _isRegisterMode
+                    ? 'Назад'
+                    : (_isParentRole ? 'Назад' : 'Войти по № з/к'),
+                onTap: () => context.go(_isParentRole ? '/login' : '/login/student'),
               ),
+              if (_isParentRole && !_isRegisterMode) ...[
+                const SizedBox(height: 8),
+                _buildSwitchButton(
+                  label: 'Войти как студент',
+                  onTap: () => context.go('/login/student'),
+                ),
+              ],
             ],
           ),
         ),

@@ -7,7 +7,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_ui.dart';
 import '../../../../core/di/app_container.dart';
 import '../../../../core/theme/app_text_styles.dart';
-import '../../../../data/api/auth_api.dart';
+import '../../../../data/api/api_exception.dart';
 
 /// Экран входа: иконка в контейнере, заголовок, подзаголовок, форма (Фамилия, Имя, Отчество, Номер з/к), кнопка «Войти».
 class LoginPage extends StatefulWidget {
@@ -113,31 +113,25 @@ class _LoginPageState extends State<LoginPage> {
     try {
       setState(() => _submitting = true);
       // Проверяем студента в 1С. Дальше — регистрация/вход по email.
-      await AppContainer.authRepository.verifyStudentIn1c(
+      final registrationToken = await AppContainer.authRepository.verifyStudentIn1c(
         fullName: fullName,
         studentBookNumber: bookNumber,
       );
       if (!mounted) return;
       context.go(
         '/login/email',
-        extra: {'mode': 'register', 'fullName': fullName, 'book': bookNumber},
+        extra: {
+          'mode': 'register',
+          'fullName': fullName,
+          'book': bookNumber,
+          'registrationToken': registrationToken,
+        },
       );
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() {
         _showWrongCredentialsError = true;
-        final msg = e.message;
-        if (e.statusCode == 404) {
-          _credentialsErrorMessage = 'Неверные данные';
-        } else if (e.statusCode == 400 &&
-            msg.toLowerCase().contains('уже зарегистр')) {
-          _credentialsErrorMessage =
-              'Этот номер зачётки уже зарегистрирован, войдите по E-mail';
-        } else if (e.statusCode == 400) {
-          _credentialsErrorMessage = 'Данные не верны';
-        } else {
-          _credentialsErrorMessage = msg;
-        }
+        _credentialsErrorMessage = e.message;
       });
     } finally {
       if (mounted) setState(() => _submitting = false);
@@ -205,7 +199,21 @@ class _LoginPageState extends State<LoginPage> {
               const SizedBox(height: 32),
               _buildSubmitButton(),
               const SizedBox(height: 12),
-              _buildSwitchButton(label: 'Войти по E-Mail', onTap: () => context.go('/login/email')),
+              _buildSwitchButton(
+                label: 'Войти по E-Mail',
+                onTap: () => context.go(
+                  '/login/email',
+                  extra: const {'role': 'student', 'mode': 'login'},
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildSwitchButton(
+                label: 'Войти как родитель',
+                onTap: () => context.go(
+                  '/login/email',
+                  extra: const {'role': 'parent', 'mode': 'login'},
+                ),
+              ),
             ],
           ),
         ),

@@ -1,15 +1,20 @@
-import 'package:dio/dio.dart';
-
 import '../../core/constants/api_constants.dart';
 import '../../features/auth/domain/repositories/auth_repository.dart';
 import '../../data/api/api_client.dart';
 import '../../data/api/auth_api.dart';
+import '../../data/api/api_exception.dart';
+import '../../data/api/account_api.dart';
+import '../../data/api/assignments_api.dart';
 import '../../data/api/events_api.dart';
 import '../../data/api/grades_api.dart';
 import '../../data/api/groups_api.dart';
+import '../../data/api/mobile_help_api.dart';
 import '../../data/api/news_api.dart';
+import '../../data/api/notification_preferences_api.dart';
 import '../../data/api/profile_1c_api.dart';
+import '../../data/api/push_api.dart';
 import '../../data/api/schedule_api.dart';
+import '../../data/api/student_ticket_api.dart';
 import '../../data/services/token_storage.dart';
 import '../../features/auth/data/repositories/auth_repository_impl.dart';
 import '../../features/schedule/domain/schedule_calendar_filter.dart';
@@ -19,18 +24,26 @@ import '../../core/cache/json_cache.dart';
 abstract final class AppContainer {
   static AuthRepository? _authRepository;
   static AuthApi? _authApi;
+  static TokenStorage? _tokenStorage;
   static NewsApi? _newsApi;
   static ScheduleApi? _scheduleApi;
   static Profile1cApi? _profile1cApi;
   static EventsApi? _eventsApi;
   static GradesApi? _gradesApi;
   static GroupsApi? _groupsApi;
+  static MobileHelpApi? _mobileHelpApi;
+  static NotificationPreferencesApi? _notificationPreferencesApi;
+  static AssignmentsApi? _assignmentsApi;
+  static PushApi? _pushApi;
+  static AccountApi? _accountApi;
+  static StudentTicketApi? _studentTicketApi;
   static JsonCache? _jsonCache;
 
   static Future<void> init() async {
     final tokenStorage = await TokenStorage.create();
     final jsonCache = await JsonCache.create();
     final apiClient = ApiClient(tokenStorage: tokenStorage);
+    _tokenStorage = tokenStorage;
     _authApi = AuthApi(apiClient: apiClient, tokenStorage: tokenStorage);
     _authRepository = AuthRepositoryImpl(
       authApi: _authApi!,
@@ -43,6 +56,12 @@ abstract final class AppContainer {
     _eventsApi = EventsApi(apiClient: apiClient);
     _gradesApi = GradesApi(apiClient: apiClient);
     _groupsApi = GroupsApi(apiClient: apiClient);
+    _mobileHelpApi = MobileHelpApi(apiClient: apiClient);
+    _notificationPreferencesApi = NotificationPreferencesApi(apiClient: apiClient);
+    _assignmentsApi = AssignmentsApi(apiClient: apiClient);
+    _pushApi = PushApi(apiClient: apiClient);
+    _accountApi = AccountApi(apiClient: apiClient);
+    _studentTicketApi = StudentTicketApi(apiClient: apiClient);
     _jsonCache = jsonCache;
   }
 
@@ -50,6 +69,12 @@ abstract final class AppContainer {
     final r = _authRepository;
     if (r == null) throw StateError('AppContainer.init() must be called before using authRepository');
     return r;
+  }
+
+  static TokenStorage get tokenStorage {
+    final t = _tokenStorage;
+    if (t == null) throw StateError('AppContainer.init() must be called before using tokenStorage');
+    return t;
   }
 
   static NewsApi get newsApi {
@@ -88,6 +113,44 @@ abstract final class AppContainer {
     return a;
   }
 
+  static MobileHelpApi get mobileHelpApi {
+    final a = _mobileHelpApi;
+    if (a == null) throw StateError('AppContainer.init() must be called before using mobileHelpApi');
+    return a;
+  }
+
+  static NotificationPreferencesApi get notificationPreferencesApi {
+    final a = _notificationPreferencesApi;
+    if (a == null) {
+      throw StateError('AppContainer.init() must be called before using notificationPreferencesApi');
+    }
+    return a;
+  }
+
+  static AssignmentsApi get assignmentsApi {
+    final a = _assignmentsApi;
+    if (a == null) throw StateError('AppContainer.init() must be called before using assignmentsApi');
+    return a;
+  }
+
+  static PushApi get pushApi {
+    final a = _pushApi;
+    if (a == null) throw StateError('AppContainer.init() must be called before using pushApi');
+    return a;
+  }
+
+  static AccountApi get accountApi {
+    final a = _accountApi;
+    if (a == null) throw StateError('AppContainer.init() must be called before using accountApi');
+    return a;
+  }
+
+  static StudentTicketApi get studentTicketApi {
+    final a = _studentTicketApi;
+    if (a == null) throw StateError('AppContainer.init() must be called before using studentTicketApi');
+    return a;
+  }
+
   static AuthApi get authApi {
     final a = _authApi;
     if (a == null) throw StateError('AppContainer.init() must be called before using authApi');
@@ -110,6 +173,10 @@ abstract final class AppContainer {
       _timedPrefetch(t, _prefetchGrades),
       _timedPrefetch(t, _prefetchNews),
       _timedPrefetch(t, _prefetchEvents),
+      _timedPrefetch(t, _prefetchHelp),
+      _timedPrefetch(t, _prefetchNotificationPreferences),
+      _timedPrefetch(t, _prefetchAssignments),
+      _timedPrefetch(t, _prefetchStudentTicket),
       _timedPrefetch(ApiConstants.scheduleReceiveTimeout, _prefetchOneCProfile),
       _timedPrefetch(ApiConstants.prefetchScheduleTimeout, _prefetchScheduleCaches),
     ]);
@@ -138,8 +205,8 @@ abstract final class AppContainer {
     try {
       final g = await groupsApi.getMyGroup();
       if (g != null) await jsonCache.setJson('groups:my', g.toJson());
-    } on DioException catch (e) {
-      final c = e.response?.statusCode;
+    } catch (e) {
+      final c = (e is ApiException) ? e.statusCode : null;
       if (c == 404 || c == 403) return;
       rethrow;
     }
@@ -157,6 +224,7 @@ abstract final class AppContainer {
             'grade_type': g.gradeType,
             'teacher_name': g.teacherName,
             'date': g.date?.toIso8601String(),
+            'semester': g.semester,
           }
       ],
     );
@@ -170,6 +238,45 @@ abstract final class AppContainer {
   static Future<void> _prefetchEvents() async {
     final fresh = await eventsApi.getEvents();
     await jsonCache.setJson('events:list', [for (final e in fresh) e.toJson()]);
+  }
+
+  static Future<void> _prefetchHelp() async {
+    final h = await mobileHelpApi.getHelp();
+    await jsonCache.setJson('mobile:help', {
+      'hotline_phone': h.hotlinePhone,
+      'email': h.email,
+      'website_url': h.websiteUrl,
+      'faq': [
+        for (final f in (h.faq ?? const []))
+          {'title': f.title, 'answer': f.answer}
+      ],
+    });
+  }
+
+  static Future<void> _prefetchNotificationPreferences() async {
+    final p = await notificationPreferencesApi.getMy();
+    await jsonCache.setJson('mobile:notification-preferences', p.toPatchJson());
+  }
+
+  static Future<void> _prefetchAssignments() async {
+    final items = await assignmentsApi.getMy(limit: 50);
+    await jsonCache.setJson('mobile:assignments:my', [
+      for (final a in items)
+        {
+          'id': a.id,
+          'title': a.title,
+          'description': a.description,
+          'subject': a.subject,
+          'deadline_at': a.deadlineAt?.toIso8601String(),
+          'created_at': a.createdAt?.toIso8601String(),
+          'is_done': a.isDone,
+        }
+    ]);
+  }
+
+  static Future<void> _prefetchStudentTicket() async {
+    final t = await studentTicketApi.getMyTicket();
+    await jsonCache.setJson('mobile:student-ticket', t.toJsonMap());
   }
 
   static Future<void> _prefetchOneCProfile() async {

@@ -15,6 +15,7 @@ import '../../../../core/di/app_container.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../data/models/group_model.dart';
 import '../../../../data/models/one_c_my_profile.dart';
+import '../../../../data/models/student_ticket_model.dart';
 import '../../../../data/models/user_model.dart';
 import '../../../../shared/widgets/app_header.dart';
 
@@ -28,7 +29,8 @@ class StudentIdPage extends StatefulWidget {
 
 class _StudentIdPageState extends State<StudentIdPage> {
   UserModel? _me;
-  OneCMyProfile? _oneC;
+  StudentTicketModel? _ticket;
+  OneCMyProfile? _oneC; // fallback if student-ticket is not available
   GroupModel? _group;
   String? _avatarPath;
   bool _meLoading = true;
@@ -60,6 +62,7 @@ class _StudentIdPageState extends State<StudentIdPage> {
   void initState() {
     super.initState();
     _me = _readCachedMe();
+    _ticket = _readCachedTicket();
     _oneC = _readCachedOneC();
     _group = _readCachedGroup();
     if (_me != null) _meLoading = false;
@@ -98,6 +101,16 @@ class _StudentIdPageState extends State<StudentIdPage> {
     }
   }
 
+  StudentTicketModel? _readCachedTicket() {
+    final cached = AppContainer.jsonCache.getJsonMap('mobile:student-ticket');
+    if (cached == null) return null;
+    try {
+      return StudentTicketModel.fromJson(cached);
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<void> _loadAvatarPath() async {
     final prefs = await SharedPreferences.getInstance();
     final path = prefs.getString(AppConstants.profileAvatarPathKey);
@@ -127,11 +140,11 @@ class _StudentIdPageState extends State<StudentIdPage> {
       // остаётся кэш или пусто
     }
     try {
-      final p = await AppContainer.profile1cApi
-          .getMyProfile()
-          .timeout(ApiConstants.scheduleReceiveTimeout);
-      await AppContainer.jsonCache.setJson('1c:my-profile', p.toJsonMap());
-      if (mounted) setState(() => _oneC = p);
+      final t = await AppContainer.studentTicketApi
+          .getMyTicket()
+          .timeout(ApiConstants.prefetchRequestTimeout);
+      await AppContainer.jsonCache.setJson('mobile:student-ticket', t.toJsonMap());
+      if (mounted) setState(() => _ticket = t);
     } catch (_) {
       // остаётся кэш или пусто
     } finally {
@@ -145,15 +158,15 @@ class _StudentIdPageState extends State<StudentIdPage> {
     super.dispose();
   }
 
-  String _copyableText(UserModel me, OneCMyProfile? oneC, GroupModel? group) {
-    final fullName = _displayFullName(me, oneC);
-    final id = _studentId(me, oneC);
-    final birthDate = _birthDate(me, oneC);
-    final department = _department(me, oneC);
-    final studyGroup = _studyGroup(me, oneC, group);
-    final admissionYear = _admissionYear(me, oneC);
-    final studyForm = _studyForm(me, oneC);
-    final status = _status(me, oneC);
+  String _copyableText(UserModel me, StudentTicketModel? t, OneCMyProfile? oneC, GroupModel? group) {
+    final fullName = _displayFullName(me, t, oneC);
+    final id = _studentId(me, t, oneC);
+    final birthDate = _birthDate(t, oneC);
+    final department = _department(me, t, oneC);
+    final studyGroup = _studyGroup(me, t, oneC, group);
+    final admissionYear = _admissionYear(t, oneC);
+    final studyForm = _studyForm(me, t, oneC);
+    final status = _status(me, t, oneC);
     return '$fullName\n'
         'ID: $id\n'
         'Дата рождения: $birthDate\n'
@@ -166,7 +179,7 @@ class _StudentIdPageState extends State<StudentIdPage> {
 
   Future<void> _copyToClipboard(BuildContext context, UserModel me) async {
     await Clipboard.setData(
-        ClipboardData(text: _copyableText(me, _oneC, _group)));
+        ClipboardData(text: _copyableText(me, _ticket, _oneC, _group)));
     if (!context.mounted) return;
     _copiedToastTimer?.cancel();
     setState(() => _copiedToastVisible = true);
@@ -225,15 +238,15 @@ class _StudentIdPageState extends State<StudentIdPage> {
                     ),
                   );
                 }
-                final fullName = _displayFullName(me, _oneC);
-                final id = _studentId(me, _oneC);
-                final birthDate = _birthDate(me, _oneC);
-                final department = _department(me, _oneC);
-                final studyGroup = _studyGroup(me, _oneC, _group);
-                final course = _course(me, _oneC);
-                final admissionYear = _admissionYear(me, _oneC);
-                final studyForm = _studyForm(me, _oneC);
-                final status = _status(me, _oneC);
+                final fullName = _displayFullName(me, _ticket, _oneC);
+                final id = _studentId(me, _ticket, _oneC);
+                final birthDate = _birthDate(_ticket, _oneC);
+                final department = _department(me, _ticket, _oneC);
+                final studyGroup = _studyGroup(me, _ticket, _oneC, _group);
+                final course = _course(me, _ticket, _oneC);
+                final admissionYear = _admissionYear(_ticket, _oneC);
+                final studyForm = _studyForm(me, _ticket, _oneC);
+                final status = _status(me, _ticket, _oneC);
 
                 return Container(
                   width: double.infinity,
@@ -465,13 +478,17 @@ class _StudentIdPageState extends State<StudentIdPage> {
 
   static String _safe(String? v) => (v == null || v.trim().isEmpty) ? '-' : v.trim();
 
-  static String _displayFullName(UserModel me, OneCMyProfile? c) {
+  static String _displayFullName(UserModel me, StudentTicketModel? t, OneCMyProfile? c) {
+    final st = t?.fullName?.trim();
+    if (st != null && st.isNotEmpty) return st;
     final from1c = c?.fullName?.trim();
     if (from1c != null && from1c.isNotEmpty) return from1c;
     return _safe(me.fullName);
   }
 
-  static String _studentId(UserModel me, OneCMyProfile? c) {
+  static String _studentId(UserModel me, StudentTicketModel? t, OneCMyProfile? c) {
+    final st = t?.studentBookNumber?.trim();
+    if (st != null && st.isNotEmpty) return st.replaceAll(' ', '');
     final from1c = c?.studentBookNumber?.trim();
     if (from1c != null && from1c.isNotEmpty) {
       return from1c.replaceAll(' ', '');
@@ -479,13 +496,17 @@ class _StudentIdPageState extends State<StudentIdPage> {
     return _safe(me.studentBookNumber).replaceAll(' ', '');
   }
 
-  static String _birthDate(UserModel _, OneCMyProfile? c) {
+  static String _birthDate(StudentTicketModel? t, OneCMyProfile? c) {
+    final st = t?.birthDate?.trim();
+    if (st != null && st.isNotEmpty) return st;
     final b = c?.birthDate?.trim();
     if (b != null && b.isNotEmpty) return b;
     return '-';
   }
 
-  static String _department(UserModel me, OneCMyProfile? c) {
+  static String _department(UserModel me, StudentTicketModel? t, OneCMyProfile? c) {
+    final st = t?.department?.trim();
+    if (st != null && st.isNotEmpty) return st;
     final d1 = c?.department?.trim();
     if (d1 != null && d1.isNotEmpty) return d1;
     final dir1c = c?.direction?.trim();
@@ -497,7 +518,9 @@ class _StudentIdPageState extends State<StudentIdPage> {
     return '-';
   }
 
-  static String _studyGroup(UserModel me, OneCMyProfile? c, GroupModel? g) {
+  static String _studyGroup(UserModel me, StudentTicketModel? t, OneCMyProfile? c, GroupModel? g) {
+    final st = t?.studyGroup?.trim();
+    if (st != null && st.isNotEmpty) return st;
     final g1c = c?.group?.trim();
     if (g1c != null && g1c.isNotEmpty) return g1c;
     final label = g?.displayLabel?.trim();
@@ -505,24 +528,31 @@ class _StudentIdPageState extends State<StudentIdPage> {
     return '-';
   }
 
-  static String _admissionYear(UserModel _, OneCMyProfile? c) {
+  static String _admissionYear(StudentTicketModel? t, OneCMyProfile? c) {
+    final st = t?.admissionYear?.trim();
+    if (st != null && st.isNotEmpty) return st;
     final y = c?.admissionYear?.trim();
     if (y != null && y.isNotEmpty) return y;
     return '-';
   }
 
-  static String _studyForm(UserModel me, OneCMyProfile? c) {
+  static String _studyForm(UserModel me, StudentTicketModel? t, OneCMyProfile? c) {
+    final st = t?.studyForm?.trim();
+    if (st != null && st.isNotEmpty) return st;
     final f = c?.studyForm?.trim();
     if (f != null && f.isNotEmpty) return f;
     return me.role == 'student' ? 'Очная' : '-';
   }
 
-  static String _course(UserModel me, OneCMyProfile? c) {
+  static String _course(UserModel me, StudentTicketModel? t, OneCMyProfile? c) {
+    if (t?.course != null) return t!.course.toString();
     if (c?.course != null) return c!.course.toString();
     return me.course?.toString() ?? '-';
   }
 
-  static String _status(UserModel me, OneCMyProfile? c) {
+  static String _status(UserModel me, StudentTicketModel? t, OneCMyProfile? c) {
+    final st = t?.status?.trim();
+    if (st != null && st.isNotEmpty) return st;
     final s = c?.status?.trim();
     if (s != null && s.isNotEmpty) return s;
     return me.isActive ? 'Обучается' : 'Неактивен';

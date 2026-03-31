@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dgu_mobile/core/constants/app_colors.dart';
 import 'package:dgu_mobile/core/constants/app_ui.dart';
 import 'package:dgu_mobile/core/platform/native_date_range_picker.dart';
@@ -28,7 +30,10 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
   DateTime _rangeEnd = DateTime.now();
   bool _isWeekMode = true;
 
-  late final Future<List<GradeEntity>> _gradesFuture;
+  static const String _cacheKeyGrades = 'grades:my';
+
+  List<GradeEntity> _grades = const <GradeEntity>[];
+  bool _refreshing = false;
 
   static bool _isSessionType(String? t) {
     final s = (t ?? '').toLowerCase();
@@ -179,7 +184,9 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
     _rangeStart = now.subtract(Duration(days: mondayOffset));
     _rangeEnd = _rangeStart.add(const Duration(days: 6));
 
-    _gradesFuture = _loadGrades();
+    _grades = _decodeCachedGrades();
+    // Тихо обновим из сети, но UI строим сразу по кэшу (чтобы не было «загрузки» при открытии).
+    unawaited(_refreshGrades());
   }
 
   @override
@@ -229,6 +236,8 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  if (_refreshing && _grades.isNotEmpty)
+                    const LinearProgressIndicator(minHeight: 2),
                   if (idx == 0)
                     Padding(
                       padding: const EdgeInsets.fromLTRB(AppUi.screenPaddingH, 0, AppUi.screenPaddingH, 12),
@@ -291,85 +300,72 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
   }
 
   Widget _buildCurrentTab(BuildContext context) {
-    return FutureBuilder<List<GradeEntity>>(
-      future: _gradesFuture,
-      builder: (context, snap) {
-        final all = (snap.data ?? const <GradeEntity>[]);
-        final currentEntities = all
-            .where((g) => !_isSessionType(g.gradeType))
-            .where(_hasGradeValue)
-            .toList();
-        final list = currentEntities.map(_toListItem).toList();
-        final filtered = _filtered(list);
-        _lastBySubject = _groupBySubject(list);
+    final currentEntities = _grades
+        .where((g) => !_isSessionType(g.gradeType))
+        .where(_hasGradeValue)
+        .toList();
+    final list = currentEntities.map(_toListItem).toList();
+    final filtered = _filtered(list);
+    _lastBySubject = _groupBySubject(list);
 
-        if (snap.connectionState != ConnectionState.done && list.isEmpty) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (filtered.isEmpty) {
-          return Center(
-            child: Text(
-              'Нет текущих оценок',
-              style: Theme.of(context)
-                  .textTheme
-                  .bodyLarge
-                  ?.copyWith(color: AppColors.caption),
-            ),
-          );
-        }
-        return GradesListView(
-          items: filtered,
-          groupByDate: true,
-          onSubjectTap: (name) => _showSubjectGrades(context, name),
-        );
-      },
+    if (_grades.isEmpty && _refreshing) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (filtered.isEmpty) {
+      return Center(
+        child: Text(
+          'Нет текущих оценок',
+          style: Theme.of(context)
+              .textTheme
+              .bodyLarge
+              ?.copyWith(color: AppColors.caption),
+        ),
+      );
+    }
+    return GradesListView(
+      items: filtered,
+      groupByDate: true,
+      onSubjectTap: (name) => _showSubjectGrades(context, name),
     );
   }
 
   Widget _buildSessionTab() {
-    return FutureBuilder<List<GradeEntity>>(
-      future: _gradesFuture,
-      builder: (context, snap) {
-        final all = (snap.data ?? const <GradeEntity>[])
-            .where((g) => _isSessionType(g.gradeType))
-            .toList();
-        if (snap.connectionState != ConnectionState.done && all.isEmpty) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (all.isEmpty) {
-          return Center(
-            child: Text(
-              'Нет данных сессии',
-              style: Theme.of(context)
-                  .textTheme
-                  .bodyLarge
-                  ?.copyWith(color: AppColors.caption),
-            ),
-          );
-        }
+    final all = _grades.where((g) => _isSessionType(g.gradeType)).toList();
+    if (_grades.isEmpty && _refreshing) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (all.isEmpty) {
+      return Center(
+        child: Text(
+          'Нет данных сессии',
+          style: Theme.of(context)
+              .textTheme
+              .bodyLarge
+              ?.copyWith(color: AppColors.caption),
+        ),
+      );
+    }
 
-        final bySubject = <String, List<GradeEntity>>{};
-        for (final g in all) {
-          bySubject.putIfAbsent(g.subjectName, () => []).add(g);
-        }
-        final subjects = bySubject.keys.toList()..sort();
+    final bySubject = <String, List<GradeEntity>>{};
+    for (final g in all) {
+      bySubject.putIfAbsent(g.subjectName, () => []).add(g);
+    }
+    final subjects = bySubject.keys.toList()..sort();
 
-        final items = <GradeListItem>[];
-        for (final s in subjects) {
-          final breakdown = _breakdownFor(bySubject[s]!);
-          items.add(
-            GradeListItem(
-              subjectName: s,
-              grade: '',
-              subtitle: '',
-              sessionBreakdown: breakdown,
-            ),
-          );
-        }
+    final items = <GradeListItem>[];
+    for (final s in subjects) {
+      final breakdown = _breakdownFor(bySubject[s]!);
+      items.add(
+        GradeListItem(
+          subjectName: s,
+          grade: '',
+          subtitle: '',
+          sessionBreakdown: breakdown,
+        ),
+      );
+    }
 
-        return GradesListView(items: items);
-      },
-    );
+    return GradesListView(items: items);
   }
 
   SessionGradeBreakdown _breakdownFor(List<GradeEntity> grades) {
@@ -406,31 +402,33 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
     );
   }
 
-  Future<List<GradeEntity>> _loadGrades() async {
-    const cacheKey = 'grades:my';
-    List<GradeEntity> decodeCached() {
-      final cached = AppContainer.jsonCache.getJsonList(cacheKey);
-      if (cached == null) return const <GradeEntity>[];
-      return cached
-          .whereType<Map>()
-          .map((m) => Map<String, dynamic>.from(m))
-          .map((j) => GradeEntity(
-                subjectName: (j['subject_name'] as String?) ?? '',
-                grade: (j['grade'] as String?) ?? '',
-                gradeType: (j['grade_type'] as String?),
-                teacherName: (j['teacher_name'] as String?),
-                date: DateTime.tryParse((j['date'] as String?) ?? ''),
-              ))
-          .toList();
-    }
+  List<GradeEntity> _decodeCachedGrades() {
+    final cached = AppContainer.jsonCache.getJsonList(_cacheKeyGrades);
+    if (cached == null) return const <GradeEntity>[];
+    return cached
+        .whereType<Map>()
+        .map((m) => Map<String, dynamic>.from(m))
+        .map((j) => GradeEntity(
+              subjectName: (j['subject_name'] as String?) ?? '',
+              grade: (j['grade'] as String?) ?? '',
+              gradeType: (j['grade_type'] as String?),
+              teacherName: (j['teacher_name'] as String?),
+              date: DateTime.tryParse((j['date'] as String?) ?? ''),
+              semester: (j['semester'] as String?),
+            ))
+        .toList();
+  }
 
+  Future<void> _refreshGrades() async {
+    if (_refreshing) return;
+    setState(() => _refreshing = true);
     try {
       final fresh = await AppContainer.gradesApi.getMyGrades();
-      final cached = decodeCached();
+      final cached = _decodeCachedGrades();
       // При пустом ответе сервера сохраняем старый кэш.
       if (fresh.isNotEmpty || cached.isEmpty) {
         await AppContainer.jsonCache.setJson(
-          cacheKey,
+          _cacheKeyGrades,
           [
             for (final g in fresh)
               {
@@ -439,14 +437,19 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
                 'grade_type': g.gradeType,
                 'teacher_name': g.teacherName,
                 'date': g.date?.toIso8601String(),
+                'semester': g.semester,
               }
           ],
         );
-        return fresh;
+        if (mounted) setState(() => _grades = fresh);
+      } else {
+        if (mounted) setState(() => _grades = cached);
       }
-      return cached;
     } catch (_) {
-      return decodeCached();
+      final cached = _decodeCachedGrades();
+      if (mounted && cached.isNotEmpty) setState(() => _grades = cached);
+    } finally {
+      if (mounted) setState(() => _refreshing = false);
     }
   }
 }

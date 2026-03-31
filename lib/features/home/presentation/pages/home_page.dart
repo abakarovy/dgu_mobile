@@ -11,6 +11,7 @@ import '../../../schedule/data/schedule_lesson.dart';
 import '../../../schedule/domain/schedule_calendar_filter.dart';
 import '../../../schedule/presentation/widgets/schedule_lesson_tile.dart';
 import '../../../../core/di/app_container.dart';
+import '../../../../core/navigation/home_refresh_host.dart';
 import '../../../../data/models/group_model.dart';
 import '../../../../data/models/one_c_my_profile.dart';
 import '../../../../data/models/user_model.dart';
@@ -24,35 +25,33 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
+class _HomePageState extends State<HomePage> {
+  static const Duration _silentScheduleMinInterval = Duration(minutes: 8);
+
   late _BannerData _banner;
   List<ScheduleLesson> _todayLessons = const <ScheduleLesson>[];
+  DateTime? _lastSilentScheduleRefreshAt;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
     _banner = _readBannerData();
     _hydrateTodayFromCache();
+    HomeRefreshHost.register(({required bool force}) {
+      if (!mounted) return;
+      _hydrateTodayFromCache();
+      unawaited(_refreshTodayScheduleSilent(force: force));
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) setState(() => _banner = _readBannerData());
-      unawaited(_refreshTodayScheduleSilent());
+      unawaited(_refreshTodayScheduleSilent(force: false));
     });
   }
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
+    HomeRefreshHost.clear();
     super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      _hydrateTodayFromCache();
-      if (mounted) setState(() => _banner = _readBannerData());
-      unawaited(_refreshTodayScheduleSilent());
-    }
   }
 
   void _hydrateTodayFromCache() {
@@ -73,10 +72,20 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         .toList();
   }
 
-  Future<void> _refreshTodayScheduleSilent() async {
+  Future<void> _refreshTodayScheduleSilent({required bool force}) async {
+    if (!force) {
+      final cached = _mapCacheToLessons(AppContainer.jsonCache.getJsonList('schedule:week:v2'));
+      final hasWeek = cached.isNotEmpty;
+      final last = _lastSilentScheduleRefreshAt;
+      if (hasWeek &&
+          last != null &&
+          DateTime.now().difference(last) < _silentScheduleMinInterval) {
+        return;
+      }
+    }
     try {
-      final fresh =
-          await AppContainer.scheduleApi.getWeekForCalendar(DateTime.now());
+      final fresh = await AppContainer.scheduleApi
+          .getWeekForCalendar(DateTime.now(), forceRefresh: force);
       await AppContainer.jsonCache.setJson(
         'schedule:week:v2',
         [for (final l in fresh) l.toJsonMap()],
@@ -87,6 +96,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         [for (final l in shown) l.toJsonMap()],
       );
       if (!mounted) return;
+      _lastSilentScheduleRefreshAt = DateTime.now();
       setState(() => _todayLessons = shown);
     } catch (_) {}
   }
@@ -212,6 +222,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     final iconSize = compact ? 20.0 : 24.0;
     final gapIcon = compact ? 8.0 : 12.0;
     final gapTitle = compact ? 4.0 : 5.0;
+    final activeCount = _readActiveAssignmentsCount();
     return _iconCaptionCard(
       context,
       Column(
@@ -235,7 +246,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           Text('Задания', style: _cardTitleStyleFor(context)),
           SizedBox(height: gapTitle),
           Text(
-            '5 активных тем',
+            activeCount == null ? '—' : '$activeCount активных',
             style: _cardSubtitleStyleFor(context),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
@@ -244,6 +255,30 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       ),
       onPressed: () => context.push('/app/tasks'),
     );
+  }
+
+  int? _readActiveAssignmentsCount() {
+    try {
+      final list = AppContainer.jsonCache.getJsonList('mobile:assignments:my');
+      if (list == null) return null;
+      var active = 0;
+      for (final e in list) {
+        if (e is! Map) continue;
+        final m = Map<String, dynamic>.from(e);
+        final v = m['is_done'] ?? m['done'] ?? m['completed'];
+        final done = (v is bool)
+            ? v
+            : (v is num)
+                ? v != 0
+                : (v is String)
+                    ? (v.trim().toLowerCase() == 'true' || v.trim() == '1')
+                    : false;
+        if (!done) active++;
+      }
+      return active;
+    } catch (_) {
+      return null;
+    }
   }
 
   Widget _scheduleAndTasksSection(BuildContext context) {
@@ -331,7 +366,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     return RefreshIndicator(
       onRefresh: () async {
         _hydrateTodayFromCache();
-        await _refreshTodayScheduleSilent();
+        await _refreshTodayScheduleSilent(force: true);
         if (mounted) setState(() => _banner = _readBannerData());
       },
       child: SingleChildScrollView(
@@ -393,7 +428,8 @@ _BannerData _readBannerData() {
   } catch (_) {}
 
   final grades = _loadGradesFromCache();
-  final avg = _calcAverage(grades);
+  final currentSem = _currentSemesterLabel(grades);
+  final avg = _calcAverage(grades, semester: currentSem);
   final avgLabel = avg?.toStringAsFixed(2);
 
   return _BannerData(
@@ -406,9 +442,10 @@ _BannerData _readBannerData() {
   );
 }
 
-double? _calcAverage(List<GradeEntity> grades) {
+double? _calcAverage(List<GradeEntity> grades, {required String? semester}) {
   final nums = <double>[];
   for (final g in grades) {
+    if (semester != null && g.semester?.trim() != semester) continue;
     final raw = g.grade.trim().replaceAll(',', '.');
     final v = double.tryParse(raw);
     if (v != null) nums.add(v);
@@ -416,6 +453,34 @@ double? _calcAverage(List<GradeEntity> grades) {
   if (nums.isEmpty) return null;
   final sum = nums.fold<double>(0, (a, b) => a + b);
   return sum / nums.length;
+}
+
+String? _currentSemesterLabel(List<GradeEntity> grades) {
+  int? bestKey;
+  String? bestLabel;
+
+  int? keyOf(String? s) {
+    if (s == null) return null;
+    final t = s.trim();
+    final re = RegExp(r'([12])\s*сем\s*(\d{4})-(\d{4})');
+    final m = re.firstMatch(t);
+    if (m == null) return null;
+    final sem = int.tryParse(m.group(1) ?? '');
+    final y1 = int.tryParse(m.group(2) ?? '');
+    final y2 = int.tryParse(m.group(3) ?? '');
+    if (sem == null || y1 == null || y2 == null) return null;
+    return (y2 * 10) + sem; // достаточно для сравнения "новизны"
+  }
+
+  for (final g in grades) {
+    final k = keyOf(g.semester);
+    if (k == null) continue;
+    if (bestKey == null || k > bestKey) {
+      bestKey = k;
+      bestLabel = g.semester?.trim();
+    }
+  }
+  return bestLabel;
 }
 
 List<GradeEntity> _loadGradesFromCache() {
@@ -431,6 +496,7 @@ List<GradeEntity> _loadGradesFromCache() {
             gradeType: (j['grade_type'] as String?),
             teacherName: (j['teacher_name'] as String?),
             date: DateTime.tryParse((j['date'] as String?) ?? ''),
+            semester: (j['semester'] as String?),
           ))
       .toList();
 }
