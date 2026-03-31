@@ -8,6 +8,8 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 
 import 'app/app.dart';
+import 'app/router/app_router.dart';
+import 'core/auth/unauthorized_handler.dart';
 import 'core/di/app_container.dart';
 import 'core/logging/app_log_file.dart';
 import 'core/push/push_registrar.dart';
@@ -46,6 +48,13 @@ void main() async {
 
   // DI for backend (Dio/AuthApi/TokenStorage).
   await AppContainer.init();
+
+  UnauthorizedHandler.register(() async {
+    // Можем получить 401 в bootstrap/prefetch: важно убрать splash и отправить на логин.
+    FlutterNativeSplash.remove();
+    await AppContainer.forceLogoutLocal();
+    appRouter.go('/login');
+  });
 
   await _requestNotificationsPermissionIfNeeded();
 

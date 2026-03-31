@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../core/constants/api_constants.dart';
+import '../../core/auth/unauthorized_handler.dart';
 import '../../core/logging/app_log_file.dart';
 import '../services/token_storage.dart';
 
@@ -24,7 +25,13 @@ class ApiClient {
         }
         return handler.next(options);
       },
-      onError: (error, handler) => handler.next(error),
+      onError: (error, handler) {
+        final code = error.response?.statusCode;
+        if (code == 401) {
+          UnauthorizedHandler.notifyUnauthorized();
+        }
+        return handler.next(error);
+      },
     ));
 
     // 2) Logging (all API calls)

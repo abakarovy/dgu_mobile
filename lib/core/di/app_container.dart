@@ -18,6 +18,7 @@ import '../../data/api/student_ticket_api.dart';
 import '../../data/services/token_storage.dart';
 import '../../features/auth/data/repositories/auth_repository_impl.dart';
 import '../../features/schedule/domain/schedule_calendar_filter.dart';
+import '../auth/auth_session.dart';
 import '../../core/cache/json_cache.dart';
 
 /// Простой DI: инициализация один раз при старте, затем доступ к репозиториям.
@@ -163,12 +164,28 @@ abstract final class AppContainer {
     return c;
   }
 
+  /// Локально "выкинуть" пользователя без сетевых запросов (для 401/истёкшей сессии).
+  static Future<void> forceLogoutLocal() async {
+    try {
+      await tokenStorage.clear();
+    } catch (_) {}
+    try {
+      await jsonCache.clearAll();
+    } catch (_) {}
+    AuthSession.bump();
+  }
+
   /// Прогреть кэш под splash. Каждый запрос не дольше [ApiConstants.prefetchRequestTimeout];
   /// при таймауте/ошибке остаётся старый кэш. Возвращает `true`, если все запросы успели успешно.
   static Future<bool> prefetchAll() async {
     final t = ApiConstants.prefetchRequestTimeout;
+
+    // ВАЖНО: сначала подтверждаем сессию через /auth/me.
+    // Если здесь 401 — не запускаем остальные prefetch, чтобы не спамить бэк и логи.
+    final meOk = await _timedPrefetch(t, _prefetchMe);
+    if (!meOk) return false;
+
     final results = await Future.wait<bool>([
-      _timedPrefetch(t, _prefetchMe),
       _timedPrefetch(t, _prefetchGroup),
       _timedPrefetch(t, _prefetchGrades),
       _timedPrefetch(t, _prefetchNews),
