@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/navigation/home_refresh_host.dart';
+import '../../../../core/navigation/news_header_host.dart';
 import '../../../../features/home/presentation/widgets/home_header_title.dart';
 import '../../../../shared/widgets/app_header.dart';
 import '../../../../shared/widgets/network_degraded_banner.dart';
@@ -109,8 +110,37 @@ class _AppShellPageState extends State<AppShellPage> {
                               ),
                             ),
                             const SizedBox(width: 10),
+                            ValueListenableBuilder<String>(
+                              valueListenable: NewsHeaderHost.title,
+                              builder: (context, value, _) {
+                                return Text(
+                                  value,
+                                  style: AppTextStyle.inter(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 14.44,
+                                    height: 1.0,
+                                    color: const Color(0xFF000000),
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                      _indexProfile => Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            SvgPicture.asset(
+                              'assets/icons/nav_profile.svg',
+                              width: _navIconSize,
+                              height: _navIconSize,
+                              colorFilter: const ColorFilter.mode(
+                                Color(0xFF000000),
+                                BlendMode.srcIn,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
                             Text(
-                              'Новости',
+                              'Профиль',
                               style: AppTextStyle.inter(
                                 fontWeight: FontWeight.w700,
                                 fontSize: 14.44,
@@ -122,6 +152,23 @@ class _AppShellPageState extends State<AppShellPage> {
                         ),
                       _ => const SizedBox.shrink(),
                     },
+                    actions: branchIndex == _indexProfile
+                        ? [
+                            Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: IconButton(
+                                onPressed: () {
+                                  // TODO: открыть настройки, когда будет экран.
+                                },
+                                icon: const Icon(
+                                  Icons.settings,
+                                  size: 25,
+                                  color: Color(0xFF000000),
+                                ),
+                              ),
+                            ),
+                          ]
+                        : null,
                   ),
             body: widget.navigationShell,
             bottomNavigationBar: Material(

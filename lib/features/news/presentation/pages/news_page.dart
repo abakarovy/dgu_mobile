@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/di/app_container.dart';
+import '../../../../core/navigation/news_header_host.dart';
 import '../../../../data/models/news_model.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../events/presentation/pages/events_page.dart';
@@ -110,6 +111,7 @@ class _NewsPageState extends State<NewsPage> {
   @override
   Widget build(BuildContext context) {
     final showNews = _tab == NewsTab.news;
+    NewsHeaderHost.setTitle(showNews ? 'Новости' : 'Мероприятия');
     final header = Padding(
       padding: const EdgeInsets.fromLTRB(8, 8, 8, 12),
       child: _switcher(

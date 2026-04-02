@@ -10,6 +10,7 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
     required this.headerTitle,
     this.leading,
     this.showNotificationIcon = false,
+    this.actions,
   });
 
   final VoidCallback? onPressed;
@@ -18,6 +19,7 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
   final Widget? leading;
   /// Показывать ли иконку уведомления справа в AppBar.
   final bool showNotificationIcon;
+  final List<Widget>? actions;
 
   @override
   Widget build(BuildContext context) {
@@ -47,22 +49,23 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
         ),
       ),
       centerTitle: false,
-      actions: showNotificationIcon
-          ? [
-              Padding(
-                padding: const EdgeInsets.only(right: AppUi.appBarPaddingH),
-                child: IconButton(
-                  style: IconButton.styleFrom(padding: const EdgeInsets.all(15)),
-                  icon: SvgPicture.asset(
-                    'assets/icons/notifi.svg',
-                    width: AppUi.appBarNotifiSize,
-                    height: AppUi.appBarNotifiSize,
+      actions: actions ??
+          (showNotificationIcon
+              ? [
+                  Padding(
+                    padding: const EdgeInsets.only(right: AppUi.appBarPaddingH),
+                    child: IconButton(
+                      style: IconButton.styleFrom(padding: const EdgeInsets.all(15)),
+                      icon: SvgPicture.asset(
+                        'assets/icons/notifi.svg',
+                        width: AppUi.appBarNotifiSize,
+                        height: AppUi.appBarNotifiSize,
+                      ),
+                      onPressed: onPressed,
+                    ),
                   ),
-                  onPressed: onPressed,
-                ),
-              ),
-            ]
-          : null,
+                ]
+              : null),
     );
   }
   @override

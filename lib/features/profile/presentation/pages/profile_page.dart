@@ -1,21 +1,15 @@
 import 'dart:io';
 
 import 'package:dgu_mobile/core/constants/api_constants.dart';
-import 'package:dgu_mobile/core/constants/app_colors.dart';
 import 'package:dgu_mobile/core/constants/app_constants.dart';
-import 'package:dgu_mobile/core/constants/app_ui.dart';
 import 'package:dgu_mobile/core/di/app_container.dart';
-import 'package:dgu_mobile/core/navigation/nav_bar_edit_host.dart';
 import 'package:dgu_mobile/core/theme/app_text_styles.dart';
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../../../data/api/api_exception.dart';
 import '../../../../data/models/user_model.dart';
-import '../widgets/profile_row_button.dart';
 
 /// Вкладка «Профиль» — данные аккаунта, образование, личные данные и настройки.
 class ProfilePage extends StatefulWidget {
@@ -28,21 +22,17 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   String? _savedAvatarPath;
   UserModel? _me;
-  final _parentEmailCtrl = TextEditingController();
-  bool _invitingParent = false;
 
   @override
   void initState() {
     super.initState();
     _me = _readCachedMe();
-    _parentEmailCtrl.text = (_me?.parentEmail ?? '').trim();
     _loadAvatarPath();
     _refreshMeInBackground();
   }
 
   @override
   void dispose() {
-    _parentEmailCtrl.dispose();
     super.dispose();
   }
 
@@ -65,64 +55,9 @@ class _ProfilePageState extends State<ProfilePage> {
       if (mounted) {
         setState(() {
           _me = fresh;
-          if ((_parentEmailCtrl.text.trim().isEmpty) &&
-              ((fresh.parentEmail ?? '').trim().isNotEmpty)) {
-            _parentEmailCtrl.text = (fresh.parentEmail ?? '').trim();
-          }
         });
       }
     } catch (_) {}
-  }
-
-  Future<void> _inviteParent() async {
-    if (_invitingParent) return;
-    final me = _me;
-    if (me == null) return;
-    if (me.role != 'student') return;
-    if ((me.parentEmail ?? '').trim().isNotEmpty) return;
-
-    final email = _parentEmailCtrl.text.trim();
-    if (email.isEmpty) return;
-
-    setState(() => _invitingParent = true);
-    try {
-      await AppContainer.accountApi.inviteParent(parentEmail: email);
-
-      // Оптимистично отображаем сразу, а затем подтягиваем /auth/me.
-      final updated = UserModel(
-        id: me.id,
-        email: me.email,
-        fullName: me.fullName,
-        role: me.role,
-        studentBookNumber: me.studentBookNumber,
-        parentEmail: email,
-        course: me.course,
-        direction: me.direction,
-        groupId: me.groupId,
-        department: me.department,
-        bio: me.bio,
-        isActive: me.isActive,
-        createdAt: me.createdAt,
-      );
-      await AppContainer.jsonCache.setJson('auth:me', updated.toJson());
-      if (mounted) setState(() => _me = updated);
-
-      // Если бэк обновляет parent_email не сразу — это просто обновит кэш.
-      await _refreshMeInBackground();
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Приглашение отправлено')),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      final msg = (e is ApiException) ? e.message : 'Ошибка';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(msg)),
-      );
-    } finally {
-      if (mounted) setState(() => _invitingParent = false);
-    }
   }
 
   Future<void> _loadAvatarPath() async {
@@ -164,332 +99,284 @@ class _ProfilePageState extends State<ProfilePage> {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: AppUi.screenPaddingH),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const SizedBox(height: AppUi.spacingXl),
-          _buildAccountInfo(context, _me),
-          const SizedBox(height: 28),
-          _buildPersonalDataSection(context, _me),
-          const SizedBox(height: 20),
-          _buildSettingsSection(context),
-          const SizedBox(height: 30),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                'СТУДЕНТ ДГУ v1.0.0',
-                style: AppTextStyle.inter(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 10,
-                  height: 15 / 10,
-                  letterSpacing: 2,
-                  color: AppColors.lightGrey,
-                ),
-                textAlign: TextAlign.center,
+    final me = _me;
+    final fullName = (me?.fullName ?? '').trim();
+    final course = '${me?.course ?? ''}'.trim();
+    final direction = '${me?.direction ?? ''}'.trim();
+    final educationForm = '${me?.department ?? ''}'.trim(); // fallback if no explicit field
+
+    return ColoredBox(
+      color: Colors.white,
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _topHero(
+              fullName: fullName.isEmpty ? '—' : fullName,
+              onAvatarTap: _pickAndSaveAvatar,
+            ),
+            const SizedBox(height: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _courseCard(
+                    courseText: course.isEmpty ? '—' : '${course} курс',
+                    directionText: direction.isEmpty ? '—' : direction,
+                    formText: educationForm.isEmpty ? '—' : educationForm,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _performanceCard(valueText: '—'),
+                  ),
+                ],
               ),
-            ],
+            ),
+            const SizedBox(height: 24),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _topHero({
+    required String fullName,
+    required VoidCallback onAvatarTap,
+  }) {
+    return SizedBox(
+      height: 309,
+      child: Stack(
+        children: [
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+                colors: [
+                  Color(0xFF224AB9),
+                  Color(0xFF0069FF),
+                ],
+              ),
+            ),
           ),
-          const SizedBox(height: 20),
+          // Decorative image справа (если ассета нет — просто не покажется).
+          Positioned(
+            right: 0,
+            bottom: 0,
+            child: Image.asset(
+              'assets/images/profile_image.png',
+              width: 230.6774,
+              height: 263.4363,
+              fit: BoxFit.contain,
+              errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+            ),
+          ),
+          Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                GestureDetector(
+                  onTap: onAvatarTap,
+                  child: Container(
+                    width: 110,
+                    height: 110,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(34),
+                      border: Border.all(color: Colors.white, width: 3.34),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x1A000000),
+                          offset: Offset(0, 8.35),
+                          blurRadius: 20.86,
+                        ),
+                      ],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(34),
+                      child: _avatarImage(),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  fullName,
+                  textAlign: TextAlign.center,
+                  style: AppTextStyle.inter(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 20.03,
+                    height: 1.0,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  'Колледж ДГУ',
+                  style: AppTextStyle.inter(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 8.25,
+                    height: 1.0,
+                    color: const Color(0xFF94A3B8),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildPersonalDataSection(BuildContext context, UserModel? me) {
-    final parentEmail = (me?.parentEmail ?? '').trim();
-    final canInviteParent = (me?.role == 'student') && parentEmail.isEmpty;
+  Widget _avatarImage() {
+    final p = _savedAvatarPath;
+    if (p != null && p.isNotEmpty) {
+      final f = File(p);
+      return Image.file(f, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _fallbackAvatar());
+    }
+    return _fallbackAvatar();
+  }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'ЛИЧНЫЕ ДАННЫЕ',
-          style: AppTextStyle.inter(
-            fontWeight: FontWeight.w800,
-            fontSize: 11,
-            height: 16.5 / 11,
-            letterSpacing: 1.65,
-            color: AppColors.caption,
-          ),
-        ),
-        const SizedBox(height: AppUi.spacingM),
-        ProfileRowButton(
-          iconPath: 'assets/icons/profile.svg',
-          title: 'Студенческий билет',
-          subtitle: (me?.studentBookNumber == null || me!.studentBookNumber!.isEmpty)
-              ? '-'
-              : me.studentBookNumber!,
-          onTap: () => context.push('/app/profile/student-id'),
-          titleColor: AppColors.textPrimary,
-          iconColor: AppColors.primaryBlue,
-          iconBackgroundColor: const Color(0xFFEFF6FF),
-        ),
-        const SizedBox(height: 10),
-        ProfileRowButton(
-          iconPath: 'assets/icons/card.svg',
-          title: 'Заказать справку',
-          subtitle: 'Справка c места учебы',
-          onTap: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Скоро будет доступно')),
-            );
-          },
-          titleColor: AppColors.textPrimary,
-        ),
-        const SizedBox(height: 10),
-        ProfileRowButton(
-          iconPath: 'assets/icons/mail.svg',
-          title: 'E-mail',
-          subtitle: 'Подтверждение по коду из письма',
-          onTap: () => context.push('/account/email-change'),
-          titleColor: AppColors.textPrimary,
-        ),
-        const SizedBox(height: 10),
-        ProfileRowButton(
-          iconPath: 'assets/icons/card.svg',
-          title: 'Сброс пароля',
-          subtitle: 'Сброс по ссылке',
-          onTap: () => context.push('/account/password-reset'),
-          titleColor: AppColors.textPrimary,
-        ),
-        if (me?.role == 'student') ...[
-          const SizedBox(height: 18),
-          Text(
-            'РОДИТЕЛЬ',
-            style: AppTextStyle.inter(
-              fontWeight: FontWeight.w800,
-              fontSize: 11,
-              height: 16.5 / 11,
-              letterSpacing: 1.65,
-              color: AppColors.caption,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppColors.backgroundSecondary,
-              borderRadius: BorderRadius.circular(AppUi.radiusM),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  parentEmail.isEmpty
-                      ? 'Укажите почту родителя — отправим приглашение.'
-                      : 'Приглашение отправлено на:',
-                  style: AppTextStyle.inter(
-                    fontWeight: FontWeight.w400,
-                    fontSize: 13,
-                    height: 18 / 13,
-                    color: AppColors.notificationSubtitle,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: _parentEmailCtrl,
-                  enabled: canInviteParent && !_invitingParent,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: InputDecoration(
-                    filled: true,
-                    fillColor: Colors.white,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(AppUi.radiusM),
-                      borderSide: BorderSide.none,
-                    ),
-                    hintText: 'parent@email.ru',
-                  ),
-                ),
-                if (canInviteParent) ...[
-                  const SizedBox(height: 10),
-                  FilledButton(
-                    onPressed: _invitingParent ? null : _inviteParent,
-                    child: Text(_invitingParent ? 'Отправляем…' : 'Пригласить'),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ],
-      ],
+  Widget _fallbackAvatar() {
+    return Container(
+      color: Colors.white.withValues(alpha: 0.15),
+      child: const Icon(Icons.person, color: Colors.white, size: 48),
     );
   }
 
-  Widget _buildSettingsSection(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(
-          'НАСТРОЙКИ',
-          style: AppTextStyle.inter(
-            fontWeight: FontWeight.w800,
-            fontSize: 11,
-            height: 16.5 / 11,
-            letterSpacing: 1.65,
-            color: AppColors.caption,
-          ),
+  Widget _courseCard({
+    required String courseText,
+    required String directionText,
+    required String formText,
+  }) {
+    return SizedBox(
+      width: 180,
+      height: 99,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.black,
+          borderRadius: BorderRadius.circular(22),
         ),
-        const SizedBox(height: AppUi.spacingM),
-        ProfileRowButton(
-          iconPath: 'assets/icons/notification_icon.svg',
-          title: 'Уведомления',
-          subtitle: 'Настроить оповещения',
-          onTap: () => context.push('/app/profile/notifications'),
-          titleColor: AppColors.textPrimary,
-        ),
-        const SizedBox(height: 10),
-        ProfileRowButton(
-          iconPath: 'assets/icons/home_icon.svg',
-          title: 'Настроить нижнее меню',
-          subtitle: 'Порядок вкладок в панели',
-          onTap: NavBarEditHost.requestEditMode,
-          titleColor: AppColors.textPrimary,
-          iconColor: AppColors.primaryBlue,
-          iconBackgroundColor: const Color(0xFFEFF6FF),
-        ),
-        const SizedBox(height: 10),
-        ProfileRowButton(
-          iconPath: 'assets/icons/support_icon.svg',
-          title: 'Поддержка',
-          subtitle: 'Помощь и контакты',
-          onTap: () => context.push('/app/profile/support'),
-          titleColor: AppColors.textPrimary,
-        ),
-        const SizedBox(height: 10),
-        ProfileRowButton(
-          iconPath: 'assets/icons/logout_icon.svg',
-          title: 'Выйти',
-          subtitle: 'Завершить сессию',
-          onTap: () async {
-            await AppContainer.authRepository.logout();
-            if (context.mounted) context.go('/login');
-          },
-          titleColor: Colors.red,
-          iconBackgroundColor: const Color(0xFFFEF2F2),
-          iconColor: Colors.red,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildAccountInfo(BuildContext context, UserModel? me) {
-    final hasAvatar = _savedAvatarPath != null &&
-        _savedAvatarPath!.isNotEmpty &&
-        File(_savedAvatarPath!).existsSync();
-
-    final fullName = me?.fullName ?? '—';
-    final groupLine = _buildGroupLine(me);
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Stack(
-          clipBehavior: Clip.none,
-          alignment: Alignment.center,
+        child: Stack(
           children: [
-            Container(
-                  width: AppUi.avatarSize,
-                  height: AppUi.avatarSize,
-              decoration: BoxDecoration(
-                color: AppColors.backgroundSecondary,
-                border: Border.all(
-                  color: Colors.white,
-                  width: AppUi.avatarBorderWidth,
+            Positioned(
+              right: 0,
+              top: 0,
+              bottom: 0,
+              child: Container(
+                width: 90,
+                decoration: BoxDecoration(
+                  color: const Color(0x1AFFFFFF),
+                  borderRadius: BorderRadius.circular(22),
                 ),
-                borderRadius: BorderRadius.circular(AppUi.avatarRadius),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0x1A000000),
-                    offset: const Offset(0, 10),
-                    blurRadius: 25,
-                    spreadRadius: 0,
+                child: const Center(
+                  child: Icon(Icons.school, color: Colors.white, size: 44),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(left: 16, top: 12, right: 16, bottom: 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    courseText,
+                    style: AppTextStyle.inter(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 13.95,
+                      height: 1.0,
+                      color: Colors.white,
+                    ),
+                  ),
+                  Text(
+                    directionText,
+                    style: AppTextStyle.inter(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 6.96,
+                      height: 1.0,
+                      color: const Color(0xFF94A3B8),
+                    ),
+                  ),
+                  const Spacer(),
+                  Container(
+                    height: 17,
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8.5),
+                    ),
+                    child: Center(
+                      child: Text(
+                        formText,
+                        style: AppTextStyle.inter(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 6.5,
+                          height: 1.0,
+                          color: const Color(0xFF1E293B),
+                        ),
+                      ),
+                    ),
                   ),
                 ],
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: hasAvatar
-                  ? Image.file(
-                      File(_savedAvatarPath!),
-                      fit: BoxFit.cover,
-                      width: AppUi.avatarSize,
-                      height: AppUi.avatarSize,
-                    )
-                  : Icon(
-                      Icons.person,
-                      size: 48,
-                      color: AppColors.caption,
-                    ),
-            ),
-            Positioned(
-              right: -2,
-              bottom: -2,
-              child: GestureDetector(
-                onTap: _pickAndSaveAvatar,
-                child: Container(
-                  width: AppUi.profileEditButtonSize,
-                  height: AppUi.profileEditButtonSize,
-                  decoration: BoxDecoration(
-                    color: AppColors.lightGreen,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.white, width: 2),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.lightGreen.withValues(alpha: 0.2),
-                        spreadRadius: 1,
-                        offset: const Offset(0, 2),
-                        blurRadius: 4,
-                      ),
-                    ],
-                  ),
-                  child: const Icon(
-                    Icons.edit,
-                    size: 16,
-                    color: Colors.white,
-                  ),
-                ),
               ),
             ),
           ],
         ),
-        const SizedBox(height: AppUi.spacingM),
-        Text(
-          fullName,
-          style: AppTextStyle.inter(
-            fontWeight: FontWeight.w800,
-            fontSize: 24,
-            height: 36 / 24,
-            color: AppColors.textPrimary,
-          ),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: AppUi.spacingXs),
-        Text(
-          groupLine,
-          style: AppTextStyle.inter(
-            fontWeight: FontWeight.w600,
-            fontSize: 14,
-            height: 21 / 14,
-            color: AppColors.caption,
-          ),
-          textAlign: TextAlign.center,
-        ),
-      ],
+      ),
     );
   }
 
-  String _buildGroupLine(UserModel? me) {
-    final course = me?.course;
-    final direction = me?.direction;
-    final groupId = me?.groupId;
-
-    final parts = <String>[];
-    if (groupId != null) parts.add('Группа $groupId');
-    if (course != null) parts.add('$course курс');
-    if (direction != null && direction.trim().isNotEmpty) parts.add(direction.trim());
-    return parts.isEmpty ? '—' : parts.join(' • ');
+  Widget _performanceCard({required String valueText}) {
+    return SizedBox(
+      height: 99,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(22),
+        ),
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            Container(
+              width: 35,
+              height: 35,
+              decoration: BoxDecoration(
+                color: const Color(0x1A2E63D5),
+                borderRadius: BorderRadius.circular(8.85),
+              ),
+              child: Center(
+                child: const Icon(Icons.auto_graph, size: 14, color: Color(0xFF2563EB)),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Успеваемость',
+                    style: AppTextStyle.inter(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 11.72,
+                      height: 1.0,
+                      color: const Color(0xFF2563EB),
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    valueText,
+                    style: AppTextStyle.inter(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 18.52,
+                      height: 1.0,
+                      color: const Color(0xFF000000),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
-
 }

@@ -213,8 +213,15 @@ abstract final class AppContainer {
   }
 
   static Future<void> _prefetchMe() async {
-    final me = await authApi.getMe();
-    await jsonCache.setJson('auth:me', me.toJson());
+    try {
+      final me = await authApi.getMe();
+      await jsonCache.setJson('auth:me', me.toJson());
+    } catch (_) {
+      // Если /auth/me не отвечает или падает по любой причине на старте —
+      // считаем сессию невалидной, чтобы не слать остальные запросы.
+      await forceLogoutLocal();
+      rethrow;
+    }
   }
 
   /// Нет группы у студента — не считаем ошибкой прогрева.
