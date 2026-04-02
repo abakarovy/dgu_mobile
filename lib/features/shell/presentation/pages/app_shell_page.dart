@@ -70,9 +70,34 @@ class _AppShellPageState extends State<AppShellPage> {
             appBar: hideShellAppBar
                 ? null
                 : AppHeader(
-                    headerTitle: branchIndex == _indexHome
-                        ? const HomeHeaderTitle()
-                        : const SizedBox.shrink(),
+                    headerTitle: switch (branchIndex) {
+                      _indexHome => const HomeHeaderTitle(),
+                      _indexGrades => Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            SvgPicture.asset(
+                              'assets/icons/nav_grades.svg',
+                              width: _navIconSize,
+                              height: _navIconSize,
+                              colorFilter: const ColorFilter.mode(
+                                Color(0xFF000000),
+                                BlendMode.srcIn,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Text(
+                              'Оценки',
+                              style: AppTextStyle.inter(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 14.44,
+                                height: 1.0,
+                                color: const Color(0xFF000000),
+                              ),
+                            ),
+                          ],
+                        ),
+                      _ => const SizedBox.shrink(),
+                    },
                   ),
             body: widget.navigationShell,
             bottomNavigationBar: Material(

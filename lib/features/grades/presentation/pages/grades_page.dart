@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:dgu_mobile/core/constants/app_colors.dart';
-import 'package:dgu_mobile/core/constants/app_ui.dart';
 import 'package:dgu_mobile/core/platform/native_date_range_picker.dart';
 import 'package:dgu_mobile/core/theme/app_text_styles.dart';
 import 'package:dgu_mobile/core/di/app_container.dart';
@@ -75,48 +74,6 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
       return '${_rangeStart.day}.${_rangeStart.month.toString().padLeft(2, '0')}.${_rangeStart.year}';
     }
     return '${_rangeStart.day}.${_rangeStart.month.toString().padLeft(2, '0')} — ${_rangeEnd.day}.${_rangeEnd.month.toString().padLeft(2, '0')}.${_rangeEnd.year}';
-  }
-
-  /// Ширина «Сегодня» и периода в одну строку — чтобы при нехватке места перенести блок периода целиком на следующий ряд.
-  double _todayChipWidth() {
-    final tp = TextPainter(
-      text: TextSpan(
-        text: 'Сегодня',
-        style: AppTextStyle.inter(
-          fontWeight: FontWeight.w600,
-          fontSize: 13,
-          color: AppColors.textPrimary,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    return 24 + tp.width;
-  }
-
-  double _periodChipIntrinsicWidth(String label) {
-    final tp = TextPainter(
-      text: TextSpan(
-        text: label,
-        style: AppTextStyle.inter(
-          fontWeight: FontWeight.w600,
-          fontSize: 13,
-          height: 1.2,
-          color: AppColors.textPrimary,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-      maxLines: 1,
-    )..layout();
-    // padding контейнера + две стрелки (padding + иконка)
-    return 8 + 26 + 26 + tp.width;
-  }
-
-  void _goToToday() {
-    setState(() {
-      _rangeStart = DateTime.now();
-      _rangeEnd = DateTime.now();
-      _isWeekMode = false;
-    });
   }
 
   void _prevPeriod() {
@@ -197,18 +154,25 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
+    return ColoredBox(
+      color: Colors.white,
+      child: Column(
+        children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(AppUi.screenPaddingH, 8, AppUi.screenPaddingH, 12),
+          padding: const EdgeInsets.fromLTRB(8, 8, 8, 6),
           child: ListenableBuilder(
             listenable: _tabController,
             builder: (context, _) {
               return Container(
-                padding: const EdgeInsets.all(5),
+                height: 40,
+                padding: const EdgeInsets.all(4),
                 decoration: BoxDecoration(
-                  color: AppColors.backgroundSecondary,
-                  borderRadius: BorderRadius.circular(10),
+                  color: Colors.transparent,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: const Color(0xFF2563EB),
+                    width: 1.53,
+                  ),
                 ),
                 child: Row(
                   children: [
@@ -240,42 +204,14 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
                     const LinearProgressIndicator(minHeight: 2),
                   if (idx == 0)
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(AppUi.screenPaddingH, 0, AppUi.screenPaddingH, 12),
+                      padding: const EdgeInsets.fromLTRB(8, 0, 8, 20),
                       child: LayoutBuilder(
                         builder: (context, constraints) {
-                          const gap = 12.0;
-                          final maxW = constraints.maxWidth;
-                          final stackPeriod =
-                              _todayChipWidth() + gap + _periodChipIntrinsicWidth(_periodLabel) > maxW;
-                          if (stackPeriod) {
-                            return Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                _TodayButton(onTap: _goToToday),
-                                const SizedBox(height: 8),
-                                _PeriodSelector(
-                                  periodLabel: _periodLabel,
-                                  onPrev: _prevPeriod,
-                                  onNext: _nextPeriod,
-                                  onTap: () => _showDatePickerSheet(context),
-                                ),
-                              ],
-                            );
-                          }
-                          return Row(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              _TodayButton(onTap: _goToToday),
-                              const SizedBox(width: gap),
-                              Expanded(
-                                child: _PeriodSelector(
-                                  periodLabel: _periodLabel,
-                                  onPrev: _prevPeriod,
-                                  onNext: _nextPeriod,
-                                  onTap: () => _showDatePickerSheet(context),
-                                ),
-                              ),
-                            ],
+                          return _PeriodSelector(
+                            periodLabel: _periodLabel,
+                            onPrev: _prevPeriod,
+                            onNext: _nextPeriod,
+                            onTap: () => _showDatePickerSheet(context),
                           );
                         },
                       ),
@@ -296,6 +232,7 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
           ),
         ),
         ],
+      ),
     );
   }
 
@@ -454,38 +391,7 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
   }
 }
 
-const double _dateControlHeight = 36;
-
-class _TodayButton extends StatelessWidget {
-  const _TodayButton({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: _dateControlHeight,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        decoration: BoxDecoration(
-          color: AppColors.backgroundSecondary,
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: GestureDetector(
-          onTap: onTap,
-          behavior: HitTestBehavior.opaque,
-          child: Center(
-            child: Text('Сегодня', style: AppTextStyle.inter(
-              fontWeight: FontWeight.w600,
-              fontSize: 13,
-              color: AppColors.textPrimary,
-            )),
-          ),
-        ),
-      ),
-    );
-  }
-}
+const double _dateControlHeight = 30;
 
 class _PeriodSelector extends StatelessWidget {
   const _PeriodSelector({
@@ -507,8 +413,19 @@ class _PeriodSelector extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 4),
         decoration: BoxDecoration(
-          color: AppColors.backgroundSecondary,
-          borderRadius: BorderRadius.circular(10),
+          gradient: const LinearGradient(
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+            colors: [
+              Color(0xFF2147B6),
+              Color(0xFF3779EC),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: const Color(0xFF2249B9),
+            width: 0.36,
+          ),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
@@ -517,7 +434,7 @@ class _PeriodSelector extends StatelessWidget {
               onTap: onPrev,
               child: Padding(
                 padding: const EdgeInsets.all(4),
-                child: Icon(Icons.chevron_left, size: 18, color: AppColors.textPrimary),
+                child: const Icon(Icons.chevron_left, size: 18, color: Colors.white),
               ),
             ),
             Expanded(
@@ -532,10 +449,10 @@ class _PeriodSelector extends StatelessWidget {
                     softWrap: false,
                     overflow: TextOverflow.ellipsis,
                     style: AppTextStyle.inter(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 10,
                       height: 1.0,
-                      color: AppColors.textPrimary,
+                      color: Colors.white,
                     ),
                   ),
                 ),
@@ -545,7 +462,7 @@ class _PeriodSelector extends StatelessWidget {
               onTap: onNext,
               child: Padding(
                 padding: const EdgeInsets.all(4),
-                child: Icon(Icons.chevron_right, size: 18, color: AppColors.textPrimary),
+                child: const Icon(Icons.chevron_right, size: 18, color: Colors.white),
               ),
             ),
           ],
@@ -568,24 +485,26 @@ class _GradesTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: selected ? Colors.white : Colors.transparent,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Center(
-            child: Text(
-              label,
-              textAlign: TextAlign.center,
-              style: AppTextStyle.inter(
-                fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
-                fontSize: 12,
-                height: 1.0,
-                color: selected ? AppColors.primaryBlue : AppColors.caption,
-              ),
+    final bg = selected ? const Color(0xFF2563EB) : Colors.transparent;
+    final textColor = selected ? Colors.white : const Color(0xFF2563EB);
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Container(
+        height: 30,
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Center(
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: AppTextStyle.inter(
+              fontWeight: FontWeight.w700,
+              fontSize: 10.44,
+              height: 1.0,
+              color: textColor,
             ),
           ),
         ),

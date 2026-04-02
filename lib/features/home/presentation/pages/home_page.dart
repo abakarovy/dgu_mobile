@@ -367,29 +367,32 @@ class _HomePageState extends State<HomePage> {
       MediaQuery.sizeOf(context).width / 402,
       MediaQuery.sizeOf(context).height / 874,
     );
-    return RefreshIndicator(
-      onRefresh: () async {
-        _hydrateTodayFromCache();
-        await _refreshTodayScheduleSilent(force: true);
-        if (mounted) setState(() => _banner = _readBannerData());
-      },
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(12, 16, 12, 24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          spacing: 0,
-          children: [
-            _buildMainGradientCard(context),
-            SizedBox(height: 12 * min(
-              MediaQuery.sizeOf(context).width / 402,
-              MediaQuery.sizeOf(context).height / 874,
-            )),
-            _actionsSection(sf: sf),
-            SizedBox(height: 40 * sf),
-            _todayLessonsSection(sf: sf),
-          ],
-      ),
+    return ColoredBox(
+      color: Colors.white,
+      child: RefreshIndicator(
+        onRefresh: () async {
+          _hydrateTodayFromCache();
+          await _refreshTodayScheduleSilent(force: true);
+          if (mounted) setState(() => _banner = _readBannerData());
+        },
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(12, 16, 12, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            spacing: 0,
+            children: [
+              _buildMainGradientCard(context),
+              SizedBox(height: 12 * min(
+                MediaQuery.sizeOf(context).width / 402,
+                MediaQuery.sizeOf(context).height / 874,
+              )),
+              _actionsSection(sf: sf),
+              SizedBox(height: 40 * sf),
+              _todayLessonsSection(sf: sf),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -763,7 +766,8 @@ class _HomePageState extends State<HomePage> {
   }) {
     final h = 63 * sf;
     final r = 15 * sf;
-    final pad = 14 * sf;
+    final padV = 14 * sf;
+    final padH = 25 * sf;
 
     final ongoing = _isLessonOngoingNow(lesson);
 
@@ -799,7 +803,7 @@ class _HomePageState extends State<HomePage> {
         borderRadius: BorderRadius.circular(r),
         border: border,
       ),
-      padding: EdgeInsets.all(pad),
+      padding: EdgeInsets.symmetric(horizontal: padH, vertical: padV),
       child: Row(
         children: [
           SizedBox(

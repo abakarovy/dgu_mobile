@@ -23,10 +23,10 @@ class GradeItemTile extends StatelessWidget {
   /// Публичный для использования в subject_grades_sheet.
   static (Color textColor, Color bgColor) colorsForGrade(String grade) {
     final g = grade.trim();
-    if (g == '5') return (AppColors.grade5Text, AppColors.grade5Bg);
-    if (g == '4') return (AppColors.grade4Text, AppColors.grade4Bg);
-    if (g == '3') return (AppColors.grade3Text, AppColors.grade3Bg);
-    if (g == '2' || g == '1') return (AppColors.grade2Text, AppColors.grade2Bg);
+    if (g == '5') return (const Color(0xFF10B981), const Color(0x2B10B981));
+    if (g == '4') return (const Color(0xFFDF9D3F), const Color(0x2BFFD900));
+    if (g == '3') return (const Color(0xFF3B82F6), const Color(0x2B3B82F6)); // придумали для 3
+    if (g == '2' || g == '1') return (const Color(0xFFC84547), const Color(0x26C84547));
     // Средний балл (4.67 и т.д.) — цвет по диапазону
     final value = double.tryParse(g.replaceFirst(',', '.'));
     if (value != null) {
@@ -43,7 +43,7 @@ class GradeItemTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final (gradeTextColor, gradeBgColor) = colorsForGrade(grade);
     final subtitleText = type ?? subtitle;
-    final subtitleColor = isSpecialType ? gradeTextColor : AppColors.caption;
+    final subtitleColor = isSpecialType ? gradeTextColor : const Color(0xFF929292);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
@@ -56,19 +56,19 @@ class GradeItemTile extends StatelessWidget {
                 subjectName,
                 style: AppTextStyle.inter(
                   fontWeight: FontWeight.w700,
-                  fontSize: 16,
+                  fontSize: 13.15,
                   height: 1.0,
-                  color: AppColors.textPrimary,
+                  color: const Color(0xFF000000),
                 ),
               ),
               if (subtitleText.isNotEmpty) ...[
-                const SizedBox(height: 4),
+                const SizedBox(height: 2),
                 Text(
                   subtitleText,
                   style: AppTextStyle.inter(
                     fontWeight: FontWeight.w400,
-                    fontSize: 11,
-                    height: 1.0,
+                    fontSize: 10.48,
+                    height: 15.72 / 10.48,
                     color: subtitleColor,
                   ),
                 ),
@@ -82,7 +82,7 @@ class GradeItemTile extends StatelessWidget {
           height: 48,
           decoration: BoxDecoration(
             color: gradeBgColor,
-            borderRadius: BorderRadius.circular(AppUi.radiusL),
+            borderRadius: BorderRadius.circular(6.2),
           ),
           alignment: Alignment.center,
           child: Text(
@@ -90,7 +90,7 @@ class GradeItemTile extends StatelessWidget {
             textAlign: TextAlign.center,
             style: AppTextStyle.inter(
               fontWeight: FontWeight.w700,
-              fontSize: 18,
+              fontSize: 19.72,
               height: 1.0,
               color: gradeTextColor,
             ),

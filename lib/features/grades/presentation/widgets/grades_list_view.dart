@@ -1,5 +1,6 @@
 import 'package:dgu_mobile/core/constants/app_colors.dart';
 import 'package:dgu_mobile/core/constants/app_ui.dart';
+import 'package:dgu_mobile/core/theme/app_text_styles.dart';
 import 'package:flutter/material.dart';
 
 import '../models/session_grade_breakdown.dart';
@@ -75,7 +76,7 @@ class GradesListView extends StatelessWidget {
       }
       final dates = groups.keys.toList()..sort();
       return ListView.builder(
-        padding: const EdgeInsets.symmetric(horizontal: AppUi.screenPaddingH),
+        padding: const EdgeInsets.symmetric(horizontal: 8),
         itemCount: dates.length,
         itemBuilder: (context, index) {
           final date = dates[index];
@@ -90,9 +91,9 @@ class GradesListView extends StatelessWidget {
     }
 
     return ListView.separated(
-      padding: const EdgeInsets.symmetric(horizontal: AppUi.screenPaddingH),
+      padding: const EdgeInsets.symmetric(horizontal: 8),
       itemCount: items.length,
-      separatorBuilder: (_, _) => const SizedBox(height: AppUi.spacingM),
+      separatorBuilder: (_, _) => const SizedBox(height: 15),
       itemBuilder: (context, index) {
         final e = items[index];
         return _GradeCard(item: e, onTap: onSubjectTap != null ? () => onSubjectTap!(e.subjectName) : null);
@@ -120,10 +121,17 @@ class _DateGroup extends StatelessWidget {
     'понедельник', 'вторник', 'среда', 'четверг', 'пятница', 'суббота', 'воскресенье',
   ];
 
+  static String _capitalizeFirst(String s) {
+    if (s.isEmpty) return s;
+    final first = s[0].toUpperCase();
+    if (s.length == 1) return first;
+    return '$first${s.substring(1)}';
+  }
+
   @override
   Widget build(BuildContext context) {
     final dateStr = '${date.day} ${_months[date.month - 1]}';
-    final weekdayStr = _weekdays[date.weekday - 1];
+    final weekdayStr = _capitalizeFirst(_weekdays[date.weekday - 1]);
     return Padding(
       padding: const EdgeInsets.only(bottom: AppUi.spacingL),
       child: Column(
@@ -136,23 +144,28 @@ class _DateGroup extends StatelessWidget {
               children: [
                 Text(
                   dateStr,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  style: AppTextStyle.inter(
                     fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary,
+                    fontSize: 19.47,
+                    height: 1.0,
+                    color: const Color(0xFF000000),
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   weekdayStr,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.caption,
+                  style: AppTextStyle.inter(
+                    fontWeight: FontWeight.w400,
+                    fontSize: 12.59,
+                    height: 1.0,
+                    color: const Color(0xAB4B4B4B),
                   ),
                 ),
               ],
             ),
           ),
           ...items.map((e) => Padding(
-            padding: const EdgeInsets.only(bottom: AppUi.spacingM),
+            padding: const EdgeInsets.only(bottom: 15),
             child: _GradeCard(
               item: e,
               onTap: onSubjectTap != null ? () => onSubjectTap!(e.subjectName) : null,
@@ -176,7 +189,7 @@ class _GradeCard extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(AppUi.radiusS),
+        borderRadius: BorderRadius.circular(97.3),
         splashFactory: NoSplash.splashFactory,
         splashColor: Colors.transparent,
         highlightColor: Colors.transparent,
@@ -184,17 +197,21 @@ class _GradeCard extends StatelessWidget {
         focusColor: Colors.transparent,
         child: Container(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppUi.radiusS),
-            color: Colors.white,
+            borderRadius: BorderRadius.circular(97.3),
+            color: const Color(0xFFFFFFFF),
+            border: Border.all(
+              color: const Color(0x24000000),
+              width: 0.46,
+            ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.08),
-                offset: const Offset(0, 2),
-                blurRadius: 4,
+                color: const Color(0x24000000),
+                offset: const Offset(1.39, 1.85),
+                blurRadius: 6.39,
               ),
             ],
           ),
-          padding: const EdgeInsets.symmetric(horizontal: AppUi.contentPaddingH, vertical: AppUi.contentPaddingV),
+          padding: const EdgeInsets.symmetric(horizontal: 25, vertical: AppUi.contentPaddingV),
           child: item.sessionBreakdown != null
               ? SessionGradeItemTile(
                   subjectName: item.subjectName,
