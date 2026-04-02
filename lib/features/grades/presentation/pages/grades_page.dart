@@ -33,6 +33,7 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
 
   List<GradeEntity> _grades = const <GradeEntity>[];
   bool _refreshing = false;
+  int _sessionSemesterIndex = 0;
 
   static bool _isSessionType(String? t) {
     final s = (t ?? '').toLowerCase();
@@ -216,6 +217,16 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
                         },
                       ),
                     ),
+                  if (idx == 1)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(8, 0, 8, 20),
+                      child: _PeriodSelector(
+                        periodLabel: _sessionSemesterLabel(),
+                        onPrev: _prevSessionSemester,
+                        onNext: _nextSessionSemester,
+                        onTap: () {},
+                      ),
+                    ),
                   Expanded(
                     child: TabBarView(
                       controller: _tabController,
@@ -283,26 +294,108 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
       );
     }
 
+    final semesters = _uniqueSemesters(all);
+    if (_sessionSemesterIndex >= semesters.length) {
+      _sessionSemesterIndex = 0;
+    }
+    final selectedSemester =
+        semesters.isEmpty ? null : semesters[_sessionSemesterIndex];
+    final filteredAll = selectedSemester == null
+        ? all
+        : all.where((g) => (g.semester ?? '').trim() == selectedSemester).toList();
+
     final bySubject = <String, List<GradeEntity>>{};
-    for (final g in all) {
+    for (final g in filteredAll) {
       bySubject.putIfAbsent(g.subjectName, () => []).add(g);
     }
     final subjects = bySubject.keys.toList()..sort();
 
-    final items = <GradeListItem>[];
-    for (final s in subjects) {
-      final breakdown = _breakdownFor(bySubject[s]!);
-      items.add(
-        GradeListItem(
+    return ListView.separated(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      itemCount: subjects.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 16),
+      itemBuilder: (context, i) {
+        final s = subjects[i];
+        final grades = bySubject[s]!;
+        final breakdown = _breakdownFor(grades);
+        final teacher = _pickAnyTeacher(grades);
+        return _SessionGradeCard(
           subjectName: s,
-          grade: '',
-          subtitle: '',
-          sessionBreakdown: breakdown,
-        ),
-      );
-    }
+          teacherName: teacher,
+          breakdown: breakdown,
+        );
+      },
+    );
+  }
 
-    return GradesListView(items: items);
+  List<String> _uniqueSemesters(List<GradeEntity> items) {
+    final set = <String>{};
+    for (final g in items) {
+      final s = (g.semester ?? '').trim();
+      if (s.isNotEmpty) set.add(s);
+    }
+    final list = set.toList()..sort();
+    return list;
+  }
+
+  String _sessionSemesterLabel() {
+    final all = _grades.where((g) => _isSessionType(g.gradeType)).toList();
+    final semesters = _uniqueSemesters(all);
+    if (semesters.isEmpty) return 'Семестр';
+    if (_sessionSemesterIndex >= semesters.length) _sessionSemesterIndex = 0;
+    return semesters[_sessionSemesterIndex];
+  }
+
+  void _prevSessionSemester() {
+    final all = _grades.where((g) => _isSessionType(g.gradeType)).toList();
+    final semesters = _uniqueSemesters(all);
+    if (semesters.isEmpty) return;
+    setState(() {
+      _sessionSemesterIndex =
+          (_sessionSemesterIndex - 1 + semesters.length) % semesters.length;
+    });
+  }
+
+  void _nextSessionSemester() {
+    final all = _grades.where((g) => _isSessionType(g.gradeType)).toList();
+    final semesters = _uniqueSemesters(all);
+    if (semesters.isEmpty) return;
+    setState(() {
+      _sessionSemesterIndex = (_sessionSemesterIndex + 1) % semesters.length;
+    });
+  }
+
+  String _pickAnyTeacher(List<GradeEntity> grades) {
+    for (final g in grades) {
+      final t = (g.teacherName ?? '').trim();
+      if (t.isNotEmpty) return _shortTeacherName(t);
+    }
+    return '';
+  }
+
+  String _shortTeacherName(String raw) {
+    final s = raw.trim();
+    if (s.isEmpty) return '';
+    final parts = s
+        .replaceAll(',', ' ')
+        .split(RegExp(r'\s+'))
+        .where((p) => p.trim().isNotEmpty)
+        .toList(growable: false);
+    if (parts.isEmpty) return '';
+    final surname = parts[0];
+    String initialAt(int i) {
+      if (parts.length <= i) return '';
+      final p = parts[i].replaceAll('.', '');
+      if (p.isEmpty) return '';
+      return p.characters.first.toUpperCase();
+    }
+    final i1 = initialAt(1);
+    final i2 = initialAt(2);
+    if (i1.isEmpty && i2.isEmpty) return surname;
+    final buf = StringBuffer()..write(surname);
+    if (i1.isNotEmpty) buf.write(' $i1.');
+    if (i2.isNotEmpty) buf.write('$i2.');
+    return buf.toString();
   }
 
   SessionGradeBreakdown _breakdownFor(List<GradeEntity> grades) {
@@ -388,6 +481,171 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
     } finally {
       if (mounted) setState(() => _refreshing = false);
     }
+  }
+}
+
+class _SessionGradeCard extends StatelessWidget {
+  const _SessionGradeCard({
+    required this.subjectName,
+    required this.teacherName,
+    required this.breakdown,
+  });
+
+  final String subjectName;
+  final String teacherName;
+  final SessionGradeBreakdown breakdown;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0x24000000), width: 0.46),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x24000000),
+            offset: Offset(1.38, 1.84),
+            blurRadius: 6.36,
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            subjectName,
+            style: AppTextStyle.inter(
+              fontWeight: FontWeight.w700,
+              fontSize: 16,
+              height: 1.0,
+              color: const Color(0xFF000000),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            mainAxisSize: MainAxisSize.max,
+            children: [
+              Expanded(child: _attChip('1', isAtt: breakdown.att1 != null)),
+              const SizedBox(width: 6),
+              Expanded(child: _attChip('2', isAtt: breakdown.att2 != null)),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              if ((breakdown.ekz ?? '').trim().isNotEmpty)
+                _gradeChip('Экз', breakdown.ekz!.trim()),
+              if ((breakdown.zach ?? '').trim().isNotEmpty)
+                _gradeChip('Зачет', breakdown.zach!.trim()),
+              if ((breakdown.dfk ?? '').trim().isNotEmpty)
+                _gradeChip('Диф.Зачет', breakdown.dfk!.trim()),
+              if ((breakdown.kurs ?? '').trim().isNotEmpty)
+                _gradeChip('Кур', breakdown.kurs!.trim()),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _attChip(String n, {required bool isAtt}) {
+    final bg = isAtt ? const Color(0x242563EB) : const Color(0x17C84547);
+    final border = isAtt ? const Color(0xFF2563EB) : const Color(0xFFC84547);
+    final text = isAtt ? const Color(0xFF2563EB) : const Color(0xFFC84547);
+    final label = isAtt ? 'Атт $n' : 'неАтт $n';
+    return _pill(label, bg: bg, border: border, textColor: text);
+  }
+
+  Widget _gradeChip(String kind, String rawValue) {
+    final abbr = _abbrValue(rawValue);
+    final shown = '$kind • $abbr';
+    final (text, bg, border) = _colorsForValue(rawValue);
+    return _pill(shown, bg: bg, border: border, textColor: text);
+  }
+
+  String _abbrValue(String raw) {
+    final t = raw.trim();
+    if (t.isEmpty) return '—';
+    final lower = t.toLowerCase();
+    if (RegExp(r'^[1-5]$').hasMatch(t)) {
+      return switch (t) {
+        '5' => 'отл',
+        '4' => 'хор',
+        '3' => 'удовл',
+        _ => 'неуд',
+      };
+    }
+    if (lower.contains('отл')) return 'отл';
+    if (lower.contains('хор')) return 'хор';
+    if (lower.contains('удов')) return 'удовл';
+    if (lower.contains('неуд')) return 'неуд';
+    if (lower.contains('зач')) return 'зач';
+    if (lower.contains('незач')) return 'незач';
+    return t;
+  }
+
+  (Color text, Color bg, Color border) _colorsForValue(String raw) {
+    final t = raw.trim();
+    final lower = t.toLowerCase();
+    final code = RegExp(r'^[1-5]$').hasMatch(t)
+        ? t
+        : (lower.contains('отл') || lower.contains('зач'))
+            ? '5'
+            : (lower.contains('хор'))
+                ? '4'
+                : (lower.contains('удов'))
+                    ? '3'
+                    : (lower.contains('неуд') || lower.contains('незач'))
+                        ? '2'
+                        : null;
+    if (code == '5') {
+      return (const Color(0xFF10B981), const Color(0x1C10B981), const Color(0xFF10B981));
+    }
+    if (code == '4') {
+      return (const Color(0xFFDF9D3F), const Color(0x2BFFD900), const Color(0xFFDF9D3F));
+    }
+    if (code == '3') {
+      return (const Color(0xFF3B82F6), const Color(0x1C3B82F6), const Color(0xFF3B82F6));
+    }
+    if (code == '2' || code == '1') {
+      return (const Color(0xFFC84547), const Color(0x17C84547), const Color(0xFFC84547));
+    }
+    // fallback
+    return (const Color(0xFF64748B), const Color(0x1464748B), const Color(0xFF64748B));
+  }
+
+  Widget _pill(
+    String label, {
+    required Color bg,
+    required Color border,
+    required Color textColor,
+  }) {
+    return Container(
+      height: 30,
+      padding: const EdgeInsets.symmetric(horizontal: 15),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: border, width: 0.5),
+      ),
+      child: Center(
+        child: Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: AppTextStyle.inter(
+            fontWeight: FontWeight.w700,
+            fontSize: 8.69,
+            height: 1.0,
+            color: textColor,
+          ),
+        ),
+      ),
+    );
   }
 }
 

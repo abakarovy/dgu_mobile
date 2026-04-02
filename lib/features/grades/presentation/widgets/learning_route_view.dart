@@ -1,77 +1,34 @@
-import 'package:dgu_mobile/core/constants/app_colors.dart';
-import 'package:dgu_mobile/core/constants/app_ui.dart';
 import 'package:dgu_mobile/core/theme/app_text_styles.dart';
 import 'package:flutter/material.dart';
 
-/// Учебный маршрут: карточки в стиле вкладки «Сессия» — форма контроля, дата/период.
+/// Маршрут: список дисциплин/сессии в стиле вкладки «Сессия».
 class LearningRouteView extends StatelessWidget {
   const LearningRouteView({super.key});
-
-  static const double _pillGap = 8;
 
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(
-        AppUi.screenPaddingH,
-        8,
-        AppUi.screenPaddingH,
-        AppUi.spacingXl,
-      ),
+      padding: const EdgeInsets.fromLTRB(8, 24, 8, 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'Учебный маршрут',
+            'Сессия 1 • Дисциплины',
             style: AppTextStyle.inter(
               fontWeight: FontWeight.w700,
-              fontSize: 20,
-              height: 1.2,
-              color: AppColors.textPrimary,
+              fontSize: 13.57,
+              height: 1.0,
+              color: const Color(0xFF000000),
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            '4 курс · 2025–2026',
-            style: AppTextStyle.inter(
-              fontWeight: FontWeight.w500,
-              fontSize: 14,
-              height: 1.3,
-              color: AppColors.caption,
-            ),
-          ),
-          const SizedBox(height: 20),
-          _sectionLabel('Сессия 1 · дисциплины'),
-          const SizedBox(height: 10),
+          const SizedBox(height: 24),
           ..._session1Items.map(
             (e) => Padding(
-              padding: const EdgeInsets.only(bottom: AppUi.spacingBetweenCards),
-              child: _DisciplineSessionCard(item: e),
-            ),
-          ),
-          const SizedBox(height: 8),
-          _sectionLabel('Сессия 2 · практики'),
-          const SizedBox(height: 10),
-          ..._session2Items.map(
-            (e) => Padding(
-              padding: const EdgeInsets.only(bottom: AppUi.spacingBetweenCards),
+              padding: const EdgeInsets.only(bottom: 16),
               child: _DisciplineSessionCard(item: e),
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _sectionLabel(String text) {
-    return Text(
-      text,
-      style: AppTextStyle.inter(
-        fontWeight: FontWeight.w700,
-        fontSize: 14,
-        height: 1.25,
-        color: AppColors.textPrimary,
-        letterSpacing: 0.2,
       ),
     );
   }
@@ -87,18 +44,16 @@ class _DisciplineSessionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppUi.contentPaddingH,
-        vertical: AppUi.contentPaddingV,
-      ),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(AppUi.radiusS),
-        boxShadow: [
+        color: const Color(0xFFFFFFFF),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0x24000000), width: 0.46),
+        boxShadow: const [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            offset: const Offset(0, 2),
-            blurRadius: 4,
+            color: Color(0x24000000),
+            offset: Offset(1.38, 1.84),
+            blurRadius: 6.36,
           ),
         ],
       ),
@@ -110,32 +65,24 @@ class _DisciplineSessionCard extends StatelessWidget {
             style: AppTextStyle.inter(
               fontWeight: FontWeight.w700,
               fontSize: 16,
-              height: 1.25,
-              color: AppColors.textPrimary,
+              height: 1.0,
+              color: const Color(0xFF000000),
             ),
           ),
-          const SizedBox(height: 14),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final gap = LearningRouteView._pillGap;
-              // В «Маршрут» — всегда по 1 контейнеру в ряду.
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _RoutePill(
-                    label: 'Форма',
-                    value: item.controlForm,
-                    variant: _PillVariant.accent,
-                  ),
-                  SizedBox(height: gap),
-                  _RoutePill(
-                    label: item.isPractice ? 'Период' : 'Дата',
-                    value: item.examDate,
-                    variant: _PillVariant.date,
-                  ),
-                ],
-              );
-            },
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              _RoutePill(
+                text: 'Форма • ${item.controlForm}',
+                variant: _RoutePillVariant.form,
+              ),
+              _RoutePill(
+                text: 'Дата • ${item.examDate}',
+                variant: _RoutePillVariant.date,
+              ),
+            ],
           ),
         ],
       ),
@@ -143,90 +90,48 @@ class _DisciplineSessionCard extends StatelessWidget {
   }
 }
 
-enum _PillVariant { accent, date }
+enum _RoutePillVariant { form, date }
 
 class _RoutePill extends StatelessWidget {
   const _RoutePill({
-    required this.label,
-    required this.value,
+    required this.text,
     required this.variant,
   });
 
-  final String label;
-  final String value;
-  final _PillVariant variant;
+  final String text;
+  final _RoutePillVariant variant;
 
-  static (Color, Color, Color, Color) _palette(_PillVariant variant) {
+  (Color bg, Color border, Color text) _palette() {
     switch (variant) {
-      case _PillVariant.accent:
-        return (
-          AppColors.notificationSubtitle,
-          AppColors.primaryGreen,
-          AppColors.backgroundGreen,
-          const Color(0x33059669),
-        );
-      case _PillVariant.date:
-        return (
-          AppColors.notificationSubtitle,
-          AppColors.textPrimary,
-          AppColors.backgroundSecondary,
-          AppColors.lightGrey.withValues(alpha: 0.7),
-        );
+      case _RoutePillVariant.form:
+        return (const Color(0x242563EB), const Color(0xFF2563EB), const Color(0xFF2563EB));
+      case _RoutePillVariant.date:
+        return (const Color(0x1464748B), const Color(0xFF64748B), const Color(0xFF64748B));
     }
   }
 
-  (Color labelColor, Color valueColor, Color bg, Color border) _style() => _palette(variant);
-
   @override
   Widget build(BuildContext context) {
-    final (lc, vc, bg, br) = _style();
+    final (bg, br, tc) = _palette();
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      height: 30,
+      padding: const EdgeInsets.symmetric(horizontal: 15),
       decoration: BoxDecoration(
         color: bg,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: br, width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(8.65),
+        border: Border.all(color: br, width: 0.5),
       ),
-      child: Text.rich(
-        TextSpan(
+      child: Center(
+        child: Text(
+          text,
+          textAlign: TextAlign.center,
           style: AppTextStyle.inter(
-            fontWeight: FontWeight.w600,
-            fontSize: 12,
-            height: 1.25,
-            color: lc,
+            fontWeight: FontWeight.w700,
+            fontSize: 8.65,
+            height: 1.0,
+            color: tc,
           ),
-          children: [
-            TextSpan(text: label),
-            TextSpan(
-              text: ' · ',
-              style: AppTextStyle.inter(
-                fontWeight: FontWeight.w400,
-                fontSize: 12,
-                color: AppColors.caption,
-              ),
-            ),
-            TextSpan(
-              text: value,
-              style: AppTextStyle.inter(
-                fontWeight: FontWeight.w800,
-                fontSize: 13,
-                height: 1.25,
-                color: vc,
-              ),
-            ),
-          ],
         ),
-        textAlign: TextAlign.center,
-        maxLines: 1,
-        overflow: TextOverflow.visible,
       ),
     );
   }
@@ -237,15 +142,12 @@ class _RouteDiscipline {
     required this.title,
     required this.controlForm,
     required this.examDate,
-    this.isPractice = false,
   });
 
   final String title;
   final String controlForm;
   /// Дата экзамена/зачёта или период практики «09.02.2026 - 21.02.2026»
   final String examDate;
-  /// Практика — подпись «Период» вместо «Дата»
-  final bool isPractice;
 }
 
 const List<_RouteDiscipline> _session1Items = [
@@ -288,32 +190,5 @@ const List<_RouteDiscipline> _session1Items = [
     title: 'Веб-программирование',
     controlForm: 'Экзамен',
     examDate: '17.06.2026',
-  ),
-];
-
-const List<_RouteDiscipline> _session2Items = [
-  _RouteDiscipline(
-    title: 'Производственная практика ПМ.01',
-    controlForm: 'Дифф. зачёт',
-    examDate: '09.02.2026 - 21.02.2026',
-    isPractice: true,
-  ),
-  _RouteDiscipline(
-    title: 'Производственная практика ПМ.02',
-    controlForm: 'Дифф. зачёт',
-    examDate: '23.02.2026 - 21.03.2026',
-    isPractice: true,
-  ),
-  _RouteDiscipline(
-    title: 'Производственная практика ПМ.03 (по профилю)',
-    controlForm: 'Дифф. зачёт',
-    examDate: '23.03.2026 - 04.04.2026',
-    isPractice: true,
-  ),
-  _RouteDiscipline(
-    title: 'Производственная практика ПМ.04 (преддипломная)',
-    controlForm: 'Дифф. зачёт',
-    examDate: '13.04.2026 - 09.05.2026',
-    isPractice: true,
   ),
 ];

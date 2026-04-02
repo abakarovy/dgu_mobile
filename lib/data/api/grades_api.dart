@@ -52,13 +52,18 @@ class GradesApi {
           json['name'],
     ).trim();
 
+    final hasGradeValueKey = json.containsKey('grade_value');
+    final rawGradeValue = json['grade_value'];
     final grade = str(
-      json['grade_value'] ??
+      rawGradeValue ??
           json['grade'] ??
           json['value'] ??
           json['mark'] ??
           json['score'],
     ).trim();
+    // Если API прислал grade_value=null, показываем это как "-" (чтобы строка не пропадала).
+    final shownGrade =
+        (grade.isEmpty && hasGradeValueKey && rawGradeValue == null) ? '-' : grade;
 
     final teacher = str(
       json['teacher_name'] ??
@@ -72,7 +77,7 @@ class GradesApi {
 
     return GradeEntity(
       subjectName: subject.isEmpty ? 'Дисциплина' : subject,
-      grade: grade,
+      grade: shownGrade,
       gradeType: gradeType.isNotEmpty ? gradeType : null,
       date: date,
       // В текущем API teacher_name может быть пустым/0 — тогда показываем тип оценки.
