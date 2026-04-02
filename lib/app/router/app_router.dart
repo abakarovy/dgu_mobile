@@ -113,17 +113,13 @@ final GoRouter appRouter = GoRouter(
             ),
           ],
         ),
-        StatefulShellBranch(
-          routes: [
-            GoRoute(
-              path: '/app/events',
-              name: 'events',
-              builder: (context, state) =>
-                  EventsPage(key: ValueKey(AuthSession.epoch)),
-            ),
-          ],
-        ),
       ],
+    ),
+    // Events: отдельный маршрут (не вкладка в навбаре).
+    GoRoute(
+      path: '/app/events',
+      name: 'events',
+      builder: (context, state) => EventsPage(key: ValueKey(AuthSession.epoch)),
     ),
     GoRoute(
       path: '/app/schedule',

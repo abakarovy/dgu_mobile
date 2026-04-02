@@ -18,20 +18,13 @@ class HomeHeaderTitle extends StatelessWidget {
           width: AppUi.appBarIconSize,
           fit: BoxFit.contain,
         ),
-        const SizedBox(width: AppUi.spacingS),
+        const SizedBox(width: 8),
         Text(
           'Колледж ДГУ',
-          style: AppTextStyle.montserrat(
-            fontSize: 20,
-            fontWeight: FontWeight.w800,
+          style: AppTextStyle.inter(
+            fontSize: 14.32,
+            fontWeight: FontWeight.w700,
             color: Colors.black,
-            shadows: const [
-              Shadow(
-                color: Colors.black,
-                offset: Offset(0.35, 0),
-                blurRadius: 0,
-              ),
-            ],
           ),
         ),
       ],

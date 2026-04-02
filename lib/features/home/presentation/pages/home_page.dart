@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:math';
+import 'dart:ui';
 
 import 'package:dgu_mobile/core/constants/app_colors.dart';
 import 'package:dgu_mobile/core/constants/app_ui.dart';
@@ -16,7 +18,6 @@ import '../../../../data/models/group_model.dart';
 import '../../../../data/models/one_c_my_profile.dart';
 import '../../../../data/models/user_model.dart';
 import '../../../grades/domain/entities/grade_entity.dart';
-import '../widgets/home_hero_banner.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -281,6 +282,7 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  // ignore: unused_element
   Widget _scheduleAndTasksSection(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -312,6 +314,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  // ignore: unused_element
   Widget _scheduleSection(BuildContext context) {
     final sectionTitleStyle = AppTextStyle.inter(
       fontWeight: FontWeight.w700,
@@ -360,9 +363,10 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final w = MediaQuery.sizeOf(context).width;
-    final padH = w < 360 ? 16.0 : AppUi.screenPaddingH;
-    final padV = w < 360 ? 20.0 : 24.0;
+    final sf = min(
+      MediaQuery.sizeOf(context).width / 402,
+      MediaQuery.sizeOf(context).height / 874,
+    );
     return RefreshIndicator(
       onRefresh: () async {
         _hydrateTodayFromCache();
@@ -371,25 +375,705 @@ class _HomePageState extends State<HomePage> {
       },
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: EdgeInsets.fromLTRB(padH, padV, padH, padV),
+        padding: const EdgeInsets.fromLTRB(12, 16, 12, 24),
         child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        spacing: 0,
-        children: [
-          HomeHeroBanner(
-            fullName: _shortName(_banner.me?.fullName),
-            groupLabel: _banner.groupLabel,
-            performanceLabel: _banner.avgLabel,
-          ),
-          const SizedBox(height: AppUi.spacingAfterBanner),
-          _scheduleAndTasksSection(context),
-          const SizedBox(height: AppUi.spacingAfterButtons),
-          _scheduleSection(context),
-        ],
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          spacing: 0,
+          children: [
+            _buildMainGradientCard(context),
+            SizedBox(height: 12 * min(
+              MediaQuery.sizeOf(context).width / 402,
+              MediaQuery.sizeOf(context).height / 874,
+            )),
+            _actionsSection(sf: sf),
+            SizedBox(height: 40 * sf),
+            _todayLessonsSection(sf: sf),
+          ],
       ),
       ),
     );
   }
+
+  Widget _buildMainGradientCard(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    // Масштабируемся от фига 402x874.
+    final sf = min(size.width / 402, size.height / 874);
+
+    final radius = 20.0 * sf;
+    final pad = 20.0 * sf;
+
+    final dateNow = DateTime.now();
+    final summary = _buildTodaySummary(dateNow);
+    final displayName = _displayName(_banner.me?.fullName);
+
+    final groupParsed = _parseGroupForHome(_banner.groupLabel);
+
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(radius),
+        gradient: const LinearGradient(
+          // Приближение к 100.35deg.
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF1E40AF),
+            Color(0xFF3B82F6),
+          ],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFDBEAFE),
+            offset: Offset(0, 5.12 * sf),
+            blurRadius: 6.4 * sf,
+            spreadRadius: -3.84 * sf,
+          ),
+          BoxShadow(
+            color: const Color(0xFFDBEAFE),
+            offset: Offset(0, 12.8 * sf),
+            blurRadius: 16 * sf,
+            spreadRadius: -3.2 * sf,
+          ),
+        ],
+      ),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Padding(
+            padding: EdgeInsets.all(pad),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  displayName,
+                  style: AppTextStyle.inter(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 19.19 * sf,
+                    height: 23.03 / 19.19,
+                    color: Colors.white,
+                  ),
+                ),
+                SizedBox(height: 6 * sf),
+                Text(
+                  summary,
+                  style: AppTextStyle.inter(
+                    fontWeight: FontWeight.w400,
+                    fontSize: 10.24 * sf,
+                    height: 1.2,
+                    color: Colors.white,
+                  ),
+                ),
+                SizedBox(height: 30 * sf),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _courseChip(
+                      sf: sf,
+                      text: groupParsed.courseGroupText,
+                    ),
+                    SizedBox(width: 10 * sf),
+                    _groupRightChip(
+                      sf: sf,
+                      text: groupParsed.groupAbbr,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          // `image_home.png` прижата справа и не зависит от внутренних паддингов.
+          Positioned(
+            right: 0,
+            bottom: 0,
+            child: Image.asset(
+              'assets/images/image_home.png',
+              width: 108 * sf,
+              height: 123 * sf,
+              fit: BoxFit.contain,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _courseChip({required double sf, required String text}) {
+    // Белый контейнер: h=28, paddingX=15, radius=8, shadow лёгкая.
+    final blueText = const Color.fromRGBO(29, 78, 216, 1);
+    return Container(
+      height: 28 * sf,
+      padding: EdgeInsets.symmetric(horizontal: 15 * sf),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8 * sf),
+        boxShadow: [
+          BoxShadow(
+            color: const Color.fromRGBO(0, 0, 0, 0.05),
+            offset: Offset(0, 0.64 * sf),
+            blurRadius: 1.28 * sf,
+          ),
+        ],
+      ),
+      child: Center(
+        child: Text(
+          text,
+          style: AppTextStyle.inter(
+            fontWeight: FontWeight.w700,
+            fontSize: 8.96 * sf,
+            color: blueText,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _groupRightChip({required double sf, required String text}) {
+    final outerR = 8 * sf;
+    final outerH = 28 * sf;
+    final borderW = 0.64 * sf;
+    final borderColor = Colors.white.withValues(alpha: 0.2);
+    final bg = const Color.fromRGBO(59, 130, 246, 0.3);
+    final iconFont = 8.96 * sf;
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(outerR),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 7.6778 * sf, sigmaY: 7.6778 * sf),
+        child: Container(
+          height: outerH,
+          padding: EdgeInsets.symmetric(horizontal: 15 * sf),
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(outerR),
+            border: Border.all(color: borderColor, width: borderW),
+          ),
+          child: Center(
+            child: Text(
+              text,
+              style: AppTextStyle.inter(
+                fontWeight: FontWeight.w700,
+                fontSize: iconFont,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _actionsSection({required double sf}) {
+    // Карточки: «Мои задания» и «Расписание» (в этом порядке).
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final gap = 12 * sf;
+        final slotW = (constraints.maxWidth - gap) / 2;
+        final useColumn = slotW < 140 || constraints.maxWidth < 360;
+        if (useColumn) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _tasksCard(context, sf: sf),
+              SizedBox(height: gap),
+              _scheduleCard(context, sf: sf),
+            ],
+          );
+        }
+        // Важно: в ScrollView по высоте ограничения могут быть `infinite`.
+        // Поэтому вместо `Expanded`/`stretch` задаём ширину через `SizedBox`,
+        // а высота берётся из контента.
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(width: slotW, child: _tasksCard(context, sf: sf)),
+            SizedBox(width: gap),
+            SizedBox(width: slotW, child: _scheduleCard(context, sf: sf)),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _tasksCard(BuildContext context, {required double sf}) {
+    // Точный цвет из дизайна: #10B98121 (alpha 0x21).
+    final greenBg = const Color(0x2110B981);
+    final iconBg = const Color(0xFFECFDF5);
+    final iconColor = const Color.fromRGBO(5, 150, 105, 1);
+
+    return _homeActionCard(
+      sf: sf,
+      background: greenBg,
+      withShadow: true,
+      iconBg: iconBg,
+      iconColor: iconColor,
+      iconAsset: 'assets/icons/book_icon.svg',
+      iconW: 14.749685287475586,
+      iconH: 18.437108993530273,
+      label: 'Мои задания',
+      labelColor: iconColor,
+      labelFontSize: 11.72,
+      onPressed: () => context.push('/app/tasks'),
+    );
+  }
+
+  Widget _scheduleCard(BuildContext context, {required double sf}) {
+    final iconBg = const Color.fromRGBO(46, 99, 213, 0.1);
+    final iconColor = const Color.fromRGBO(37, 99, 235, 1);
+
+    return _homeActionCard(
+      sf: sf,
+      background: const Color.fromRGBO(255, 255, 255, 1),
+      withShadow: true,
+      iconBg: iconBg,
+      iconColor: iconColor,
+      iconAsset: 'assets/icons/schedule_icon.svg',
+      iconW: 13.500144958496094,
+      iconH: 15,
+      label: 'Расписание',
+      labelColor: iconColor,
+      labelFontSize: 11.72,
+      onPressed: () => context.push('/app/schedule'),
+    );
+  }
+
+  Widget _homeActionCard({
+    required double sf,
+    required Color background,
+    required bool withShadow,
+    required Color iconBg,
+    required Color iconColor,
+    required String label,
+    required Color labelColor,
+    required double labelFontSize,
+    required String iconAsset,
+    required double iconW,
+    required double iconH,
+    required VoidCallback onPressed,
+  }) {
+    final radius = 20 * sf;
+
+    final card = Container(
+      height: 90 * sf,
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(radius),
+      ),
+      padding: EdgeInsets.all(12 * sf),
+      child: Align(
+        alignment: Alignment.topLeft,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              width: 35 * sf,
+              height: 35 * sf,
+              decoration: BoxDecoration(
+                color: iconBg,
+                borderRadius: BorderRadius.circular(8 * sf),
+              ),
+              child: Center(
+                child: SvgPicture.asset(
+                  iconAsset,
+                  width: iconW * sf,
+                  height: iconH * sf,
+                  fit: BoxFit.contain,
+                  colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn),
+                ),
+              ),
+            ),
+            SizedBox(width: 10 * sf),
+            Expanded(
+              child: Text(
+                label,
+                textAlign: TextAlign.left,
+                style: AppTextStyle.inter(
+                  fontWeight: FontWeight.w700,
+                  fontSize: labelFontSize * sf,
+                  color: labelColor,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    final shadowLayer = Container(
+      height: 90 * sf,
+      decoration: BoxDecoration(
+        color: Colors.white, // блокируем просвет тени через альфу
+        borderRadius: BorderRadius.circular(radius),
+        boxShadow: [
+          BoxShadow(
+            color: const Color.fromRGBO(0, 0, 0, 0.1),
+            offset: Offset(2.58 * sf, 3.32 * sf),
+            blurRadius: 6.01 * sf,
+          ),
+        ],
+      ),
+    );
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onPressed,
+      child: withShadow
+          ? Stack(
+              children: [
+                shadowLayer,
+                card,
+              ],
+            )
+          : card,
+    );
+  }
+
+  Widget _todayLessonsSection({required double sf}) {
+    final items = _todayLessons;
+    if (items.isEmpty) {
+      return SizedBox(
+        height: 220 * sf,
+        child: Center(
+          child: Text(
+            'Пар нет',
+            style: AppTextStyle.inter(
+              fontWeight: FontWeight.w700,
+              fontSize: 16 * sf,
+              color: const Color(0xFF1E293B),
+            ),
+          ),
+        ),
+      );
+    }
+    final gap = 12 * sf;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (var i = 0; i < items.length; i++) ...[
+          _todayLessonCard(sf: sf, lesson: items[i], index: i),
+          if (i != items.length - 1) SizedBox(height: gap),
+        ],
+      ],
+    );
+  }
+
+  Widget _todayLessonCard({
+    required double sf,
+    required ScheduleLesson lesson,
+    required int index,
+  }) {
+    final h = 63 * sf;
+    final r = 15 * sf;
+    final pad = 14 * sf;
+
+    final ongoing = _isLessonOngoingNow(lesson);
+
+    final bg = ongoing ? const Color(0x142563EB) : Colors.transparent;
+    final border = ongoing
+        ? Border(
+            left: BorderSide(
+              width: 3.63 * sf,
+              color: const Color(0xFF2563EB),
+            ),
+          )
+        : null;
+
+    final start = _parseStartTime(lesson.time) ?? '—';
+    final pairLabel = '${index + 1} ПАРА';
+
+    final timeColor = ongoing ? const Color(0xFF1E293B) : const Color(0xFF94A3B8);
+    final pairColor = ongoing ? const Color(0xFF64748B) : const Color(0xFF94A3B8);
+
+    final subject = lesson.subject.trim();
+    final teacher = lesson.teacher.trim();
+    final aud = lesson.auditorium.trim();
+    final teacherShort = _shortTeacherName(teacher);
+    final details = <String>[
+      if (teacherShort.isNotEmpty) 'Преп: $teacherShort',
+      if (aud.isNotEmpty) 'Ауд: $aud',
+    ].join(' • ');
+
+    return Container(
+      height: h,
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(r),
+        border: border,
+      ),
+      padding: EdgeInsets.all(pad),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 62 * sf,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  start,
+                  textAlign: TextAlign.center,
+                  style: AppTextStyle.inter(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12.7 * sf,
+                    height: 18.14 / 12.7,
+                    color: timeColor,
+                  ),
+                ),
+                Text(
+                  pairLabel,
+                  textAlign: TextAlign.center,
+                  style: AppTextStyle.inter(
+                    fontWeight: FontWeight.w400,
+                    fontSize: 9.07 * sf,
+                    height: 13.6 / 9.07,
+                    letterSpacing: 0,
+                    color: pairColor,
+                  ).copyWith(
+                    // keep "uppercase" look as requested
+                    // (label already generated in uppercase)
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(width: 20 * sf),
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Flexible(
+                  fit: FlexFit.loose,
+                  child: Text(
+                    subject.isEmpty ? '—' : subject,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textHeightBehavior: const TextHeightBehavior(
+                      applyHeightToFirstAscent: false,
+                      applyHeightToLastDescent: false,
+                    ),
+                    style: AppTextStyle.inter(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12.7 * sf,
+                      height: 1.0,
+                      color: const Color(0xFF000000),
+                    ),
+                  ),
+                ),
+                if (details.isNotEmpty) ...[
+                  Text(
+                    details,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textHeightBehavior: const TextHeightBehavior(
+                      applyHeightToFirstAscent: false,
+                      applyHeightToLastDescent: false,
+                    ),
+                    style: AppTextStyle.inter(
+                      fontWeight: FontWeight.w400,
+                      fontSize: 10.88 * sf,
+                      height: 1.0,
+                      color: const Color(0xFF64748B),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          if (ongoing) ...[
+            SizedBox(width: 12 * sf),
+            Align(
+              alignment: Alignment.bottomRight,
+              child: Container(
+                width: 49.14008712768555 * sf,
+                height: 17.72265625 * sf,
+                decoration: BoxDecoration(
+                  color: const Color(0x332B5ED0),
+                  borderRadius: BorderRadius.circular(6.48 * sf),
+                ),
+                child: Center(
+                  child: Text(
+                    'ИДЕТ',
+                    style: AppTextStyle.inter(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 6.16 * sf,
+                      color: const Color(0xFF2B5ED0),
+                      height: 1.0,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  bool _isLessonOngoingNow(ScheduleLesson lesson) {
+    final range = _parseTimeRange(lesson.time);
+    if (range == null) return false;
+    final now = DateTime.now();
+    final start = DateTime(now.year, now.month, now.day, range.$1.$1, range.$1.$2);
+    final end = DateTime(now.year, now.month, now.day, range.$2.$1, range.$2.$2);
+    return now.isAfter(start) && now.isBefore(end);
+  }
+
+  ((int, int), (int, int))? _parseTimeRange(String raw) {
+    final m = RegExp(r'(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})').firstMatch(raw);
+    if (m == null) return null;
+    final sh = int.tryParse(m.group(1) ?? '');
+    final sm = int.tryParse(m.group(2) ?? '');
+    final eh = int.tryParse(m.group(3) ?? '');
+    final em = int.tryParse(m.group(4) ?? '');
+    if (sh == null || sm == null || eh == null || em == null) return null;
+    return ((sh, sm), (eh, em));
+  }
+
+  String _shortTeacherName(String raw) {
+    final s = raw.trim();
+    if (s.isEmpty) return '';
+
+    // Убираем запятые и лишние пробелы, но сохраняем дефисы в фамилии/имени.
+    final parts = s
+        .replaceAll(',', ' ')
+        .split(RegExp(r'\s+'))
+        .where((p) => p.trim().isNotEmpty)
+        .toList(growable: false);
+
+    if (parts.isEmpty) return '';
+
+    final surname = parts[0];
+    String initialAt(int i) {
+      if (parts.length <= i) return '';
+      final p = parts[i].replaceAll('.', '');
+      if (p.isEmpty) return '';
+      return p.characters.first.toUpperCase();
+    }
+
+    final i1 = initialAt(1);
+    final i2 = initialAt(2);
+    if (i1.isEmpty && i2.isEmpty) return surname;
+
+    final buf = StringBuffer()..write(surname);
+    if (i1.isNotEmpty) buf.write(' $i1.');
+    if (i2.isNotEmpty) buf.write('$i2.');
+    return buf.toString();
+  }
+
+  String _buildTodaySummary(DateTime d) {
+    final weekday = _ruWeekday(d.weekday);
+    final month = _ruMonthGen(d.month);
+    final day = d.day;
+
+    final count = _todayLessons.length;
+    if (count == 0) {
+      return 'Сегодня $weekday, $day $month. На сегодня нет пар.';
+    }
+
+    final firstTime = _parseStartTime(_todayLessons.first.time) ?? '—';
+    return 'Сегодня $weekday, $day $month. У вас запланировано $count пар. Первая начнется в $firstTime.';
+  }
+
+  String _ruWeekday(int weekday) {
+    switch (weekday) {
+      case DateTime.monday:
+        return 'понедельник';
+      case DateTime.tuesday:
+        return 'вторник';
+      case DateTime.wednesday:
+        return 'среда';
+      case DateTime.thursday:
+        return 'четверг';
+      case DateTime.friday:
+        return 'пятница';
+      case DateTime.saturday:
+        return 'суббота';
+      case DateTime.sunday:
+        return 'воскресенье';
+      default:
+        return '';
+    }
+  }
+
+  String _ruMonthGen(int month) {
+    switch (month) {
+      case 1:
+        return 'января';
+      case 2:
+        return 'февраля';
+      case 3:
+        return 'марта';
+      case 4:
+        return 'апреля';
+      case 5:
+        return 'мая';
+      case 6:
+        return 'июня';
+      case 7:
+        return 'июля';
+      case 8:
+        return 'августа';
+      case 9:
+        return 'сентября';
+      case 10:
+        return 'октября';
+      case 11:
+        return 'ноября';
+      case 12:
+        return 'декабря';
+      default:
+        return '';
+    }
+  }
+
+  String? _parseStartTime(String? time) {
+    if (time == null) return null;
+    final m = RegExp(r'(\d{2}:\d{2})').firstMatch(time);
+    return m?.group(1);
+  }
+
+  String _displayName(String? fullName) {
+    final s = (fullName ?? '').trim();
+    if (s.isEmpty) return '-';
+    final parts = s.split(RegExp(r'\s+')).where((e) => e.trim().isNotEmpty).toList();
+    final last = parts.isNotEmpty ? parts[0] : '';
+    final first = parts.length > 1 ? parts[1] : '';
+    return '${_capWord(last)} ${_capWord(first)}'.trim();
+  }
+
+  String _capWord(String w) {
+    final t = w.trim();
+    if (t.isEmpty) return t;
+    final rest = t.length > 1 ? t.substring(1).toLowerCase() : '';
+    return t[0].toUpperCase() + rest;
+  }
+
+  _GroupHomeParsed _parseGroupForHome(String? groupLabel) {
+    final raw = (groupLabel ?? '').trim();
+    if (raw.isEmpty) {
+      return _GroupHomeParsed(groupAbbr: '-', courseGroupText: '-');
+    }
+
+    // Пример: «ИСиП 4к 1г 2022»
+    final groupAbbr = raw.split(RegExp(r'\s+')).first;
+
+    final courseM = RegExp(r'(\d+)\s*к').firstMatch(raw);
+    final groupM = RegExp(r'(\d+)\s*г').firstMatch(raw);
+    final course = courseM?.group(1);
+    final groupNum = groupM?.group(1);
+
+    final courseGroupText = (course != null && groupNum != null)
+        ? '$course курс $groupNum группа'
+        : raw;
+
+    return _GroupHomeParsed(groupAbbr: groupAbbr, courseGroupText: courseGroupText);
+  }
+}
+
+class _GroupHomeParsed {
+  const _GroupHomeParsed({required this.groupAbbr, required this.courseGroupText});
+  final String groupAbbr;
+  final String courseGroupText;
 }
 
 class _BannerData {
@@ -397,14 +1081,6 @@ class _BannerData {
   final UserModel? me;
   final String? groupLabel;
   final String? avgLabel;
-}
-
-String _shortName(String? fullName) {
-  final s = (fullName ?? '').trim();
-  if (s.isEmpty) return '-';
-  final parts = s.split(RegExp(r'\s+')).where((e) => e.trim().isNotEmpty).toList();
-  if (parts.length >= 2) return '${parts[0]} ${parts[1]}';
-  return parts.first;
 }
 
 /// Баннер читает только кэш (прогрев на splash). Группа: `1c:my-profile`, иначе `groups:my`.

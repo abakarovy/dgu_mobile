@@ -57,8 +57,8 @@ abstract final class AppUi {
   static const double profileRowIconRadius = 12;
 
   // --- Shell / AppBar ---
-  static const double appBarPaddingH = 20;
-  static const double appBarIconSize = 38;
+  static const double appBarPaddingH = 16;
+  static const double appBarIconSize = 46;
   static const double appBarNotifiSize = 20;
 
   // --- Уведомления: переключатель ---
