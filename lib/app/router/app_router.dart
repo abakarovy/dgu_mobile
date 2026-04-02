@@ -110,16 +110,30 @@ final GoRouter appRouter = GoRouter(
               name: 'news',
               builder: (context, state) =>
                   NewsPage(key: ValueKey(AuthSession.epoch)),
+              routes: [
+                GoRoute(
+                  path: 'events',
+                  name: 'eventsInNews',
+                  builder: (context, state) =>
+                      NewsPage(
+                        key: ValueKey(AuthSession.epoch),
+                        initialTab: NewsTab.events,
+                      ),
+                ),
+                GoRoute(
+                  path: 'events/detail',
+                  name: 'eventDetailInNews',
+                  builder: (context, state) {
+                    final item = state.extra as EventItem?;
+                    if (item == null) return const EventsPage();
+                    return EventDetailPage(item: item);
+                  },
+                ),
+              ],
             ),
           ],
         ),
       ],
-    ),
-    // Events: отдельный маршрут (не вкладка в навбаре).
-    GoRoute(
-      path: '/app/events',
-      name: 'events',
-      builder: (context, state) => EventsPage(key: ValueKey(AuthSession.epoch)),
     ),
     GoRoute(
       path: '/app/schedule',
@@ -150,15 +164,6 @@ final GoRouter appRouter = GoRouter(
         final item = state.extra as NewsModel?;
         if (item == null) return const NewsPage();
         return NewsDetailPage(item: item);
-      },
-    ),
-    GoRoute(
-      path: '/app/events/detail',
-      name: 'eventDetail',
-      builder: (context, state) {
-        final item = state.extra as EventItem?;
-        if (item == null) return const EventsPage();
-        return EventDetailPage(item: item);
       },
     ),
   ],

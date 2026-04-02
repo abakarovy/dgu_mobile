@@ -13,7 +13,13 @@ import '../../../../data/models/event_model.dart';
 
 /// Вкладка «Мероприятия»: карусель и индикаторы.
 class EventsPage extends StatefulWidget {
-  const EventsPage({super.key});
+  const EventsPage({
+    super.key,
+    this.embedded = false,
+  });
+
+  /// Если true — страница рисуется внутри `NewsPage` и не делает свою шапку-переключатель.
+  final bool embedded;
 
   static const List<String> _imageAssets = [
     'assets/images/img1.png',
@@ -25,7 +31,6 @@ class EventsPage extends StatefulWidget {
   /// Кратно 3, чтобы при открытии был первый слайд (картинка 1.png, индекс 0 mod 3).
   static const int _kInitialPage = 100002;
 
-  static const double _afterAppBarGap = 20;
   static const double _horizontalPadding = 24;
   static const double _imageWidth = 400;
   static const double _imageHeight = 225;
@@ -112,6 +117,42 @@ class _EventsPageState extends State<EventsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final switcher = widget.embedded
+        ? const SizedBox.shrink()
+        : Padding(
+            padding: const EdgeInsets.fromLTRB(8, 8, 8, 12),
+            child: Container(
+              height: 40,
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: const Color(0xFF2563EB),
+                  width: 1.53,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _switcherTab(
+                      label: 'Новости',
+                      selected: false,
+                      onTap: () => context.go('/app/news'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _switcherTab(
+                      label: 'Мероприятия',
+                      selected: true,
+                      onTap: () {},
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
     return LayoutBuilder(
       builder: (context, constraints) {
         final maxW = constraints.maxWidth;
@@ -130,14 +171,17 @@ class _EventsPageState extends State<EventsPage> {
             final events = snap.data ?? const <EventItem>[];
 
             return SingleChildScrollView(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: EventsPage._horizontalPadding,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const SizedBox(height: EventsPage._afterAppBarGap),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (!widget.embedded) switcher,
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: EventsPage._horizontalPadding,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
                     SizedBox(
                       height: EventsPage._imageHeight,
                       child: PageView.builder(
@@ -211,19 +255,53 @@ class _EventsPageState extends State<EventsPage> {
                       for (int i = 0; i < events.length; i++) ...[
                         _EventCard(
                           data: events[i],
-                          onTap: () => context.push('/app/events/detail', extra: events[i]),
+                          onTap: () => context.push('/app/news/events/detail', extra: events[i]),
                         ),
                         if (i != events.length - 1)
                           const SizedBox(height: EventsPage._cardsGap),
                       ],
                     const SizedBox(height: EventsPage._cardsGap),
-                  ],
-                ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             );
           },
         );
       },
+    );
+  }
+
+  static Widget _switcherTab({
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    final bg = selected ? const Color(0xFF2563EB) : Colors.transparent;
+    final textColor = selected ? Colors.white : const Color(0xFF2563EB);
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Container(
+        height: 30,
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Center(
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: AppTextStyle.inter(
+              fontWeight: FontWeight.w700,
+              fontSize: 10.44,
+              height: 1.0,
+              color: textColor,
+            ),
+          ),
+        ),
+      ),
     );
   }
 

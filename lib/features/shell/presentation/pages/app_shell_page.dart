@@ -96,6 +96,30 @@ class _AppShellPageState extends State<AppShellPage> {
                             ),
                           ],
                         ),
+                      _indexNews => Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            SvgPicture.asset(
+                              'assets/icons/nav_news.svg',
+                              width: _navIconSize,
+                              height: _navIconSize,
+                              colorFilter: const ColorFilter.mode(
+                                Color(0xFF000000),
+                                BlendMode.srcIn,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Text(
+                              'Новости',
+                              style: AppTextStyle.inter(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 14.44,
+                                height: 1.0,
+                                color: const Color(0xFF000000),
+                              ),
+                            ),
+                          ],
+                        ),
                       _ => const SizedBox.shrink(),
                     },
                   ),
