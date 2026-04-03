@@ -313,7 +313,7 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
     return ListView.separated(
       padding: const EdgeInsets.symmetric(horizontal: 8),
       itemCount: subjects.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 16),
+      separatorBuilder: (_, _) => const SizedBox(height: 16),
       itemBuilder: (context, i) {
         final s = subjects[i];
         final grades = bySubject[s]!;

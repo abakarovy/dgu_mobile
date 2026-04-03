@@ -213,15 +213,12 @@ abstract final class AppContainer {
   }
 
   static Future<void> _prefetchMe() async {
-    try {
-      final me = await authApi.getMe();
-      await jsonCache.setJson('auth:me', me.toJson());
-    } catch (_) {
-      // Если /auth/me не отвечает или падает по любой причине на старте —
-      // считаем сессию невалидной, чтобы не слать остальные запросы.
-      await forceLogoutLocal();
-      rethrow;
-    }
+    // Успех — кэшируем профиль. Ошибка (таймаут, сеть) — пробрасывается;
+    // `_timedPrefetch` вернёт false и остальной prefetch не запустится.
+    // HTTP 401 обрабатывает Dio + [UnauthorizedHandler] (очистка сессии и логин).
+    // Здесь не вызываем [forceLogoutLocal]: при сетевых сбоях пользователь остаётся в аккаунте.
+    final me = await authApi.getMe();
+    await jsonCache.setJson('auth:me', me.toJson());
   }
 
   /// Нет группы у студента — не считаем ошибкой прогрева.

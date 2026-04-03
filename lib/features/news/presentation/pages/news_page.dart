@@ -111,7 +111,12 @@ class _NewsPageState extends State<NewsPage> {
   @override
   Widget build(BuildContext context) {
     final showNews = _tab == NewsTab.news;
-    NewsHeaderHost.setTitle(showNews ? 'Новости' : 'Мероприятия');
+    // Нельзя менять ValueNotifier синхронно из build — родительский ValueListenableBuilder
+    // получит markNeedsBuild во время текущей фазы сборки. Обновляем после кадра.
+    final headerTitle = showNews ? 'Новости' : 'Мероприятия';
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      NewsHeaderHost.setTitle(headerTitle);
+    });
     final header = Padding(
       padding: const EdgeInsets.fromLTRB(8, 8, 8, 12),
       child: _switcher(

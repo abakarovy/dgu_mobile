@@ -160,10 +160,14 @@ class _AppShellPageState extends State<AppShellPage> {
                                 onPressed: () {
                                   // TODO: открыть настройки, когда будет экран.
                                 },
-                                icon: const Icon(
-                                  Icons.settings,
-                                  size: 25,
-                                  color: Color(0xFF000000),
+                                icon: SvgPicture.asset(
+                                  'assets/icons/settings.svg',
+                                  width: 25,
+                                  height: 25,
+                                  colorFilter: const ColorFilter.mode(
+                                    Color(0xFF000000),
+                                    BlendMode.srcIn,
+                                  ),
                                 ),
                               ),
                             ),

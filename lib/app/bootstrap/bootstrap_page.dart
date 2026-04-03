@@ -30,8 +30,8 @@ class _BootstrapPageState extends State<BootstrapPage> {
 
     final offline = await AppNetworkBannerController.checkDeviceOffline();
     final allOk = await AppContainer.prefetchAll();
-    // Если /auth/me не прошёл (например, 401) — сессия уже будет очищена обработчиком 401.
-    // Здесь просто возвращаем пользователя на логин.
+    // При 401 на /auth/me сессию очищает Dio + UnauthorizedHandler; тогда не залогинен — на логин.
+    // При таймауте/сети prefetch прервётся без выхода; покажем баннер «сервер не ответил».
     final stillLoggedIn = await AppContainer.authRepository.isLoggedIn();
     if (!stillLoggedIn) {
       FlutterNativeSplash.remove();
