@@ -36,8 +36,13 @@ void main() async {
     return true;
   };
 
-  // Backend config lives in assets/env/.env so it exists on device.
-  await dotenv.load(fileName: 'assets/env/.env', isOptional: true);
+  // Базовые значения из репозитория; при наличии `assets/env/.env` — переопределение.
+  await dotenv.load(fileName: 'assets/env/.env.example');
+  await dotenv.load(
+    fileName: 'assets/env/.env',
+    mergeWith: dotenv.env,
+    isOptional: true,
+  );
 
   // Firebase is optional for backend API, but enable when configured.
   try {
