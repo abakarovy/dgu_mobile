@@ -585,28 +585,26 @@ class _HomePageState extends State<HomePage> {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _tasksCard(context, sf: sf),
+              _tasksCard(context, sf: sf, stretchLabel: true),
               SizedBox(height: gap),
-              _scheduleCard(context, sf: sf),
+              _scheduleCard(context, sf: sf, stretchLabel: true),
             ],
           );
         }
-        // Важно: в ScrollView по высоте ограничения могут быть `infinite`.
-        // Поэтому вместо `Expanded`/`stretch` задаём ширину через `SizedBox`,
-        // а высота берётся из контента.
+        // Ширина по содержимому (текст целиком), высота фиксированная в карточке.
         return Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SizedBox(width: slotW, child: _tasksCard(context, sf: sf)),
+            _tasksCard(context, sf: sf, stretchLabel: false),
             SizedBox(width: gap),
-            SizedBox(width: slotW, child: _scheduleCard(context, sf: sf)),
+            _scheduleCard(context, sf: sf, stretchLabel: false),
           ],
         );
       },
     );
   }
 
-  Widget _tasksCard(BuildContext context, {required double sf}) {
+  Widget _tasksCard(BuildContext context, {required double sf, bool stretchLabel = false}) {
     // Точный цвет из дизайна: #10B98121 (alpha 0x21).
     final greenBg = const Color(0x2110B981);
     final iconBg = const Color(0xFFECFDF5);
@@ -624,11 +622,12 @@ class _HomePageState extends State<HomePage> {
       label: 'Мои задания',
       labelColor: iconColor,
       labelFontSize: 11.72,
+      stretchLabel: stretchLabel,
       onPressed: () => context.push('/app/tasks'),
     );
   }
 
-  Widget _scheduleCard(BuildContext context, {required double sf}) {
+  Widget _scheduleCard(BuildContext context, {required double sf, bool stretchLabel = false}) {
     final iconBg = const Color.fromRGBO(46, 99, 213, 0.1);
     final iconColor = const Color.fromRGBO(37, 99, 235, 1);
 
@@ -644,6 +643,7 @@ class _HomePageState extends State<HomePage> {
       label: 'Расписание',
       labelColor: iconColor,
       labelFontSize: 11.72,
+      stretchLabel: stretchLabel,
       onPressed: () => context.push('/app/schedule'),
     );
   }
@@ -660,6 +660,7 @@ class _HomePageState extends State<HomePage> {
     required String iconAsset,
     required double iconW,
     required double iconH,
+    required bool stretchLabel,
     required VoidCallback onPressed,
   }) {
     final radius = 20 * sf;
@@ -694,24 +695,38 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
             SizedBox(width: 10 * sf),
-            Expanded(
-              child: Text(
+            if (stretchLabel)
+              Expanded(
+                child: Text(
+                  label,
+                  textAlign: TextAlign.left,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTextStyle.inter(
+                    fontWeight: FontWeight.w700,
+                    fontSize: labelFontSize * sf,
+                    color: labelColor,
+                  ),
+                ),
+              )
+            else
+              Text(
                 label,
                 textAlign: TextAlign.left,
+                maxLines: 1,
+                softWrap: false,
                 style: AppTextStyle.inter(
                   fontWeight: FontWeight.w700,
                   fontSize: labelFontSize * sf,
                   color: labelColor,
                 ),
               ),
-            ),
           ],
         ),
       ),
     );
 
-    final shadowLayer = Container(
-      height: 90 * sf,
+    final shadowLayer = DecoratedBox(
       decoration: BoxDecoration(
         color: Colors.white, // блокируем просвет тени через альфу
         borderRadius: BorderRadius.circular(radius),
@@ -729,11 +744,15 @@ class _HomePageState extends State<HomePage> {
       behavior: HitTestBehavior.opaque,
       onTap: onPressed,
       child: withShadow
-          ? Stack(
-              children: [
-                shadowLayer,
-                card,
-              ],
+          ? IntrinsicWidth(
+              child: Stack(
+                clipBehavior: Clip.none,
+                alignment: Alignment.topLeft,
+                children: [
+                  Positioned.fill(child: shadowLayer),
+                  card,
+                ],
+              ),
             )
           : card,
     );
