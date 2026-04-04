@@ -34,14 +34,14 @@ abstract final class MockAccounts {
 
   static int variantIndexForUserId(int id) => id == mariaId ? 1 : 0;
 
-  static _LoginMatch? tryLogin(String username, String password) {
+  static MockLoginResult? tryLogin(String username, String password) {
     final u = username.trim().toLowerCase();
     final p = password;
     if (u == ivanEmail.toLowerCase() && p == ivanPassword) {
-      return _LoginMatch(_ivanUser, ivanId);
+      return MockLoginResult(userJson: _ivanUser, userId: ivanId);
     }
     if (u == mariaEmail.toLowerCase() && p == mariaPassword) {
-      return _LoginMatch(_mariaUser, mariaId);
+      return MockLoginResult(userJson: _mariaUser, userId: mariaId);
     }
     return null;
   }
@@ -86,8 +86,8 @@ abstract final class MockAccounts {
   };
 }
 
-class _LoginMatch {
-  const _LoginMatch(this.userJson, this.userId);
+class MockLoginResult {
+  const MockLoginResult({required this.userJson, required this.userId});
   final Map<String, dynamic> userJson;
   final int userId;
 }

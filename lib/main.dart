@@ -11,6 +11,7 @@ import 'app/app.dart';
 import 'app/router/app_router.dart';
 import 'core/auth/unauthorized_handler.dart';
 import 'core/di/app_container.dart';
+import 'moc/mock_mode.dart';
 import 'core/logging/app_log_file.dart';
 import 'core/push/push_registrar.dart';
 import 'core/realtime/realtime_ws_client.dart';
@@ -43,6 +44,12 @@ void main() async {
     mergeWith: dotenv.env,
     isOptional: true,
   );
+
+  /// `true` — данные из `lib/moc`, HTTP к бэкенду не выполняется ([MockDioInterceptor]).
+  /// Тестовые студенты: `ivan.petrov@student.dgu.mock` / `MockStud1!`,
+  /// `maria.sidorova@student.dgu.mock` / `MockStud2!`.
+  /// `false` — реальный API ([ApiConstants.baseUrl]).
+  useMockBackend = true;
 
   // Firebase is optional for backend API, but enable when configured.
   try {
