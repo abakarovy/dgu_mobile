@@ -55,7 +55,7 @@ abstract final class MockPayloads {
       };
     }
     return {
-      'full_name': 'Петров Иван Сергеевич',
+      'full_name': 'Ягияев Али Тажутдинович',
       'birth_date': '03.08.2005',
       'group': 'ИСиП 3к 2г 2022',
       'department': 'Информационные технологии',

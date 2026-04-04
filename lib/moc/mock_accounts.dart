@@ -50,9 +50,9 @@ abstract final class MockAccounts {
   static final Map<String, dynamic> _ivanUser = {
     'id': ivanId,
     'email': ivanEmail,
-    'full_name': 'Петров Иван Сергеевич',
+    'full_name': 'Ягияев Али Тажутдинович',
     'role': 'student',
-    'student_book_number': 'УБ123456',
+    'student_book_number': '23355',
     'parent_email': 'parent.ivan@example.com',
     'course': 3,
     'direction': 'Информационные системы',
