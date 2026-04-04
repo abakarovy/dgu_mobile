@@ -14,7 +14,7 @@ class ApiException implements Exception {
 
   static ApiException fromDio(DioException e) {
     final msg = ApiErrorParser.fromDioException(e) ?? '';
-    final m = msg.trim().isEmpty ? 'Ошибка' : msg.trim();
+    final m = msg.trim().isEmpty ? 'Ошибка сети' : msg.trim();
     return ApiException(m, e.response?.statusCode);
   }
 }

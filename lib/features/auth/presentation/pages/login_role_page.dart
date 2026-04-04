@@ -24,9 +24,10 @@ class LoginRolePage extends StatelessWidget {
     final sf = _sf(size);
     final blue = const Color.fromRGBO(46, 99, 213, 1);
 
-    // Разбивка 1/3 фото + 2/3 белый блок.
-    const topFlex = 1;
-    const bottomFlex = 2;
+    // Разбивка: верх с фото чуть выше (2:3 ≈ 40% экрана), ниже — форма; учёт островка в позиции текста.
+    const topFlex = 2;
+    const bottomFlex = 3;
+    final safeTop = MediaQuery.paddingOf(context).top;
 
     final titleStyle = AppTextStyle.inter(
       fontWeight: FontWeight.w700,
@@ -71,116 +72,138 @@ class LoginRolePage extends StatelessWidget {
         backgroundColor: Colors.white,
         body: Column(
           children: [
-          Expanded(
-            flex: topFlex,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                Image.asset(
-                  'assets/images/photo.png',
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) =>
-                      const ColoredBox(color: Colors.black12),
-                ),
-                Positioned(
-                  left: 60 * sf,
-                  top: 90 * sf,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Начни сейчас', style: titleStyle),
-                      SizedBox(height: 20 * sf),
-                      Text('КОЛЛЕДЖ ДГУ', style: collegeStyle),
-                    ],
+            Expanded(
+              flex: topFlex,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Image.asset(
+                    'assets/images/photo.png',
+                    fit: BoxFit.cover,
+                    alignment: Alignment.topCenter,
+                    errorBuilder: (context, error, stackTrace) =>
+                        const ColoredBox(color: Colors.black12),
                   ),
-                ),
-                Positioned(
-                  right: 60 * sf,
-                  bottom: 36 * sf,
-                  child: SizedBox(
-                    width: 126 * sf * 1.5,
-                    height: 126 * sf * 1.5,
-                    child: SvgPicture.asset(
-                      'assets/icons/logo.svg',
-                      fit: BoxFit.contain,
+                  Positioned(
+                    left: 60 * sf,
+                    top: safeTop + 56 * sf,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Начни сейчас', style: titleStyle),
+                        SizedBox(height: 20 * sf),
+                        Text('КОЛЛЕДЖ ДГУ', style: collegeStyle),
+                      ],
                     ),
                   ),
-                ),
-              ],
+                  Positioned(
+                    right: 60 * sf,
+                    bottom: 36 * sf,
+                    child: SizedBox(
+                      width: 126 * sf * 1.5,
+                      height: 126 * sf * 1.5,
+                      child: SvgPicture.asset(
+                        'assets/icons/logo.svg',
+                        fit: BoxFit.contain,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-          Expanded(
-            flex: bottomFlex,
-            child: SafeArea(
-              top: false,
-              child: Center(
-                child: SingleChildScrollView(
-                  padding: EdgeInsets.symmetric(vertical: 24 * sf),
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(maxWidth: 900 * sf),
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 60 * sf),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          SizedBox(
-                            height: btnHeight,
-                            child: OutlinedButton(
-                              onPressed: () => context.go('/login/student'),
-                              style: noOverlay(OutlinedButton.styleFrom(
-                                foregroundColor: blue,
-                                backgroundColor: Colors.transparent,
-                                side: BorderSide(color: blue, width: btnBorder),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(btnRadius),
+            Expanded(
+              flex: bottomFlex,
+              child: SafeArea(
+                top: false,
+                child: Center(
+                  child: SingleChildScrollView(
+                    padding: EdgeInsets.symmetric(vertical: 24 * sf),
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(maxWidth: 900 * sf),
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 60 * sf),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            SizedBox(
+                              height: btnHeight,
+                              child: OutlinedButton(
+                                onPressed: () => context.go('/login/student'),
+                                style: noOverlay(
+                                  OutlinedButton.styleFrom(
+                                    foregroundColor: blue,
+                                    backgroundColor: Colors.transparent,
+                                    side: BorderSide(
+                                      color: blue,
+                                      width: btnBorder,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(
+                                        btnRadius,
+                                      ),
+                                    ),
+                                    fixedSize: Size.fromHeight(btnHeight),
+                                    minimumSize: Size(
+                                      double.infinity,
+                                      btnHeight,
+                                    ),
+                                    padding: EdgeInsets.zero,
+                                    tapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                    visualDensity: VisualDensity.compact,
+                                    textStyle: btnTextStyle,
+                                  ),
                                 ),
-                                fixedSize: Size.fromHeight(btnHeight),
-                                minimumSize: Size(double.infinity, btnHeight),
-                                padding: EdgeInsets.zero,
-                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                visualDensity: VisualDensity.compact,
-                                textStyle: btnTextStyle,
-                              )),
-                              child: const Text('Я студент'),
-                            ),
-                          ),
-                          SizedBox(height: btnGap),
-                          SizedBox(
-                            height: btnHeight,
-                            child: FilledButton(
-                              onPressed: () => context.go(
-                                '/login/email',
-                                extra: const {'role': 'parent', 'mode': 'login'},
+                                child: const Text('Я студент'),
                               ),
-                              style: noOverlay(FilledButton.styleFrom(
-                                backgroundColor: blue,
-                                foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(btnRadius),
-                                ),
-                                fixedSize: Size.fromHeight(btnHeight),
-                                minimumSize: Size(double.infinity, btnHeight),
-                                padding: EdgeInsets.zero,
-                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                visualDensity: VisualDensity.compact,
-                                textStyle: btnTextStyle,
-                              )),
-                              child: const Text('Я родитель'),
                             ),
-                          ),
-                        ],
+                            SizedBox(height: btnGap),
+                            SizedBox(
+                              height: btnHeight,
+                              child: FilledButton(
+                                onPressed: () => context.go(
+                                  '/login/email',
+                                  extra: const {
+                                    'role': 'parent',
+                                    'mode': 'login',
+                                  },
+                                ),
+                                style: noOverlay(
+                                  FilledButton.styleFrom(
+                                    backgroundColor: blue,
+                                    foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(
+                                        btnRadius,
+                                      ),
+                                    ),
+                                    fixedSize: Size.fromHeight(btnHeight),
+                                    minimumSize: Size(
+                                      double.infinity,
+                                      btnHeight,
+                                    ),
+                                    padding: EdgeInsets.zero,
+                                    tapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                    visualDensity: VisualDensity.compact,
+                                    textStyle: btnTextStyle,
+                                  ),
+                                ),
+                                child: const Text('Я родитель'),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
             ),
-          ),
           ],
         ),
       ),
     );
   }
 }
-

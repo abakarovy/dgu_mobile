@@ -51,29 +51,37 @@ class AuthApi {
       }
     }
 
-    final me = await getMe();
-    final json = jsonEncode(me.toJson());
-    await _tokenStorage.setUserDataJson(json);
-    return me;
+    try {
+      final me = await getMe();
+      final json = jsonEncode(me.toJson());
+      await _tokenStorage.setUserDataJson(json);
+      return me;
+    } on DioException catch (e) {
+      throw ApiException.fromDio(e);
+    }
   }
 
   /// POST /api/auth/login — username (email или номер зачётки), password.
   /// Токен и пользователь приходят в заголовках Authorization, X-User-Data.
   Future<UserModel> login({required String username, required String password}) async {
-    final response = await _api.dio.post<dynamic>(
-      ApiConstants.authLoginPath,
-      data: <String, String>{'username': username, 'password': password},
-      options: Options(
-        contentType: Headers.formUrlEncodedContentType,
-        validateStatus: (s) => s != null && s < 500,
-      ),
-    );
+    try {
+      final response = await _api.dio.post<dynamic>(
+        ApiConstants.authLoginPath,
+        data: <String, String>{'username': username, 'password': password},
+        options: Options(
+          contentType: Headers.formUrlEncodedContentType,
+          validateStatus: (s) => s != null && s < 500,
+        ),
+      );
 
-    if (response.statusCode != 200) {
-      throw ApiException(ApiErrorParser.fromResponseData(response.data) ?? 'Ошибка', response.statusCode);
+      if (response.statusCode != 200) {
+        throw ApiException(ApiErrorParser.fromResponseData(response.data) ?? 'Ошибка', response.statusCode);
+      }
+
+      return _saveAuthFromHeadersOrFetchMe(response);
+    } on DioException catch (e) {
+      throw ApiException.fromDio(e);
     }
-
-    return _saveAuthFromHeadersOrFetchMe(response);
   }
 
   /// POST /api/auth/student/verify-1c — проверка студента в 1С (без регистрации).
@@ -81,28 +89,32 @@ class AuthApi {
     required String fullName,
     required String studentBookNumber,
   }) async {
-    final response = await _api.dio.post<dynamic>(
-      _studentVerify1cPath,
-      data: <String, dynamic>{
-        'full_name': fullName.trim(),
-        'student_book_number': studentBookNumber.trim(),
-      },
-      options: Options(validateStatus: (s) => s != null && s < 500),
-    );
-    if (response.statusCode != 200) {
-      throw ApiException(
-        ApiErrorParser.fromResponseData(response.data) ?? 'Ошибка',
-        response.statusCode,
+    try {
+      final response = await _api.dio.post<dynamic>(
+        _studentVerify1cPath,
+        data: <String, dynamic>{
+          'full_name': fullName.trim(),
+          'student_book_number': studentBookNumber.trim(),
+        },
+        options: Options(validateStatus: (s) => s != null && s < 500),
       );
-    }
+      if (response.statusCode != 200) {
+        throw ApiException(
+          ApiErrorParser.fromResponseData(response.data) ?? 'Ошибка',
+          response.statusCode,
+        );
+      }
 
-    final data = response.data;
-    if (data is Map<String, dynamic>) {
-      final t = (data['registration_token'] ?? data['registrationToken'] ?? data['token']);
-      final s = (t is String) ? t.trim() : (t == null ? '' : '$t').trim();
-      return StudentVerify1cResult(registrationToken: s.isEmpty ? null : s);
+      final data = response.data;
+      if (data is Map<String, dynamic>) {
+        final t = (data['registration_token'] ?? data['registrationToken'] ?? data['token']);
+        final s = (t is String) ? t.trim() : (t == null ? '' : '$t').trim();
+        return StudentVerify1cResult(registrationToken: s.isEmpty ? null : s);
+      }
+      return const StudentVerify1cResult(registrationToken: null);
+    } on DioException catch (e) {
+      throw ApiException.fromDio(e);
     }
-    return const StudentVerify1cResult(registrationToken: null);
   }
 
   /// POST /api/auth/student/register — регистрация студента (возвращает токен в заголовках).
@@ -113,49 +125,61 @@ class AuthApi {
     required String password,
     String? registrationToken,
   }) async {
-    final response = await _api.dio.post<dynamic>(
-      _studentRegisterPath,
-      data: <String, dynamic>{
-        'full_name': fullName.trim(),
-        'student_book_number': studentBookNumber.trim(),
-        'email': email.trim(),
-        'password': password,
-        if (registrationToken != null && registrationToken.trim().isNotEmpty)
-          'registration_token': registrationToken.trim(),
-      },
-      options: Options(validateStatus: (s) => s != null && s < 500),
-    );
-    if (response.statusCode != 201) {
-      throw ApiException(
-        ApiErrorParser.fromResponseData(response.data) ?? 'Ошибка',
-        response.statusCode,
+    try {
+      final response = await _api.dio.post<dynamic>(
+        _studentRegisterPath,
+        data: <String, dynamic>{
+          'full_name': fullName.trim(),
+          'student_book_number': studentBookNumber.trim(),
+          'email': email.trim(),
+          'password': password,
+          if (registrationToken != null && registrationToken.trim().isNotEmpty)
+            'registration_token': registrationToken.trim(),
+        },
+        options: Options(validateStatus: (s) => s != null && s < 500),
       );
+      if (response.statusCode != 201) {
+        throw ApiException(
+          ApiErrorParser.fromResponseData(response.data) ?? 'Ошибка',
+          response.statusCode,
+        );
+      }
+      return _saveAuthFromHeadersOrFetchMe(response);
+    } on DioException catch (e) {
+      throw ApiException.fromDio(e);
     }
-    return _saveAuthFromHeadersOrFetchMe(response);
   }
 
   /// POST /api/auth/staff/login — вход сотрудника/админа (JSON username/password).
   Future<UserModel> loginStaff({required String username, required String password}) async {
-    final response = await _api.dio.post<dynamic>(
-      _staffLoginPath,
-      data: <String, dynamic>{'username': username.trim(), 'password': password},
-      options: Options(validateStatus: (s) => s != null && s < 500),
-    );
-    if (response.statusCode != 200) {
-      throw ApiException(ApiErrorParser.fromResponseData(response.data) ?? 'Ошибка', response.statusCode);
+    try {
+      final response = await _api.dio.post<dynamic>(
+        _staffLoginPath,
+        data: <String, dynamic>{'username': username.trim(), 'password': password},
+        options: Options(validateStatus: (s) => s != null && s < 500),
+      );
+      if (response.statusCode != 200) {
+        throw ApiException(ApiErrorParser.fromResponseData(response.data) ?? 'Ошибка', response.statusCode);
+      }
+      return _saveAuthFromHeadersOrFetchMe(response);
+    } on DioException catch (e) {
+      throw ApiException.fromDio(e);
     }
-    return _saveAuthFromHeadersOrFetchMe(response);
   }
 
   /// GET /api/auth/me — текущий пользователь (Bearer).
   Future<UserModel> getMe() async {
-    final response = await _api.dio.get<Map<String, dynamic>>(ApiConstants.authMePath);
-    if (response.statusCode != 200 || response.data == null) {
-      throw ApiException(
-        ApiErrorParser.fromResponseData(response.data) ?? 'Ошибка',
-        response.statusCode,
-      );
+    try {
+      final response = await _api.dio.get<Map<String, dynamic>>(ApiConstants.authMePath);
+      if (response.statusCode != 200 || response.data == null) {
+        throw ApiException(
+          ApiErrorParser.fromResponseData(response.data) ?? 'Ошибка',
+          response.statusCode,
+        );
+      }
+      return UserModel.fromJson(response.data!);
+    } on DioException catch (e) {
+      throw ApiException.fromDio(e);
     }
-    return UserModel.fromJson(response.data!);
   }
 }

@@ -35,7 +35,27 @@ abstract final class ApiErrorParser {
   }
 
   static String? fromDioException(DioException e) {
-    return fromResponseData(e.response?.data);
+    final fromBody = fromResponseData(e.response?.data);
+    if (fromBody != null && fromBody.trim().isNotEmpty) {
+      return fromBody.trim();
+    }
+
+    // Нет тела ответа (таймаут, нет сети, отказ в соединении).
+    switch (e.type) {
+      case DioExceptionType.connectionTimeout:
+      case DioExceptionType.sendTimeout:
+      case DioExceptionType.receiveTimeout:
+        return 'Сервер не отвечает, попробуйте позже.';
+      case DioExceptionType.connectionError:
+        return 'Не удалось подключиться к серверу. Проверьте интернет и адрес API.';
+      case DioExceptionType.badCertificate:
+        return 'Ошибка защищённого соединения (сертификат).';
+      case DioExceptionType.cancel:
+        return 'Запрос отменён.';
+      case DioExceptionType.badResponse:
+      case DioExceptionType.unknown:
+        break;
+    }
+    return null;
   }
 }
-

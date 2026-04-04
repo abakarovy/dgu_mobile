@@ -115,10 +115,8 @@ class _LoginPageState extends State<LoginPage> {
     try {
       setState(() => _submitting = true);
       // Проверяем студента в 1С. Дальше — регистрация/вход по email.
-      final registrationToken = await AppContainer.authRepository.verifyStudentIn1c(
-        fullName: fullName,
-        studentBookNumber: bookNumber,
-      );
+      final registrationToken = await AppContainer.authRepository
+          .verifyStudentIn1c(fullName: fullName, studentBookNumber: bookNumber);
       if (!mounted) return;
       context.go(
         '/login/email',
@@ -186,6 +184,11 @@ class _LoginPageState extends State<LoginPage> {
       hoverColor: Colors.transparent,
     );
 
+    // Островок / Dynamic Island / статус-бар: заголовки — ниже «выреза», фото — чуть выше по доле экрана.
+    final safeTop = MediaQuery.paddingOf(context).top;
+    const photoFlex = 2;
+    const formFlex = 3;
+
     ButtonStyle noOverlay(ButtonStyle base) {
       return base.copyWith(
         overlayColor: const WidgetStatePropertyAll(Colors.transparent),
@@ -198,22 +201,24 @@ class _LoginPageState extends State<LoginPage> {
         data: noTapFxTheme,
         child: Scaffold(
           backgroundColor: Colors.white,
+          resizeToAvoidBottomInset: true,
           body: Column(
             children: [
               Expanded(
-                flex: 1,
+                flex: photoFlex,
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
                     Image.asset(
                       'assets/images/photo.png',
                       fit: BoxFit.cover,
+                      alignment: Alignment.topCenter,
                       errorBuilder: (context, error, stackTrace) =>
                           const ColoredBox(color: Colors.black12),
                     ),
                     Positioned(
                       left: 60 * sf,
-                      top: 90 * sf,
+                      top: safeTop + 56 * sf,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -256,7 +261,7 @@ class _LoginPageState extends State<LoginPage> {
                 ),
               ),
               Expanded(
-                flex: 2,
+                flex: formFlex,
                 child: SafeArea(
                   top: false,
                   child: LayoutBuilder(
@@ -293,25 +298,36 @@ class _LoginPageState extends State<LoginPage> {
                               ),
                               SizedBox(height: gap),
                             ],
-
                             SizedBox(
                               height: btnHeight,
                               child: FilledButton(
                                 onPressed: _submitting ? null : _submit,
-                                style: noOverlay(FilledButton.styleFrom(
-                                  backgroundColor: blue,
-                                  foregroundColor: Colors.white,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(btnRadius),
+                                style: noOverlay(
+                                  FilledButton.styleFrom(
+                                    backgroundColor: blue,
+                                    foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(
+                                        btnRadius,
+                                      ),
+                                    ),
+                                    fixedSize: Size.fromHeight(btnHeight),
+                                    minimumSize: Size(
+                                      double.infinity,
+                                      btnHeight,
+                                    ),
+                                    padding: EdgeInsets.zero,
+                                    tapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                    visualDensity: VisualDensity.compact,
+                                    textStyle: btnTextStyle,
                                   ),
-                                  fixedSize: Size.fromHeight(btnHeight),
-                                  minimumSize: Size(double.infinity, btnHeight),
-                                  padding: EdgeInsets.zero,
-                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                  visualDensity: VisualDensity.compact,
-                                  textStyle: btnTextStyle,
-                                )),
-                                child: Center(child: Text(_submitting ? 'Проверяем…' : 'Войти')),
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    _submitting ? 'Проверяем…' : 'Войти',
+                                  ),
+                                ),
                               ),
                             ),
                             SizedBox(height: gap),
@@ -321,23 +337,39 @@ class _LoginPageState extends State<LoginPage> {
                               child: OutlinedButton(
                                 onPressed: () => context.go(
                                   '/login/email',
-                                  extra: const {'role': 'student', 'mode': 'login'},
+                                  extra: const {
+                                    'role': 'student',
+                                    'mode': 'login',
+                                  },
                                 ),
-                                style: noOverlay(OutlinedButton.styleFrom(
-                                  foregroundColor: blue,
-                                  backgroundColor: Colors.transparent,
-                                  side: BorderSide(color: blue, width: btnBorder),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(btnRadius),
+                                style: noOverlay(
+                                  OutlinedButton.styleFrom(
+                                    foregroundColor: blue,
+                                    backgroundColor: Colors.transparent,
+                                    side: BorderSide(
+                                      color: blue,
+                                      width: btnBorder,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(
+                                        btnRadius,
+                                      ),
+                                    ),
+                                    fixedSize: Size.fromHeight(btnHeight),
+                                    minimumSize: Size(
+                                      double.infinity,
+                                      btnHeight,
+                                    ),
+                                    padding: EdgeInsets.zero,
+                                    tapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                    visualDensity: VisualDensity.compact,
+                                    textStyle: btnTextStyle,
                                   ),
-                                  fixedSize: Size.fromHeight(btnHeight),
-                                  minimumSize: Size(double.infinity, btnHeight),
-                                  padding: EdgeInsets.zero,
-                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                  visualDensity: VisualDensity.compact,
-                                  textStyle: btnTextStyle,
-                                )),
-                                child: const Center(child: Text('Войти по E-mail')),
+                                ),
+                                child: const Center(
+                                  child: Text('Войти по E-mail'),
+                                ),
                               ),
                             ),
                             SizedBox(height: gap),
@@ -347,22 +379,35 @@ class _LoginPageState extends State<LoginPage> {
                               child: FilledButton(
                                 onPressed: () => context.go(
                                   '/login/email',
-                                  extra: const {'role': 'parent', 'mode': 'login'},
+                                  extra: const {
+                                    'role': 'parent',
+                                    'mode': 'login',
+                                  },
                                 ),
-                                style: noOverlay(FilledButton.styleFrom(
-                                  backgroundColor: blue,
-                                  foregroundColor: Colors.white,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(btnRadius),
+                                style: noOverlay(
+                                  FilledButton.styleFrom(
+                                    backgroundColor: blue,
+                                    foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(
+                                        btnRadius,
+                                      ),
+                                    ),
+                                    fixedSize: Size.fromHeight(btnHeight),
+                                    minimumSize: Size(
+                                      double.infinity,
+                                      btnHeight,
+                                    ),
+                                    padding: EdgeInsets.zero,
+                                    tapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                    visualDensity: VisualDensity.compact,
+                                    textStyle: btnTextStyle,
                                   ),
-                                  fixedSize: Size.fromHeight(btnHeight),
-                                  minimumSize: Size(double.infinity, btnHeight),
-                                  padding: EdgeInsets.zero,
-                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                  visualDensity: VisualDensity.compact,
-                                  textStyle: btnTextStyle,
-                                )),
-                                child: const Center(child: Text('Войти как родитель')),
+                                ),
+                                child: const Center(
+                                  child: Text('Войти как родитель'),
+                                ),
                               ),
                             ),
                           ],
@@ -370,6 +415,8 @@ class _LoginPageState extends State<LoginPage> {
                       );
 
                       return SingleChildScrollView(
+                        keyboardDismissBehavior:
+                            ScrollViewKeyboardDismissBehavior.manual,
                         padding: EdgeInsets.fromLTRB(
                           sidePad,
                           18 * sf,
@@ -419,6 +466,8 @@ class _LoginPageState extends State<LoginPage> {
             blue: blue,
             hintStyle: hintStyle,
             valueStyle: valueStyle,
+            textInputAction: TextInputAction.next,
+            onFieldSubmitted: (_) => _firstNameFocusNode.requestFocus(),
           ),
           SizedBox(height: gap),
           _buildField(
@@ -433,6 +482,8 @@ class _LoginPageState extends State<LoginPage> {
             blue: blue,
             hintStyle: hintStyle,
             valueStyle: valueStyle,
+            textInputAction: TextInputAction.next,
+            onFieldSubmitted: (_) => _patronymicFocusNode.requestFocus(),
           ),
           SizedBox(height: gap),
           _buildField(
@@ -447,6 +498,8 @@ class _LoginPageState extends State<LoginPage> {
             blue: blue,
             hintStyle: hintStyle,
             valueStyle: valueStyle,
+            textInputAction: TextInputAction.next,
+            onFieldSubmitted: (_) => _studentIdFocusNode.requestFocus(),
           ),
           SizedBox(height: gap),
           _buildField(
@@ -463,6 +516,10 @@ class _LoginPageState extends State<LoginPage> {
             blue: blue,
             hintStyle: hintStyle,
             valueStyle: valueStyle,
+            textInputAction: TextInputAction.done,
+            onFieldSubmitted: (_) {
+              if (!_submitting) _submit();
+            },
           ),
         ],
       ),
@@ -484,6 +541,8 @@ class _LoginPageState extends State<LoginPage> {
     required Color blue,
     required TextStyle hintStyle,
     required TextStyle valueStyle,
+    TextInputAction textInputAction = TextInputAction.next,
+    void Function(String value)? onFieldSubmitted,
   }) {
     final hasError = _errorFields.contains(key);
     final hasValue = _hasText(controller);
@@ -504,47 +563,74 @@ class _LoginPageState extends State<LoginPage> {
       ),
     );
 
-    return SizedBox(
-      height: fieldHeight,
-      child: TextFormField(
-        controller: controller,
-        focusNode: focusNode,
-        keyboardType: keyboardType,
-        obscureText: obscureText,
-        inputFormatters: [
-          if (keyboardType == TextInputType.number)
-            FilteringTextInputFormatter.digitsOnly,
-          if (maxLength != null) LengthLimitingTextInputFormatter(maxLength),
-        ],
-        decoration: InputDecoration(
-          hintText: hint,
-          hintStyle: hintStyle,
-          filled: false,
-          border: enabledBorder,
-          enabledBorder: enabledBorder,
-          focusedBorder: focusedBorder,
-          errorBorder: enabledBorder.copyWith(
-            borderSide: BorderSide(color: Colors.red, width: fieldBorderW),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          height: fieldHeight,
+          child: TextFormField(
+            controller: controller,
+            focusNode: focusNode,
+            keyboardType: keyboardType,
+            obscureText: obscureText,
+            textCapitalization: keyboardType == TextInputType.name
+                ? TextCapitalization.words
+                : TextCapitalization.none,
+            textInputAction: textInputAction,
+            onFieldSubmitted: onFieldSubmitted,
+            inputFormatters: [
+              if (keyboardType == TextInputType.number)
+                FilteringTextInputFormatter.digitsOnly,
+              if (maxLength != null) LengthLimitingTextInputFormatter(maxLength),
+            ],
+            decoration: InputDecoration(
+              hintText: hint,
+              hintStyle: hintStyle,
+              filled: false,
+              isDense: true,
+              border: enabledBorder,
+              enabledBorder: enabledBorder,
+              focusedBorder: focusedBorder,
+              errorBorder: enabledBorder.copyWith(
+                borderSide: BorderSide(color: Colors.red, width: fieldBorderW),
+              ),
+              focusedErrorBorder: focusedBorder.copyWith(
+                borderSide: BorderSide(color: Colors.red, width: fieldBorderW),
+              ),
+              contentPadding: EdgeInsets.only(
+                left: fieldLeftPad,
+                right: 24,
+                top: 0,
+                bottom: 0,
+              ),
+              errorText: null,
+              errorStyle: const TextStyle(height: 0, fontSize: 0),
+              counterText: '',
+            ),
+            style: valueStyle,
+            onChanged: (_) {
+              // Чтобы обновлять цвет обводки (пусто/есть текст) и стиль значения.
+              if (mounted) setState(() {});
+            },
           ),
-          focusedErrorBorder: focusedBorder.copyWith(
-            borderSide: BorderSide(color: Colors.red, width: fieldBorderW),
-          ),
-          contentPadding: EdgeInsets.only(
-            left: fieldLeftPad,
-            right: 24,
-            top: 0,
-            bottom: 0,
-          ),
-          errorText: null,
-          errorStyle: const TextStyle(height: 0, fontSize: 0),
-          counterText: '',
         ),
-        style: valueStyle,
-        onChanged: (_) {
-          // Чтобы обновлять цвет обводки (пусто/есть текст) и стиль значения.
-          if (mounted) setState(() {});
-        },
-      ),
+        if (hasError) ...[
+          const SizedBox(height: 6),
+          Padding(
+            padding: EdgeInsets.only(left: fieldLeftPad * 0.2),
+            child: Text(
+              'Заполните поле',
+              style: AppTextStyle.inter(
+                fontWeight: FontWeight.w500,
+                fontSize: 12,
+                height: 1.2,
+                color: Colors.red,
+              ),
+            ),
+          ),
+        ],
+      ],
     );
   }
 

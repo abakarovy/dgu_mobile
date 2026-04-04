@@ -63,10 +63,12 @@ void main() async {
 
   await _requestNotificationsPermissionIfNeeded();
 
-  // Register current device token (best-effort).
-  // If user is not logged in yet, backend will reject; next bootstrap/login will retry.
-  PushRegistrar.instance.ensureRegistered();
-  RealtimeWsClient.instance.connectIfPossible();
+  // Сеть после первого кадра: не блокируем старт и не шумим таймаутами до отрисовки UI.
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    // Register current device token (best-effort).
+    PushRegistrar.instance.ensureRegistered();
+    RealtimeWsClient.instance.connectIfPossible();
+  });
 
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.green,

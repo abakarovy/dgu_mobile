@@ -14,15 +14,15 @@ abstract final class ApiConstants {
     const fromDefine = String.fromEnvironment('API_BASE_URL', defaultValue: '');
     return fromDefine.trim().isNotEmpty ? fromDefine.trim() : fallback;
   }
-  /// Запросы к API: после этого времени клиент обрывает ожидание (кэш / деградация).
-  static const Duration connectTimeout = Duration(seconds: 5);
-  static const Duration receiveTimeout = Duration(seconds: 5);
+  /// Запросы к API: Wi‑Fi / первый коннект к бэку на телефоне часто > 5 с — иначе ложные таймауты.
+  static const Duration connectTimeout = Duration(seconds: 20);
+  static const Duration receiveTimeout = Duration(seconds: 30);
 
   /// `/1c/schedule` у 1С часто отвечает дольше 5 с; отдельный лимит на приём тела ответа.
   static const Duration scheduleReceiveTimeout = Duration(seconds: 90);
 
   /// Тот же лимит для параллельного прогрева кэша на splash.
-  static const Duration prefetchRequestTimeout = Duration(seconds: 5);
+  static const Duration prefetchRequestTimeout = Duration(seconds: 15);
 
   /// Прогрев недели — до 7 последовательных запросов расписания.
   static const Duration prefetchScheduleTimeout = Duration(seconds: 120);
