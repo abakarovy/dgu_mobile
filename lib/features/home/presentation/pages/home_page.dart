@@ -339,24 +339,33 @@ class _HomePageState extends State<HomePage> {
             ),
           )
         else
-          ...items.map((e) => Padding(
-                padding: const EdgeInsets.only(bottom: AppUi.spacingBetweenCards),
-                child: Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(10),
-                    color: Colors.white,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withAlpha(20),
-                        offset: const Offset(0, 2),
-                        blurRadius: 4,
-                      ),
-                    ],
-                  ),
-                  padding: const EdgeInsets.all(12),
-                  child: ScheduleLessonTile(lesson: e),
+          ...items.asMap().entries.map((entry) {
+            final i = entry.key;
+            final e = entry.value;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: AppUi.spacingBetweenCards),
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(10),
+                  color: Colors.white,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withAlpha(20),
+                      offset: const Offset(0, 2),
+                      blurRadius: 4,
+                    ),
+                  ],
                 ),
-              )),
+                padding: const EdgeInsets.all(12),
+                child: ScheduleLessonTile(
+                  lesson: e,
+                  layoutScale: ScheduleLessonTile.layoutScaleOf(context),
+                  showBottomDivider: i < items.length - 1,
+                  isFirstInList: i == 0,
+                ),
+              ),
+            );
+          }),
       ],
     );
   }
@@ -782,7 +791,11 @@ class _HomePageState extends State<HomePage> {
         : null;
 
     final start = _parseStartTime(lesson.time) ?? '—';
-    final pairLabel = '${index + 1} ПАРА';
+    final pairLabel = lesson.pairNumber != null
+        ? (lesson.pairNumber == 0
+            ? '0 ПАРА'
+            : '${lesson.pairNumber} ПАРА'.toUpperCase())
+        : '${index + 1} ПАРА';
 
     final timeColor = ongoing ? const Color(0xFF1E293B) : const Color(0xFF94A3B8);
     final pairColor = ongoing ? const Color(0xFF64748B) : const Color(0xFF94A3B8);
@@ -936,32 +949,7 @@ class _HomePageState extends State<HomePage> {
   String _shortTeacherName(String raw) {
     final s = raw.trim();
     if (s.isEmpty) return '';
-
-    // Убираем запятые и лишние пробелы, но сохраняем дефисы в фамилии/имени.
-    final parts = s
-        .replaceAll(',', ' ')
-        .split(RegExp(r'\s+'))
-        .where((p) => p.trim().isNotEmpty)
-        .toList(growable: false);
-
-    if (parts.isEmpty) return '';
-
-    final surname = parts[0];
-    String initialAt(int i) {
-      if (parts.length <= i) return '';
-      final p = parts[i].replaceAll('.', '');
-      if (p.isEmpty) return '';
-      return p.characters.first.toUpperCase();
-    }
-
-    final i1 = initialAt(1);
-    final i2 = initialAt(2);
-    if (i1.isEmpty && i2.isEmpty) return surname;
-
-    final buf = StringBuffer()..write(surname);
-    if (i1.isNotEmpty) buf.write(' $i1.');
-    if (i2.isNotEmpty) buf.write('$i2.');
-    return buf.toString();
+    return ScheduleLessonTile.abbreviateTeacherName(s);
   }
 
   String _buildTodaySummary(DateTime d) {

@@ -30,6 +30,7 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
 
 flutter:
   uses-material-design: true
@@ -78,3 +79,12 @@ flutter_native_splash:
     # Android 12+ uses the center logo and branding differently.
     image: assets/splash/android_image.png
     branding: assets/splash/android_text.png
+
+# Генерация иконки на рабочем столе: dart run flutter_launcher_icons
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: assets/images/logo_app.png
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: assets/images/logo_app.png
+  remove_alpha_ios: true

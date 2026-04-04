@@ -105,7 +105,10 @@ class ScheduleApi {
     try {
       final res = await _api.dio.get<dynamic>(
         '/1c/schedule',
-        queryParameters: {'for_date': forDateYmd},
+        queryParameters: {
+          'for_date': forDateYmd,
+          'today_only': true,
+        },
         options: Options(
           validateStatus: (s) => s != null && s < 500,
           receiveTimeout: ApiConstants.scheduleReceiveTimeout,

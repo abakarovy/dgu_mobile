@@ -10,7 +10,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_constants.dart';
-import '../../../../core/constants/app_ui.dart';
 import '../../../../core/di/app_container.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../data/models/group_model.dart';
@@ -19,7 +18,7 @@ import '../../../../data/models/student_ticket_model.dart';
 import '../../../../data/models/user_model.dart';
 import '../../../../shared/widgets/app_header.dart';
 
-/// Экран «Студенческий билет»: AppBar как у поддержки, контейнер с отступами 24, ФИО, ID, копирование, даты, форма, курс.
+/// Экран «Студенческий билет»: шапка как у настроек профиля, белый фон, карточка с тенью.
 class StudentIdPage extends StatefulWidget {
   const StudentIdPage({super.key});
 
@@ -34,25 +33,51 @@ class _StudentIdPageState extends State<StudentIdPage> {
   GroupModel? _group;
   String? _avatarPath;
   bool _meLoading = true;
-  static const double _photoWidth = 150;
-  static const double _photoHeight = 200;
 
-  static TextStyle _valueStyle() {
+  static const Color _labelBlue = Color(0xFF0069FF);
+  /// Портретное фото 3:4 (ширина : высота).
+  static const double _avatarWidth = 96;
+  static const double _avatarHeight = 128; // 96 * 4 / 3
+
+  static TextStyle _fieldLabelStyle() {
     return AppTextStyle.inter(
-      fontWeight: FontWeight.w700,
-      fontSize: 20,
-      height: 25 / 20,
-      color: AppColors.newsDetailTitle,
+      fontWeight: FontWeight.w600,
+      fontSize: 9.67,
+      height: 1.2,
+      color: _labelBlue,
     );
   }
 
-  static TextStyle _dateValueStyle() {
+  static TextStyle _fieldValueStyle() {
     return AppTextStyle.inter(
-      fontWeight: FontWeight.w400,
-      fontSize: 16,
-      height: 26 / 16,
-      color: AppColors.textPrimary,
+      fontWeight: FontWeight.w800,
+      fontSize: 14.38,
+      height: 1.2,
+      color: const Color(0xFF000000),
     );
+  }
+
+  static TextStyle _chipTextStyle() {
+    return AppTextStyle.inter(
+      fontWeight: FontWeight.w600,
+      fontSize: 15,
+      height: 1.2,
+      color: Colors.white,
+    );
+  }
+
+  /// Не ВСЕ ЗАГЛАВНЫЕ — только первая буква каждого слова.
+  static String _titleCaseWords(String raw) {
+    final s = raw.trim();
+    if (s.isEmpty || s == '-') return s;
+    return s
+        .split(RegExp(r'\s+'))
+        .where((w) => w.isNotEmpty)
+        .map((w) {
+          if (w.length == 1) return w.toUpperCase();
+          return '${w[0].toUpperCase()}${w.substring(1).toLowerCase()}';
+        })
+        .join(' ');
   }
 
   bool _copiedToastVisible = false;
@@ -166,6 +191,7 @@ class _StudentIdPageState extends State<StudentIdPage> {
     final studyGroup = _studyGroup(me, t, oneC, group);
     final admissionYear = _admissionYear(t, oneC);
     final studyForm = _studyForm(me, t, oneC);
+    final course = _course(me, t, oneC);
     final status = _status(me, t, oneC);
     return '$fullName\n'
         'ID: $id\n'
@@ -174,6 +200,7 @@ class _StudentIdPageState extends State<StudentIdPage> {
         'Учебная группа: $studyGroup\n'
         'Год поступления: $admissionYear\n'
         'Форма обучения: $studyForm\n'
+        'Курс: ${_formatCourseChip(course)}\n'
         'Статус: $status';
   }
 
@@ -188,14 +215,83 @@ class _StudentIdPageState extends State<StudentIdPage> {
     });
   }
 
+  Widget _avatar() {
+    return Container(
+      width: _avatarWidth,
+      height: _avatarHeight,
+      decoration: BoxDecoration(
+        color: const Color(0xFFF0F6FF),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _labelBlue.withValues(alpha: 0.35), width: 2.5),
+        boxShadow: [
+          BoxShadow(
+            color: _labelBlue.withValues(alpha: 0.12),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: _avatarPath != null
+          ? Image.file(
+              File(_avatarPath!),
+              fit: BoxFit.cover,
+              errorBuilder: (_, _, _) => Icon(
+                Icons.person_rounded,
+                size: 48,
+                color: _labelBlue.withValues(alpha: 0.45),
+              ),
+            )
+          : Icon(
+              Icons.person_rounded,
+              size: 48,
+              color: _labelBlue.withValues(alpha: 0.45),
+            ),
+    );
+  }
+
+  /// Для синего чипа: «3 курс», если пришла только цифра.
+  static String _formatCourseChip(String raw) {
+    final t = raw.trim();
+    if (t.isEmpty || t == '-') return '—';
+    final lower = t.toLowerCase();
+    if (lower.contains('курс')) return t;
+    final n = int.tryParse(t);
+    if (n != null) return '$n курс';
+    return '$t курс';
+  }
+
+  Widget _dataChip(String text) {
+    final t = text.trim();
+    final display = (t.isEmpty || t == '-') ? '—' : t;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: _labelBlue,
+        borderRadius: BorderRadius.circular(13),
+      ),
+      child: Text(display, style: _chipTextStyle()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppHeader(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 20),
-          onPressed: () => context.pop(),
-          color: AppColors.textPrimary,
+    return ColoredBox(
+      color: Colors.white,
+      child: Scaffold(
+        backgroundColor: Colors.white,
+        appBar: AppHeader(
+        leadingLeftPadding: 6,
+        leading: GestureDetector(
+          onTap: () => context.pop(),
+          behavior: HitTestBehavior.opaque,
+          child: const Center(
+            child: Icon(
+              Icons.arrow_back_ios_new,
+              size: 20,
+              color: AppColors.textPrimary,
+            ),
+          ),
         ),
         headerTitle: Text(
           'Студенческий билет',
@@ -210,216 +306,169 @@ class _StudentIdPageState extends State<StudentIdPage> {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(
-              AppUi.screenPaddingH,
-              AppUi.spacingXl,
-              AppUi.screenPaddingH,
-              AppUi.spacingXl,
-            ),
-            child: Builder(
-              builder: (context) {
-                final me = _me;
-                if (me == null) {
-                  if (_meLoading) {
-                    return const Padding(
-                      padding: EdgeInsets.all(48),
-                      child: Center(child: CircularProgressIndicator()),
+          ColoredBox(
+            color: Colors.white,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+              child: Builder(
+                builder: (context) {
+                  final me = _me;
+                  if (me == null) {
+                    if (_meLoading) {
+                      return const Padding(
+                        padding: EdgeInsets.all(48),
+                        child: Center(child: CircularProgressIndicator()),
+                      );
+                    }
+                    return Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Text(
+                        'Не удалось загрузить данные. Нажмите «Обновить» вверху или откройте экран позже.',
+                        style: AppTextStyle.inter(
+                          fontSize: 14,
+                          color: AppColors.caption,
+                        ),
+                      ),
                     );
                   }
-                  return Padding(
-                    padding: const EdgeInsets.all(AppUi.spacingXl),
-                    child: Text(
-                      'Не удалось загрузить данные. Нажмите «Обновить» вверху или откройте экран позже.',
-                      style: AppTextStyle.inter(
-                        fontSize: 14,
-                        color: AppColors.caption,
-                      ),
-                    ),
-                  );
-                }
-                final fullName = _displayFullName(me, _ticket, _oneC);
-                final id = _studentId(me, _ticket, _oneC);
-                final birthDate = _birthDate(_ticket, _oneC);
-                final department = _department(me, _ticket, _oneC);
-                final studyGroup = _studyGroup(me, _ticket, _oneC, _group);
-                final course = _course(me, _ticket, _oneC);
-                final admissionYear = _admissionYear(_ticket, _oneC);
-                final studyForm = _studyForm(me, _ticket, _oneC);
-                final status = _status(me, _ticket, _oneC);
+                  final fullNameRaw = _displayFullName(me, _ticket, _oneC);
+                  final fullName = _titleCaseWords(fullNameRaw);
+                  final id = _studentId(me, _ticket, _oneC);
+                  final birthDate = _birthDate(_ticket, _oneC);
+                  final department = _department(me, _ticket, _oneC);
+                  final studyGroup = _studyGroup(me, _ticket, _oneC, _group);
+                  final course = _course(me, _ticket, _oneC);
+                  final admissionYear = _admissionYear(_ticket, _oneC);
+                  final studyForm = _studyForm(me, _ticket, _oneC);
+                  final status = _status(me, _ticket, _oneC);
 
-                return Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(AppUi.spacingXl),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(AppUi.radiusXl),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.06),
-                        offset: const Offset(0, 2),
-                        blurRadius: 4,
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Align(
-                              alignment: Alignment.topLeft,
-                              child: Container(
-                                width: _photoWidth,
-                                height: _photoHeight,
-                                decoration: BoxDecoration(
-                                  color: AppColors.backgroundSecondary,
-                                  borderRadius: BorderRadius.circular(16),
-                                  border: Border.all(color: Colors.white, width: 3),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withValues(alpha: 0.08),
-                                      blurRadius: 12,
-                                      offset: const Offset(0, 4),
-                                    ),
-                                  ],
-                                ),
-                                clipBehavior: Clip.antiAlias,
-                                child: _avatarPath != null
-                                    ? Image.file(
-                                        File(_avatarPath!),
-                                        fit: BoxFit.cover,
-                                        errorBuilder: (_, _, _) => Icon(
-                                          Icons.person,
-                                          size: 56,
-                                          color: AppColors.caption,
-                                        ),
-                                      )
-                                    : Icon(
-                                        Icons.person,
-                                        size: 56,
-                                        color: AppColors.caption,
+                  return Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(25),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x40000000),
+                          offset: Offset(2, 7),
+                          blurRadius: 23.9,
+                          spreadRadius: 0,
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _avatar(),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  _fieldLabel('ФИО'),
+                                  const SizedBox(height: 4),
+                                  Text(fullName, style: _fieldValueStyle()),
+                                  const SizedBox(height: 14),
+                                  _fieldLabel('ID'),
+                                  const SizedBox(height: 4),
+                                  Row(
+                                    children: [
+                                      Flexible(
+                                        child: Text(id, style: _fieldValueStyle()),
                                       ),
+                                      const SizedBox(width: 8),
+                                      GestureDetector(
+                                        onTap: () => _copyToClipboard(context, me),
+                                        child: SvgPicture.asset(
+                                          'assets/icons/copy.svg',
+                                          width: 14,
+                                          height: 14,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
                               ),
                             ),
-                          ),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                _label(context, 'ФИО'),
-                                const SizedBox(height: 4),
-                                Text(fullName, style: _valueStyle()),
-                                const SizedBox(height: AppUi.spacingM),
-                                _label(context, 'ID'),
-                                const SizedBox(height: 4),
-                                Row(
-                                  children: [
-                                    Text(id, style: _valueStyle()),
-                                    const SizedBox(width: AppUi.spacingS),
-                                    GestureDetector(
-                                      onTap: () => _copyToClipboard(context, me),
-                                      child: SvgPicture.asset(
-                                        'assets/icons/copy.svg',
-                                        width: 14,
-                                        height: 14,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  _fieldLabel('Дата рождения'),
+                                  const SizedBox(height: 4),
+                                  Text(birthDate, style: _fieldValueStyle()),
+                                ],
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: AppUi.spacingXl),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                _label(context, 'Дата рождения'),
-                                const SizedBox(height: 4),
-                                Text(birthDate, style: _dateValueStyle()),
-                              ],
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  _fieldLabel('Год поступления'),
+                                  const SizedBox(height: 4),
+                                  Text(admissionYear, style: _fieldValueStyle()),
+                                ],
+                              ),
                             ),
-                          ),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                _label(context, 'Год поступления'),
-                                const SizedBox(height: 4),
-                                Text(admissionYear, style: _dateValueStyle()),
-                              ],
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        _fieldLabel('Отделение'),
+                        const SizedBox(height: 4),
+                        Text(department, style: _fieldValueStyle()),
+                        const SizedBox(height: 16),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  _fieldLabel('Учебная группа'),
+                                  const SizedBox(height: 4),
+                                  Text(studyGroup, style: _fieldValueStyle()),
+                                ],
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: AppUi.spacingXl),
-                      _label(context, 'Отделение'),
-                      const SizedBox(height: 4),
-                      Text(department, style: _dateValueStyle()),
-                      const SizedBox(height: AppUi.spacingXl),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                _label(context, 'Учебная группа'),
-                                const SizedBox(height: 4),
-                                Text(studyGroup, style: _dateValueStyle()),
-                              ],
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  _fieldLabel('Статус'),
+                                  const SizedBox(height: 4),
+                                  Text(status, style: _fieldValueStyle()),
+                                ],
+                              ),
                             ),
-                          ),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                _label(context, 'Курс'),
-                                const SizedBox(height: 4),
-                                Text(course, style: _dateValueStyle()),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: AppUi.spacingXl),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                _label(context, 'Форма обучения'),
-                                const SizedBox(height: 4),
-                                Text(studyForm, style: _dateValueStyle()),
-                              ],
-                            ),
-                          ),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                _label(context, 'Статус'),
-                                const SizedBox(height: 4),
-                                Text(status, style: _dateValueStyle()),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                );
-              },
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        Wrap(
+                          spacing: 10,
+                          runSpacing: 10,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            _dataChip(studyForm),
+                            _dataChip(_formatCourseChip(course)),
+                          ],
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
             ),
           ),
           Center(
@@ -434,7 +483,7 @@ class _StudentIdPageState extends State<StudentIdPage> {
                     padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(AppUi.radiusL),
+                      borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withValues(alpha: 0.12),
@@ -460,20 +509,12 @@ class _StudentIdPageState extends State<StudentIdPage> {
           ),
         ],
       ),
+      ),
     );
   }
 
-  Widget _label(BuildContext context, String text) {
-    return Text(
-      text.toUpperCase(),
-      style: AppTextStyle.inter(
-        fontWeight: FontWeight.w400,
-        fontSize: 10,
-        height: 15 / 10,
-        letterSpacing: 0.5,
-        color: AppColors.notificationSubtitle,
-      ),
-    );
+  Widget _fieldLabel(String text) {
+    return Text(text, style: _fieldLabelStyle());
   }
 
   static String _safe(String? v) => (v == null || v.trim().isEmpty) ? '-' : v.trim();

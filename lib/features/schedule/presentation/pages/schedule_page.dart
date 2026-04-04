@@ -1,5 +1,4 @@
 import 'package:dgu_mobile/core/constants/app_colors.dart';
-import 'package:dgu_mobile/core/constants/app_ui.dart';
 import 'package:dgu_mobile/core/theme/app_text_styles.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -17,19 +16,15 @@ class SchedulePage extends StatefulWidget {
   const SchedulePage({super.key});
 
   static const List<String> _dayNames = ['ПН', 'ВТ', 'СР', 'ЧТ', 'ПТ', 'СБ', 'ВС'];
-  static const List<String> _weekdayNamesFull = [
-    'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье',
-  ];
-  static const List<String> _monthNames = [
-    'января', 'февраля', 'марта', 'апреля', 'мая', 'июня',
-    'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря',
-  ];
-
   @override
   State<SchedulePage> createState() => _SchedulePageState();
 }
 
 class _SchedulePageState extends State<SchedulePage> {
+  static const Color _stripDayText = Color(0xFFFFFFFF);
+  static const Color _stripNumMuted = Color(0x80FFFFFF);
+  static const Color _stripSelected = Color(0xFF0069FF);
+
   late DateTime _mondayOfWeek;
   late int _selectedDayIndex;
   List<ScheduleLesson> _week = const <ScheduleLesson>[];
@@ -49,13 +44,6 @@ class _SchedulePageState extends State<SchedulePage> {
     return m.add(Duration(days: index));
   }
 
-  /// Формат: "ВТОРНИК, 12 МАЯ" (все заглавными).
-  String _formatDateCaption(DateTime d, int weekdayIndex) {
-    final weekday = SchedulePage._weekdayNamesFull[weekdayIndex].toUpperCase();
-    final month = SchedulePage._monthNames[d.month - 1].toUpperCase();
-    return '$weekday, ${d.day} $month';
-  }
-
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -64,11 +52,19 @@ class _SchedulePageState extends State<SchedulePage> {
         const NetworkDegradedBanner(),
         Expanded(
           child: Scaffold(
+            backgroundColor: Colors.white,
             appBar: AppHeader(
-              leading: IconButton(
-                icon: const Icon(Icons.arrow_back_ios_new, size: 20),
-                onPressed: () => context.pop(),
-                color: AppColors.textPrimary,
+              leadingLeftPadding: 6,
+              leading: GestureDetector(
+                onTap: () => context.pop(),
+                behavior: HitTestBehavior.opaque,
+                child: const Center(
+                  child: Icon(
+                    Icons.arrow_back_ios_new,
+                    size: 20,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
               ),
               headerTitle: Text(
                 'Расписание',
@@ -81,17 +77,36 @@ class _SchedulePageState extends State<SchedulePage> {
               ),
             ),
             body: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: AppUi.screenPaddingH),
+              padding: const EdgeInsets.only(bottom: 30),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const SizedBox(height: AppUi.spacingXl),
-                  _buildWeekStrip(),
-                  const SizedBox(height: 24),
-                  _buildDateCaption(),
-                  const SizedBox(height: AppUi.spacingM),
-                  _buildLessonsList(),
-                  const SizedBox(height: 30),
+                  const SizedBox(height: 16),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    child: Container(
+                      height: 60,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1A1A1A),
+                        borderRadius: BorderRadius.circular(15),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x0A000000),
+                            offset: Offset(0, 3.75),
+                            blurRadius: 18.75,
+                            spreadRadius: 0,
+                          ),
+                        ],
+                      ),
+                      padding: const EdgeInsets.all(7.5),
+                      child: _buildWeekStrip(),
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    child: _buildLessonsSection(),
+                  ),
                 ],
               ),
             ),
@@ -101,136 +116,137 @@ class _SchedulePageState extends State<SchedulePage> {
     );
   }
 
+  /// Полоса дней: ячейки 37.5×45, промежуток 27; при узком экране — горизонтальный скролл.
   Widget _buildWeekStrip() {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (int index = 0; index < 7; index++) ...[
-          if (index > 0) SizedBox(width: AppUi.scheduleDayCellSpacing),
-          Expanded(child: _buildDayCell(index)),
-        ],
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const cellW = 37.5;
+        const gap = 27.0;
+        const totalStripWidth = 7 * cellW + 6 * gap;
+
+        final row = Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            for (int index = 0; index < 7; index++) ...[
+              if (index > 0) const SizedBox(width: gap),
+              _buildStripDayCell(index),
+            ],
+          ],
+        );
+
+        if (constraints.maxWidth >= totalStripWidth) {
+          return Center(child: row);
+        }
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: row,
+        );
+      },
     );
   }
 
-  Widget _buildDayCell(int index) {
+  Widget _buildStripDayCell(int index) {
     final date = _dateFor(index);
     final isSelected = index == _selectedDayIndex;
+
     return GestureDetector(
       onTap: () => setState(() => _selectedDayIndex = index),
       behavior: HitTestBehavior.opaque,
       child: Container(
-        height: AppUi.scheduleDayCellHeight,
-        width: double.infinity,
+        width: 37.5,
+        height: 45,
         decoration: BoxDecoration(
-          color: isSelected
-              ? AppColors.notificationSwitchActive
-              : Colors.white,
-          borderRadius: BorderRadius.circular(AppUi.scheduleDayCellRadius),
-          boxShadow: isSelected
-              ? null
-              : [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.06),
-                    offset: const Offset(0, 2),
-                    blurRadius: 4,
-                  ),
-                ],
+          color: isSelected ? _stripSelected : Colors.transparent,
+          borderRadius: BorderRadius.circular(11.25),
         ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              SchedulePage._dayNames[index],
-              style: AppTextStyle.inter(
-                fontWeight: FontWeight.w700,
-                fontSize: 10,
-                height: 15 / 10,
-                color: isSelected
-                    ? Colors.white
-                    : AppColors.notificationSubtitle,
+        padding: const EdgeInsets.symmetric(vertical: 7.5, horizontal: 11.25),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.center,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                SchedulePage._dayNames[index],
+                textAlign: TextAlign.center,
+                style: AppTextStyle.inter(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 9.37,
+                  height: 14.06 / 9.37,
+                  color: _stripDayText,
+                ),
               ),
-            ),
-            Text(
-              '${date.day}',
-              style: AppTextStyle.inter(
-                fontWeight: FontWeight.w700,
-                fontSize: 10,
-                height: 15 / 10,
-                color: isSelected
-                    ? Colors.white
-                    : AppColors.notificationSubtitle,
+              Text(
+                '${date.day}',
+                textAlign: TextAlign.center,
+                style: AppTextStyle.inter(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 11.25,
+                  height: 1.0,
+                  color: isSelected ? _stripDayText : _stripNumMuted,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildDateCaption() {
-    final date = _dateFor(_selectedDayIndex);
-    return Text(
-      _formatDateCaption(date, _selectedDayIndex),
-      style: AppTextStyle.inter(
-        fontWeight: FontWeight.w800,
-        fontSize: 11,
-        height: 16.5 / 11,
-        letterSpacing: 1.65,
-        color: AppColors.caption,
-      ),
-    );
-  }
-
-  Widget _buildLessonsList() {
+  Widget _buildLessonsSection() {
     final selectedDate = _dateFor(_selectedDayIndex);
     final items = lessonsForSelectedCalendarDay(_week, selectedDate);
+
     if (_loading && _week.isEmpty) {
-      // На первом запуске, если по какой-то причине кэша нет.
       return const Padding(
-        padding: EdgeInsets.only(top: 24),
+        padding: EdgeInsets.symmetric(vertical: 48),
         child: Center(child: CircularProgressIndicator()),
       );
     }
-    return _buildLessonsColumn(items);
-  }
 
-  Widget _buildLessonsColumn(List<ScheduleLesson> items) {
     if (items.isEmpty) {
       return Padding(
-        padding: const EdgeInsets.only(top: 16),
-        child: Text(
-          'Нет пар',
-          style: AppTextStyle.inter(
-            fontWeight: FontWeight.w600,
-            fontSize: 14,
-            color: AppColors.caption,
+        padding: const EdgeInsets.symmetric(vertical: 48),
+        child: Center(
+          child: Text(
+            'Нет пар',
+            textAlign: TextAlign.center,
+            style: AppTextStyle.inter(
+              fontWeight: FontWeight.w600,
+              fontSize: 14,
+              color: AppColors.caption,
+            ),
           ),
         ),
       );
     }
+
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: const Color(0x120069FF),
+        borderRadius: BorderRadius.circular(26),
+      ),
+      padding: const EdgeInsets.fromLTRB(0, 0, 0, 12),
+      child: _buildLessonsColumn(context, items),
+    );
+  }
+
+  Widget _buildLessonsColumn(BuildContext context, List<ScheduleLesson> items) {
+    final scale = ScheduleLessonTile.layoutScaleOf(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: items.map((e) {
-        return Padding(
-          padding: const EdgeInsets.only(bottom: AppUi.spacingBetweenCards),
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(AppUi.radiusS),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.06),
-                  offset: const Offset(0, 2),
-                  blurRadius: 4,
-                ),
-              ],
-            ),
-            padding: const EdgeInsets.all(AppUi.spacingM),
-            child: ScheduleLessonTile(lesson: e),
+      children: [
+        for (var i = 0; i < items.length; i++)
+          ScheduleLessonTile(
+            lesson: items[i],
+            layoutScale: scale,
+            showBottomDivider: i < items.length - 1,
+            isFirstInList: i == 0,
           ),
-        );
-      }).toList(),
+      ],
     );
   }
 

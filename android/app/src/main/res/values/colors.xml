@@ -2,4 +2,5 @@
 <resources>
     <!-- Native launch screen background (matches app splash) -->
     <color name="launch_background_color">#003882</color>
+	<color name="ic_launcher_background">#FFFFFF</color>
 </resources>

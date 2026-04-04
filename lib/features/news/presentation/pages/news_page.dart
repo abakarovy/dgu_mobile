@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:dgu_mobile/core/constants/app_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/di/app_container.dart';
 import '../../../../core/navigation/news_header_host.dart';
+import '../../../../core/navigation/news_refresh_host.dart';
 import '../../../../data/models/news_model.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../events/presentation/pages/events_page.dart';
@@ -25,6 +28,7 @@ class NewsPage extends StatefulWidget {
 class _NewsPageState extends State<NewsPage> {
   static const _cacheKey = 'news:list';
   List<NewsModel> _items = const <NewsModel>[];
+  /// Первый запуск: нет ни кэша, ни ответа сети — показываем индикатор в теле.
   bool _loading = true;
   late NewsTab _tab;
 
@@ -103,20 +107,29 @@ class _NewsPageState extends State<NewsPage> {
     super.initState();
     _tab = widget.initialTab;
     _hydrateFromCache();
-    // Всегда пробуем обновить из сети (даже если кэш есть, но пустой/старый).
-    // Это важно: иначе вкладка может «застрять» на пустом кэше и не увидеть обновления.
     _refresh();
+    NewsRefreshHost.register(
+      () {
+        if (!mounted) return;
+        unawaited(_refresh());
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    NewsRefreshHost.clear();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final showNews = _tab == NewsTab.news;
-    // Нельзя менять ValueNotifier синхронно из build — родительский ValueListenableBuilder
-    // получит markNeedsBuild во время текущей фазы сборки. Обновляем после кадра.
     final headerTitle = showNews ? 'Новости' : 'Мероприятия';
     WidgetsBinding.instance.addPostFrameCallback((_) {
       NewsHeaderHost.setTitle(headerTitle);
     });
+
     final header = Padding(
       padding: const EdgeInsets.fromLTRB(8, 8, 8, 12),
       child: _switcher(
@@ -125,26 +138,36 @@ class _NewsPageState extends State<NewsPage> {
         onEvents: () => setState(() => _tab = NewsTab.events),
       ),
     );
-    if (!showNews) {
-      return Column(
-        children: [
-          header,
-          const Expanded(child: EventsPage(embedded: true)),
-        ],
-      );
-    }
+
+    return ColoredBox(
+      color: Colors.white,
+      child: showNews
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                header,
+                Expanded(child: _buildNewsContent()),
+              ],
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                header,
+                const Expanded(child: EventsPage(embedded: true)),
+              ],
+            ),
+    );
+  }
+
+  Widget _buildNewsContent() {
     if (_loading && _items.isEmpty) {
-      return Column(
-        children: [
-          header,
-          const Expanded(child: Center(child: CircularProgressIndicator())),
-        ],
-      );
+      return const Center(child: CircularProgressIndicator());
     }
     if (_items.isEmpty) {
       return RefreshIndicator(
         onRefresh: _refresh,
         child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
           padding: AppUi.screenPaddingAll.copyWith(top: 0),
           children: const [
             SizedBox(height: 24),
@@ -157,9 +180,9 @@ class _NewsPageState extends State<NewsPage> {
     return RefreshIndicator(
       onRefresh: _refresh,
       child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: EdgeInsets.zero,
         children: [
-          header,
           Padding(
             padding: AppUi.screenPaddingAll.copyWith(top: 0),
             child: Column(
@@ -172,16 +195,7 @@ class _NewsPageState extends State<NewsPage> {
                       title: _items[i].title,
                       excerpt: _items[i].excerpt ?? '',
                       date: _items[i].createdAt.toIso8601String().split('T').first,
-                      imageWidget:
-                          (_items[i].imageUrl != null && _items[i].imageUrl!.isNotEmpty)
-                              ? Image.network(
-                                  _items[i].imageUrl!,
-                                  fit: BoxFit.cover,
-                                  width: double.infinity,
-                                  height: 160,
-                                  errorBuilder: (_, _, _) => const SizedBox.shrink(),
-                                )
-                              : null,
+                      imageWidget: _buildNewsImage(_items[i].imageUrl),
                       onTap: () =>
                           context.push('/app/news/detail', extra: _items[i]),
                     ),
@@ -197,9 +211,25 @@ class _NewsPageState extends State<NewsPage> {
     );
   }
 
+  Widget? _buildNewsImage(String? rawUrl) {
+    final url = NewsModel.resolveImageUrl(rawUrl);
+    if (url == null || url.isEmpty) return null;
+    return Image.network(
+      url,
+      fit: BoxFit.cover,
+      width: double.infinity,
+      height: 160,
+      errorBuilder: (_, _, _) => const SizedBox.shrink(),
+    );
+  }
+
   void _hydrateFromCache() {
     final cached = AppContainer.jsonCache.getJsonList(_cacheKey);
-    if (cached == null) return;
+    if (cached == null) {
+      _items = const <NewsModel>[];
+      _loading = true;
+      return;
+    }
     try {
       final items = cached
           .whereType<Map>()
@@ -208,18 +238,20 @@ class _NewsPageState extends State<NewsPage> {
       _items = items;
       _loading = false;
     } catch (_) {
-      // ignore
+      _items = const <NewsModel>[];
+      _loading = true;
     }
   }
 
   Future<void> _refresh() async {
-    if (_loading == false && mounted) {
-      // keep current list while refreshing
-    }
-    if (mounted) setState(() => _loading = true);
+    // Не включаем полноэкранную загрузку, если уже показали кэш (в т.ч. пустой []):
+    // обновление идёт в фоне, список не прячется.
     try {
       final fresh = await AppContainer.newsApi.getNews(limit: 30);
-      await AppContainer.jsonCache.setJson(_cacheKey, [for (final n in fresh) n.toJson()]);
+      await AppContainer.jsonCache.setJson(
+        _cacheKey,
+        [for (final n in fresh) n.toJson()],
+      );
       if (!mounted) return;
       setState(() {
         _items = fresh;

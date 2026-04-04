@@ -9,6 +9,8 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
     this.onPressed,
     required this.headerTitle,
     this.leading,
+    /// Отступ слева до [leading]. По умолчанию [AppUi.appBarPaddingH].
+    this.leadingLeftPadding,
     this.showNotificationIcon = false,
     this.actions,
   });
@@ -17,6 +19,7 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
   final Widget headerTitle;
   /// Если задан, показывается слева (например, стрелка назад). Иконка уведомлений при этом в правой части по [showNotificationIcon].
   final Widget? leading;
+  final double? leadingLeftPadding;
   /// Показывать ли иконку уведомления справа в AppBar.
   final bool showNotificationIcon;
   final List<Widget>? actions;
@@ -24,6 +27,7 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) {
     final hasLeading = leading != null;
+    final leadPad = leadingLeftPadding ?? AppUi.appBarPaddingH;
     return AppBar(
       automaticallyImplyLeading: false,
       backgroundColor: Colors.white,
@@ -32,11 +36,11 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
       surfaceTintColor: Colors.transparent,
       leading: hasLeading
           ? Padding(
-              padding: const EdgeInsets.only(left: AppUi.appBarPaddingH),
+              padding: EdgeInsets.only(left: leadPad),
               child: leading,
             )
           : null,
-      leadingWidth: hasLeading ? AppUi.appBarPaddingH + 56 : null,
+      leadingWidth: hasLeading ? leadPad + 56 : null,
       titleSpacing: 0,
       title: Padding(
         padding: EdgeInsets.only(

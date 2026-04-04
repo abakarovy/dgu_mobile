@@ -13,9 +13,12 @@ import '../widgets/subject_grades_sheet.dart';
 import '../../../grades/domain/entities/grade_entity.dart';
 
 /// Вкладка «Оценки»: 3 таба (Текущие, Сессия, Учебный маршрут).
-/// Текущие: выбор периода (неделя по умолчанию), стрелки, календарь; оценки с датами и типами.
+/// Сессия: оценки за сессию (аттестации, зачёты и т.п.), переключатель семестров из 1С.
 class GradesPage extends StatefulWidget {
-  const GradesPage({super.key});
+  const GradesPage({super.key, this.initialTabIndex = 0});
+
+  /// 0 — «Текущие», 1 — «Сессия», 2 — «Маршрут».
+  final int initialTabIndex;
 
   @override
   State<GradesPage> createState() => _GradesPageState();
@@ -30,19 +33,34 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
   bool _isWeekMode = true;
 
   static const String _cacheKeyGrades = 'grades:my';
+  static const String _cacheKeySemesters = 'grades:semesters';
 
   List<GradeEntity> _grades = const <GradeEntity>[];
+  /// Порядок семестров из ответа `sync-grades` (пусто — берём из записей).
+  List<String> _semesterOrder = const <String>[];
   bool _refreshing = false;
   int _sessionSemesterIndex = 0;
 
+  /// Типы итогов сессии (аттестации, зачёты, экзамены и т.п.). Контрольные, к/р — во «Текущие», не сюда.
   static bool _isSessionType(String? t) {
-    final s = (t ?? '').toLowerCase();
-    if (s.isEmpty) return false;
+    final raw = (t ?? '').trim();
+    if (raw.isEmpty) return false;
+    final s = raw.toLowerCase();
+    if (s.contains('ответ у доски')) return false;
+    if (s.contains('пропуск')) return false;
+    if (s.contains('контрольная')) return false;
+    if (s.contains('к/р')) return false;
     return s.contains('аттестация') ||
         s.contains('экзам') ||
         s.contains('зач') ||
         s.contains('дифф') ||
-        s.contains('курсов');
+        s.contains('курсов') ||
+        s.contains('юрайт') ||
+        s.contains('тестирование') ||
+        s.contains('опрос') ||
+        s.contains('практика') ||
+        raw.contains('1 АТ') ||
+        raw.contains('2 АТ');
   }
 
   /// В журнале с бэка часто приходят строки без оценки (grade_value: null) — для «Текущие» их не показываем,
@@ -135,14 +153,18 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    final initialIdx = widget.initialTabIndex.clamp(0, 2);
+    _tabController = TabController(length: 3, vsync: this, initialIndex: initialIdx);
     final now = DateTime.now();
-    final weekday = now.weekday;
-    final mondayOffset = weekday == 7 ? 6 : weekday - 1;
-    _rangeStart = now.subtract(Duration(days: mondayOffset));
-    _rangeEnd = _rangeStart.add(const Duration(days: 6));
+    final day = DateTime(now.year, now.month, now.day);
+    // Последние 14 дней (включая сегодня): одной календарной недели часто мало,
+    // оценки из журнала 1С за прошлую неделю иначе не попадают в «Текущие».
+    _rangeEnd = day;
+    _rangeStart = day.subtract(const Duration(days: 13));
 
     _grades = _decodeCachedGrades();
+    _semesterOrder = _decodeCachedSemesters();
+    _clampSemesterIndex();
     // Тихо обновим из сети, но UI строим сразу по кэшу (чтобы не было «загрузки» при открытии).
     unawaited(_refreshGrades());
   }
@@ -232,7 +254,7 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
                       controller: _tabController,
                       children: [
                         _buildCurrentTab(context),
-                        _buildSessionTab(),
+                        _buildSessionTab(context),
                         const LearningRouteView(),
                       ],
                     ),
@@ -277,55 +299,19 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
     );
   }
 
-  Widget _buildSessionTab() {
-    final all = _grades.where((g) => _isSessionType(g.gradeType)).toList();
-    if (_grades.isEmpty && _refreshing) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    if (all.isEmpty) {
-      return Center(
-        child: Text(
-          'Нет данных сессии',
-          style: Theme.of(context)
-              .textTheme
-              .bodyLarge
-              ?.copyWith(color: AppColors.caption),
-        ),
-      );
-    }
+  /// Семестры как в ответе 1С, иначе уникальные из загруженных оценок.
+  List<String> _effectiveSemesters() {
+    if (_semesterOrder.isNotEmpty) return _semesterOrder;
+    return _uniqueSemesters(_grades);
+  }
 
-    final semesters = _uniqueSemesters(all);
-    if (_sessionSemesterIndex >= semesters.length) {
+  void _clampSemesterIndex() {
+    final sems = _effectiveSemesters();
+    if (sems.isEmpty) {
       _sessionSemesterIndex = 0;
+      return;
     }
-    final selectedSemester =
-        semesters.isEmpty ? null : semesters[_sessionSemesterIndex];
-    final filteredAll = selectedSemester == null
-        ? all
-        : all.where((g) => (g.semester ?? '').trim() == selectedSemester).toList();
-
-    final bySubject = <String, List<GradeEntity>>{};
-    for (final g in filteredAll) {
-      bySubject.putIfAbsent(g.subjectName, () => []).add(g);
-    }
-    final subjects = bySubject.keys.toList()..sort();
-
-    return ListView.separated(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      itemCount: subjects.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 16),
-      itemBuilder: (context, i) {
-        final s = subjects[i];
-        final grades = bySubject[s]!;
-        final breakdown = _breakdownFor(grades);
-        final teacher = _pickAnyTeacher(grades);
-        return _SessionGradeCard(
-          subjectName: s,
-          teacherName: teacher,
-          breakdown: breakdown,
-        );
-      },
-    );
+    if (_sessionSemesterIndex >= sems.length) _sessionSemesterIndex = 0;
   }
 
   List<String> _uniqueSemesters(List<GradeEntity> items) {
@@ -338,31 +324,100 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
     return list;
   }
 
-  String _sessionSemesterLabel() {
-    final all = _grades.where((g) => _isSessionType(g.gradeType)).toList();
-    final semesters = _uniqueSemesters(all);
-    if (semesters.isEmpty) return 'Семестр';
-    if (_sessionSemesterIndex >= semesters.length) _sessionSemesterIndex = 0;
-    return semesters[_sessionSemesterIndex];
+  /// Итоги сессии по дисциплинам (атт., зачёт, экзамен и т.д.), не журнал «по дням» как в «Текущие».
+  Widget _buildSessionTab(BuildContext context) {
+    if (_grades.isEmpty && _refreshing) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    final semesters = _effectiveSemesters();
+    if (semesters.isEmpty) {
+      return Center(
+        child: Text(
+          'Нет семестров в данных',
+          style: Theme.of(context)
+              .textTheme
+              .bodyLarge
+              ?.copyWith(color: AppColors.caption),
+        ),
+      );
+    }
+    final n = semesters.length;
+    final idx = _sessionSemesterIndex.clamp(0, n - 1);
+    final selected = semesters[idx];
+    final semesterEntities = _grades
+        .where((g) => (g.semester ?? '').trim() == selected)
+        .where((g) => _isSessionType(g.gradeType))
+        .toList();
+    final allItems = semesterEntities.map(_toListItem).toList();
+    _lastBySubject = _groupBySubject(allItems);
+
+    if (semesterEntities.isEmpty) {
+      return Center(
+        child: Text(
+          'Нет оценок за сессию',
+          style: Theme.of(context)
+              .textTheme
+              .bodyLarge
+              ?.copyWith(color: AppColors.caption),
+        ),
+      );
+    }
+
+    final bySubject = <String, List<GradeEntity>>{};
+    for (final g in semesterEntities) {
+      bySubject.putIfAbsent(g.subjectName, () => []).add(g);
+    }
+    final subjects = bySubject.keys.toList()..sort();
+
+    return ListView.separated(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      itemCount: subjects.length,
+      separatorBuilder: (_, _) => const SizedBox(height: 16),
+      itemBuilder: (context, i) {
+        final name = subjects[i];
+        final list = bySubject[name]!;
+        final breakdown = _breakdownFor(list);
+        final teacher = _pickAnyTeacher(list);
+        return _SessionGradeCard(
+          subjectName: name,
+          teacherName: teacher,
+          breakdown: breakdown,
+          onTap: () => _showSubjectGrades(context, name),
+        );
+      },
+    );
   }
 
-  void _prevSessionSemester() {
-    final all = _grades.where((g) => _isSessionType(g.gradeType)).toList();
-    final semesters = _uniqueSemesters(all);
-    if (semesters.isEmpty) return;
-    setState(() {
-      _sessionSemesterIndex =
-          (_sessionSemesterIndex - 1 + semesters.length) % semesters.length;
-    });
-  }
+  SessionGradeBreakdown _breakdownFor(List<GradeEntity> grades) {
+    String? pick(bool Function(String s) p) {
+      for (final g in grades) {
+        final t = (g.gradeType ?? '').toLowerCase();
+        if (p(t)) return g.grade;
+      }
+      return null;
+    }
 
-  void _nextSessionSemester() {
-    final all = _grades.where((g) => _isSessionType(g.gradeType)).toList();
-    final semesters = _uniqueSemesters(all);
-    if (semesters.isEmpty) return;
-    setState(() {
-      _sessionSemesterIndex = (_sessionSemesterIndex + 1) % semesters.length;
-    });
+    bool hasAtt1(String s) =>
+        s.contains('аттестация 1') ||
+        s.contains('атт 1') ||
+        (s.contains('1 ат') && !s.contains('ответ'));
+    bool hasAtt2(String s) =>
+        s.contains('аттестация 2') || s.contains('атт 2') || s.contains('2 ат');
+
+    return SessionGradeBreakdown(
+      att1: pick((s) => hasAtt1(s)) != null ? 'атт' : null,
+      att2: pick((s) => hasAtt2(s)) != null ? 'атт' : null,
+      dfk: pick((s) => s.contains('дифф')),
+      kurs: pick((s) => s.contains('курсов')),
+      zach: pick(
+        (s) =>
+            s.contains('зач') &&
+            !s.contains('незач') &&
+            !s.contains('дифф') &&
+            !s.contains('дифференц'),
+      ),
+      ekz: pick((s) => s.contains('экзам')),
+    );
   }
 
   String _pickAnyTeacher(List<GradeEntity> grades) {
@@ -387,8 +442,9 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
       if (parts.length <= i) return '';
       final p = parts[i].replaceAll('.', '');
       if (p.isEmpty) return '';
-      return p.characters.first.toUpperCase();
+      return p.isNotEmpty ? p.substring(0, 1).toUpperCase() : '';
     }
+
     final i1 = initialAt(1);
     final i2 = initialAt(2);
     if (i1.isEmpty && i2.isEmpty) return surname;
@@ -398,28 +454,32 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
     return buf.toString();
   }
 
-  SessionGradeBreakdown _breakdownFor(List<GradeEntity> grades) {
-    String? pick(bool Function(String s) p) {
-      for (final g in grades) {
-        final t = (g.gradeType ?? '').toLowerCase();
-        if (p(t)) return g.grade;
-      }
-      return null;
-    }
+  String _sessionSemesterLabel() {
+    final semesters = _effectiveSemesters();
+    if (semesters.isEmpty) return 'Семестр';
+    final n = semesters.length;
+    final i = _sessionSemesterIndex.clamp(0, n - 1);
+    return semesters[i];
+  }
 
-    return SessionGradeBreakdown(
-      // Аттестации — бинарный статус (есть/нет), без числовых оценок в UI.
-      att1: pick((s) => s.contains('аттестация 1') || s.contains('атт 1')) != null
-          ? 'атт'
-          : null,
-      att2: pick((s) => s.contains('аттестация 2') || s.contains('атт 2')) != null
-          ? 'атт'
-          : null,
-      dfk: pick((s) => s.contains('дифф')),
-      kurs: pick((s) => s.contains('курсов')),
-      zach: pick((s) => s.contains('зач') && !s.contains('дифф')),
-      ekz: pick((s) => s.contains('экзам')),
-    );
+  void _prevSessionSemester() {
+    final semesters = _effectiveSemesters();
+    if (semesters.isEmpty) return;
+    setState(() {
+      final n = semesters.length;
+      final i = _sessionSemesterIndex.clamp(0, n - 1);
+      _sessionSemesterIndex = (i - 1 + n) % n;
+    });
+  }
+
+  void _nextSessionSemester() {
+    final semesters = _effectiveSemesters();
+    if (semesters.isEmpty) return;
+    setState(() {
+      final n = semesters.length;
+      final i = _sessionSemesterIndex.clamp(0, n - 1);
+      _sessionSemesterIndex = (i + 1) % n;
+    });
   }
 
   GradeListItem _toListItem(GradeEntity e) {
@@ -435,17 +495,30 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
   List<GradeEntity> _decodeCachedGrades() {
     final cached = AppContainer.jsonCache.getJsonList(_cacheKeyGrades);
     if (cached == null) return const <GradeEntity>[];
+    String str(dynamic v) => v is String ? v : (v == null ? '' : '$v');
     return cached
         .whereType<Map>()
         .map((m) => Map<String, dynamic>.from(m))
-        .map((j) => GradeEntity(
-              subjectName: (j['subject_name'] as String?) ?? '',
-              grade: (j['grade'] as String?) ?? '',
-              gradeType: (j['grade_type'] as String?),
-              teacherName: (j['teacher_name'] as String?),
-              date: DateTime.tryParse((j['date'] as String?) ?? ''),
-              semester: (j['semester'] as String?),
-            ))
+        .map(
+          (j) => GradeEntity(
+            subjectName: str(j['subject_name']).trim(),
+            grade: str(j['grade']).trim(),
+            gradeType: j['grade_type'] != null ? str(j['grade_type']) : null,
+            teacherName: j['teacher_name'] != null ? str(j['teacher_name']) : null,
+            date: DateTime.tryParse(str(j['date'])),
+            semester: j['semester'] != null ? str(j['semester']).trim() : null,
+          ),
+        )
+        .toList();
+  }
+
+  List<String> _decodeCachedSemesters() {
+    final cached = AppContainer.jsonCache.getJsonList(_cacheKeySemesters);
+    if (cached == null) return const <String>[];
+    return cached
+        .map((e) => e is String ? e : (e == null ? '' : '$e'))
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
         .toList();
   }
 
@@ -453,8 +526,11 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
     if (_refreshing) return;
     setState(() => _refreshing = true);
     try {
-      final fresh = await AppContainer.gradesApi.getMyGrades();
+      final bundle = await AppContainer.gradesApi.loadMyGrades();
       final cached = _decodeCachedGrades();
+      final cachedSems = _decodeCachedSemesters();
+      final fresh = bundle.grades;
+      final freshSems = bundle.semesters;
       // При пустом ответе сервера сохраняем старый кэш.
       if (fresh.isNotEmpty || cached.isEmpty) {
         await AppContainer.jsonCache.setJson(
@@ -471,13 +547,33 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
               }
           ],
         );
-        if (mounted) setState(() => _grades = fresh);
+        await AppContainer.jsonCache.setJson(_cacheKeySemesters, freshSems);
+        if (mounted) {
+          setState(() {
+            _grades = fresh;
+            _semesterOrder = freshSems;
+            _clampSemesterIndex();
+          });
+        }
       } else {
-        if (mounted) setState(() => _grades = cached);
+        if (mounted) {
+          setState(() {
+            _grades = cached;
+            _semesterOrder = cachedSems;
+            _clampSemesterIndex();
+          });
+        }
       }
     } catch (_) {
       final cached = _decodeCachedGrades();
-      if (mounted && cached.isNotEmpty) setState(() => _grades = cached);
+      final cachedSems = _decodeCachedSemesters();
+      if (mounted && cached.isNotEmpty) {
+        setState(() {
+          _grades = cached;
+          _semesterOrder = cachedSems;
+          _clampSemesterIndex();
+        });
+      }
     } finally {
       if (mounted) setState(() => _refreshing = false);
     }
@@ -489,65 +585,83 @@ class _SessionGradeCard extends StatelessWidget {
     required this.subjectName,
     required this.teacherName,
     required this.breakdown,
+    required this.onTap,
   });
 
   final String subjectName;
   final String teacherName;
   final SessionGradeBreakdown breakdown;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0x24000000), width: 0.46),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x24000000),
-            offset: Offset(1.38, 1.84),
-            blurRadius: 6.36,
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            subjectName,
-            style: AppTextStyle.inter(
-              fontWeight: FontWeight.w700,
-              fontSize: 16,
-              height: 1.0,
-              color: const Color(0xFF000000),
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFFFFF),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: const Color(0x24000000), width: 0.46),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x24000000),
+              offset: Offset(1.38, 1.84),
+              blurRadius: 6.36,
             ),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            mainAxisSize: MainAxisSize.max,
-            children: [
-              Expanded(child: _attChip('1', isAtt: breakdown.att1 != null)),
-              const SizedBox(width: 6),
-              Expanded(child: _attChip('2', isAtt: breakdown.att2 != null)),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              subjectName,
+              style: AppTextStyle.inter(
+                fontWeight: FontWeight.w700,
+                fontSize: 16,
+                height: 1.0,
+                color: const Color(0xFF000000),
+              ),
+            ),
+            if (teacherName.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Text(
+                teacherName,
+                style: AppTextStyle.inter(
+                  fontWeight: FontWeight.w400,
+                  fontSize: 12,
+                  height: 1.2,
+                  color: const Color(0xFF64748B),
+                ),
+              ),
             ],
-          ),
-          const SizedBox(height: 6),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: [
-              if ((breakdown.ekz ?? '').trim().isNotEmpty)
-                _gradeChip('Экз', breakdown.ekz!.trim()),
-              if ((breakdown.zach ?? '').trim().isNotEmpty)
-                _gradeChip('Зачет', breakdown.zach!.trim()),
-              if ((breakdown.dfk ?? '').trim().isNotEmpty)
-                _gradeChip('Диф.Зачет', breakdown.dfk!.trim()),
-              if ((breakdown.kurs ?? '').trim().isNotEmpty)
-                _gradeChip('Кур', breakdown.kurs!.trim()),
-            ],
-          ),
-        ],
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(child: _attChip('1', isAtt: breakdown.att1 != null)),
+                const SizedBox(width: 6),
+                Expanded(child: _attChip('2', isAtt: breakdown.att2 != null)),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                if ((breakdown.ekz ?? '').trim().isNotEmpty)
+                  _gradeChip('Экз', breakdown.ekz!.trim()),
+                if ((breakdown.zach ?? '').trim().isNotEmpty)
+                  _gradeChip('Зачёт', breakdown.zach!.trim()),
+                if ((breakdown.dfk ?? '').trim().isNotEmpty)
+                  _gradeChip('Диф.зачёт', breakdown.dfk!.trim()),
+                if ((breakdown.kurs ?? '').trim().isNotEmpty)
+                  _gradeChip('Кур.', breakdown.kurs!.trim()),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -614,7 +728,6 @@ class _SessionGradeCard extends StatelessWidget {
     if (code == '2' || code == '1') {
       return (const Color(0xFFC84547), const Color(0x17C84547), const Color(0xFFC84547));
     }
-    // fallback
     return (const Color(0xFF64748B), const Color(0x1464748B), const Color(0xFF64748B));
   }
 

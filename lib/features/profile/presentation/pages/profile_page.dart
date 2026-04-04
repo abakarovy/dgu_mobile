@@ -6,6 +6,7 @@ import 'package:dgu_mobile/core/constants/app_constants.dart';
 import 'package:dgu_mobile/core/di/app_container.dart';
 import 'package:dgu_mobile/core/theme/app_text_styles.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
@@ -14,6 +15,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../data/models/one_c_my_profile.dart';
 import '../../../../data/models/student_ticket_model.dart';
 import '../../../../data/models/user_model.dart';
+import '../../../grades/domain/entities/grade_entity.dart';
 
 /// Вкладка «Профиль» — данные аккаунта, образование, личные данные и настройки.
 class ProfilePage extends StatefulWidget {
@@ -28,6 +30,10 @@ class _ProfilePageState extends State<ProfilePage> {
   UserModel? _me;
   StudentTicketModel? _ticket;
   OneCMyProfile? _oneC;
+  /// Подпись пропусков с `GET /api/1c/absences` (после загрузки).
+  String? _absenceHoursText;
+  /// Средний балл по кэшу оценок (текущий семестр), как на главной.
+  String? _performanceAvgText;
 
   @override
   void initState() {
@@ -35,6 +41,8 @@ class _ProfilePageState extends State<ProfilePage> {
     _me = _readCachedMe();
     _ticket = _readCachedTicket();
     _oneC = _readCachedOneC();
+    _absenceHoursText = _readCachedAbsencesLabel();
+    _applyPerformanceFromCache();
     _loadAvatarPath();
     _refreshMeInBackground();
   }
@@ -74,6 +82,15 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
+  /// Подпись пропусков с прогрева splash (`profile:absences-label`), до сетевого ответа.
+  String? _readCachedAbsencesLabel() {
+    final m = AppContainer.jsonCache.getJsonMap(AppContainer.profileAbsencesLabelCacheKey);
+    if (m == null) return null;
+    final v = m['label'];
+    if (v is String && v.isNotEmpty) return v;
+    return null;
+  }
+
   Future<void> _refreshMeInBackground() async {
     try {
       final fresh = await AppContainer.authApi
@@ -110,6 +127,122 @@ class _ProfilePageState extends State<ProfilePage> {
         });
       }
     } catch (_) {}
+
+    try {
+      final bundle = await AppContainer.gradesApi
+          .loadMyGrades()
+          .timeout(ApiConstants.prefetchRequestTimeout);
+      await AppContainer.jsonCache.setJson(
+        'grades:my',
+        [
+          for (final g in bundle.grades)
+            {
+              'subject_name': g.subjectName,
+              'grade': g.grade,
+              'grade_type': g.gradeType,
+              'teacher_name': g.teacherName,
+              'date': g.date?.toIso8601String(),
+              'semester': g.semester,
+            }
+        ],
+      );
+      await AppContainer.jsonCache.setJson('grades:semesters', bundle.semesters);
+      if (mounted) {
+        setState(_applyPerformanceFromCache);
+      }
+    } catch (_) {}
+
+    try {
+      final sem = _currentSemesterLabel(_loadGradesFromCache());
+      final abs = await AppContainer.profile1cApi
+          .getAbsencesDisplayLabel(currentSemester: sem)
+          .timeout(ApiConstants.prefetchRequestTimeout);
+      if (abs != null) {
+        await AppContainer.jsonCache.setJson(
+          AppContainer.profileAbsencesLabelCacheKey,
+          {'label': abs},
+        );
+      }
+      if (mounted) {
+        setState(() {
+          _absenceHoursText = abs;
+        });
+      }
+    } catch (_) {}
+  }
+
+  void _applyPerformanceFromCache() {
+    final grades = _loadGradesFromCache();
+    if (grades.isEmpty) {
+      _performanceAvgText = null;
+      return;
+    }
+    final currentSem = _currentSemesterLabel(grades);
+    final avg = _calcAverage(grades, semester: currentSem) ??
+        _calcAverage(grades, semester: null);
+    _performanceAvgText = avg?.toStringAsFixed(2);
+  }
+
+  List<GradeEntity> _loadGradesFromCache() {
+    const cacheKey = 'grades:my';
+    final cached = AppContainer.jsonCache.getJsonList(cacheKey);
+    if (cached == null) return const <GradeEntity>[];
+    String str(dynamic v) => v is String ? v : (v == null ? '' : '$v');
+    return cached
+        .whereType<Map>()
+        .map((m) => Map<String, dynamic>.from(m))
+        .map(
+          (j) => GradeEntity(
+            subjectName: str(j['subject_name']).trim(),
+            grade: str(j['grade']).trim(),
+            gradeType: j['grade_type'] != null ? str(j['grade_type']) : null,
+            teacherName: j['teacher_name'] != null ? str(j['teacher_name']) : null,
+            date: DateTime.tryParse(str(j['date'])),
+            semester: j['semester'] != null ? str(j['semester']).trim() : null,
+          ),
+        )
+        .toList();
+  }
+
+  double? _calcAverage(List<GradeEntity> grades, {required String? semester}) {
+    final nums = <double>[];
+    for (final g in grades) {
+      if (semester != null && g.semester?.trim() != semester) continue;
+      final raw = g.grade.trim().replaceAll(',', '.');
+      final v = double.tryParse(raw);
+      if (v != null) nums.add(v);
+    }
+    if (nums.isEmpty) return null;
+    final sum = nums.fold<double>(0, (a, b) => a + b);
+    return sum / nums.length;
+  }
+
+  String? _currentSemesterLabel(List<GradeEntity> grades) {
+    int? bestKey;
+    String? bestLabel;
+
+    int? keyOf(String? s) {
+      if (s == null) return null;
+      final t = s.trim();
+      final re = RegExp(r'([12])\s*сем\s*(\d{4})-(\d{4})');
+      final m = re.firstMatch(t);
+      if (m == null) return null;
+      final sem = int.tryParse(m.group(1) ?? '');
+      final y1 = int.tryParse(m.group(2) ?? '');
+      final y2 = int.tryParse(m.group(3) ?? '');
+      if (sem == null || y1 == null || y2 == null) return null;
+      return (y2 * 10) + sem;
+    }
+
+    for (final g in grades) {
+      final k = keyOf(g.semester);
+      if (k == null) continue;
+      if (bestKey == null || k > bestKey) {
+        bestKey = k;
+        bestLabel = g.semester?.trim();
+      }
+    }
+    return bestLabel;
   }
 
   Future<void> _loadAvatarPath() async {
@@ -181,11 +314,6 @@ class _ProfilePageState extends State<ProfilePage> {
     return '—';
   }
 
-  /// Формат «N часов»; данных API пока нет — «—».
-  String _absenceHoursLabel() {
-    return '—';
-  }
-
   @override
   Widget build(BuildContext context) {
     final me = _me;
@@ -194,7 +322,8 @@ class _ProfilePageState extends State<ProfilePage> {
     final direction = (me?.direction ?? '').trim();
     final formFull = _educationFormFull(me);
     final ticketNo = _displayTicketNumber(me);
-    final absenceLabel = _absenceHoursLabel();
+    final absenceLabel = _absenceHoursText ?? '—';
+    final performanceLabel = _performanceAvgText ?? '—';
 
     // Макет 402×874 — как на главной (`HomePage`).
     final size = MediaQuery.sizeOf(context);
@@ -233,7 +362,11 @@ class _ProfilePageState extends State<ProfilePage> {
                     Expanded(
                       child: ConstrainedBox(
                         constraints: BoxConstraints(minHeight: minProfileCardHeight),
-                        child: _performanceCard(valueText: '—'),
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () => context.go('/app/grades?tab=0'),
+                          child: _performanceCard(valueText: performanceLabel),
+                        ),
                       ),
                     ),
                   ],
@@ -250,9 +383,13 @@ class _ProfilePageState extends State<ProfilePage> {
                     Expanded(
                       child: ConstrainedBox(
                         constraints: BoxConstraints(minHeight: minProfileCardHeight),
-                        child: _studentTicketCard(
-                          layoutScale: layoutScale,
-                          ticketNumber: ticketNo,
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () => context.push('/app/profile/student-id'),
+                          child: _studentTicketCard(
+                            layoutScale: layoutScale,
+                            ticketNumber: ticketNo,
+                          ),
                         ),
                       ),
                     ),
@@ -260,9 +397,13 @@ class _ProfilePageState extends State<ProfilePage> {
                     Expanded(
                       child: ConstrainedBox(
                         constraints: BoxConstraints(minHeight: minProfileCardHeight),
-                        child: _absencesCard(
-                          layoutScale: layoutScale,
-                          hoursLabel: absenceLabel,
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () => context.push('/app/profile/absences'),
+                          child: _absencesCard(
+                            layoutScale: layoutScale,
+                            hoursLabel: absenceLabel,
+                          ),
                         ),
                       ),
                     ),
@@ -335,7 +476,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 8),
                 Text(
                   fullName,
                   textAlign: TextAlign.center,

@@ -53,9 +53,9 @@ abstract final class AppContainer {
     );
     _newsApi = NewsApi(apiClient: apiClient);
     _scheduleApi = ScheduleApi(apiClient: apiClient);
-    _profile1cApi = Profile1cApi(apiClient: apiClient);
+    _profile1cApi = Profile1cApi(apiClient: apiClient, tokenStorage: tokenStorage);
     _eventsApi = EventsApi(apiClient: apiClient);
-    _gradesApi = GradesApi(apiClient: apiClient);
+    _gradesApi = GradesApi(apiClient: apiClient, tokenStorage: tokenStorage);
     _groupsApi = GroupsApi(apiClient: apiClient);
     _mobileHelpApi = MobileHelpApi(apiClient: apiClient);
     _notificationPreferencesApi = NotificationPreferencesApi(apiClient: apiClient);
@@ -197,6 +197,12 @@ abstract final class AppContainer {
       _timedPrefetch(ApiConstants.scheduleReceiveTimeout, _prefetchOneCProfile),
       _timedPrefetch(ApiConstants.prefetchScheduleTimeout, _prefetchScheduleCaches),
     ]);
+    // После `grades:my` в кэше — подпись пропусков с учётом текущего семестра.
+    await _timedPrefetch(t, _prefetchProfileAbsencesLabel);
+    await _timedPrefetch(
+      ApiConstants.scheduleReceiveTimeout,
+      _prefetchCurriculum,
+    );
     return results.every((ok) => ok);
   }
 
@@ -234,11 +240,11 @@ abstract final class AppContainer {
   }
 
   static Future<void> _prefetchGrades() async {
-    final fresh = await gradesApi.getMyGrades();
+    final bundle = await gradesApi.loadMyGrades();
     await jsonCache.setJson(
       'grades:my',
       [
-        for (final g in fresh)
+        for (final g in bundle.grades)
           {
             'subject_name': g.subjectName,
             'grade': g.grade,
@@ -249,6 +255,7 @@ abstract final class AppContainer {
           }
       ],
     );
+    await jsonCache.setJson('grades:semesters', bundle.semesters);
   }
 
   static Future<void> _prefetchNews() async {
@@ -317,5 +324,65 @@ abstract final class AppContainer {
       'schedule:today',
       [for (final l in today) l.toJsonMap()],
     );
+  }
+
+  /// Учебный план: `GET /api/1c/curriculum` (сырое JSON тело).
+  static const String curriculumCacheKey = '1c:curriculum';
+
+  static Future<void> _prefetchCurriculum() async {
+    final raw = await profile1cApi.getCurriculum();
+    if (raw == null) return;
+    if (raw is List) {
+      await jsonCache.setJson(curriculumCacheKey, raw);
+    } else if (raw is Map) {
+      await jsonCache.setJson(
+        curriculumCacheKey,
+        Map<String, dynamic>.from(raw),
+      );
+    }
+  }
+
+  /// Кэш подписи «N пропусков» для профиля (как `news:list`).
+  static const String profileAbsencesLabelCacheKey = 'profile:absences-label';
+
+  static Future<void> _prefetchProfileAbsencesLabel() async {
+    final sem = _semesterLabelFromGradesCache(jsonCache.getJsonList('grades:my'));
+    final label = await profile1cApi.getAbsencesDisplayLabel(currentSemester: sem);
+    if (label != null) {
+      await jsonCache.setJson(profileAbsencesLabelCacheKey, {'label': label});
+    }
+  }
+
+  /// Совпадает с логикой семестра на экране профиля / главной.
+  static String? _semesterLabelFromGradesCache(List<dynamic>? raw) {
+    if (raw == null) return null;
+    int? bestKey;
+    String? bestLabel;
+
+    int? keyOf(String? s) {
+      if (s == null) return null;
+      final t = s.trim();
+      final re = RegExp(r'([12])\s*сем\s*(\d{4})-(\d{4})');
+      final m = re.firstMatch(t);
+      if (m == null) return null;
+      final sem = int.tryParse(m.group(1) ?? '');
+      final y1 = int.tryParse(m.group(2) ?? '');
+      final y2 = int.tryParse(m.group(3) ?? '');
+      if (sem == null || y1 == null || y2 == null) return null;
+      return (y2 * 10) + sem;
+    }
+
+    for (final e in raw) {
+      if (e is! Map) continue;
+      final m = Map<String, dynamic>.from(e);
+      final s = m['semester']?.toString();
+      final k = keyOf(s);
+      if (k == null) continue;
+      if (bestKey == null || k > bestKey) {
+        bestKey = k;
+        bestLabel = s?.trim();
+      }
+    }
+    return bestLabel;
   }
 }

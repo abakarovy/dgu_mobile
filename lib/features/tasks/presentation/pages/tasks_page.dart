@@ -11,7 +11,7 @@ import '../../../../shared/widgets/network_degraded_banner.dart';
 import '../widgets/task_card.dart';
 import '../../data/task_item.dart';
 
-/// Экран заданий: аппбар как у расписания, 2 таба (Активные / Завершенные), список карточек.
+/// Экран заданий: аппбар как у настроек, переключатель табов как на экране оценок, белый фон.
 class TasksPage extends StatefulWidget {
   const TasksPage({super.key});
 
@@ -94,14 +94,22 @@ class _TasksPageState extends State<TasksPage> {
       children: [
         const NetworkDegradedBanner(),
         Expanded(
-          child: DefaultTabController(
+            child: DefaultTabController(
             length: 2,
             child: Scaffold(
+              backgroundColor: Colors.white,
               appBar: AppHeader(
-                leading: IconButton(
-                  icon: const Icon(Icons.arrow_back_ios_new, size: 20),
-                  onPressed: () => context.pop(),
-                  color: AppColors.textPrimary,
+                leadingLeftPadding: 6,
+                leading: GestureDetector(
+                  onTap: () => context.pop(),
+                  behavior: HitTestBehavior.opaque,
+                  child: const Center(
+                    child: Icon(
+                      Icons.arrow_back_ios_new,
+                      size: 20,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
                 ),
                 headerTitle: Text(
                   'Задания',
@@ -123,27 +131,27 @@ class _TasksPageState extends State<TasksPage> {
                       builder: (context) {
                         final controller = DefaultTabController.of(context);
                         return Padding(
-                          padding: const EdgeInsets.fromLTRB(
-                            AppUi.screenPaddingH,
-                            8,
-                            AppUi.screenPaddingH,
-                            12,
-                          ),
+                          padding: const EdgeInsets.fromLTRB(8, 8, 8, 6),
                           child: ListenableBuilder(
                             listenable: controller,
                             builder: (context, _) {
                               return Container(
-                                padding: const EdgeInsets.all(5),
+                                height: 40,
+                                padding: const EdgeInsets.all(4),
                                 decoration: BoxDecoration(
-                                  color: AppColors.backgroundSecondary,
-                                  borderRadius: BorderRadius.circular(10),
+                                  color: Colors.transparent,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: const Color(0xFF2563EB),
+                                    width: 1.53,
+                                  ),
                                 ),
                                 child: Row(
                                   children: [
                                     for (int i = 0; i < 2; i++) ...[
                                       if (i > 0) const SizedBox(width: 8),
                                       Expanded(
-                                        child: _TasksTab(
+                                        child: _TasksSegmentTab(
                                           label: TasksPage._tabLabels[i],
                                           selected: controller.index == i,
                                           onTap: () => controller.animateTo(i),
@@ -158,7 +166,6 @@ class _TasksPageState extends State<TasksPage> {
                         );
                       },
                     ),
-                    const SizedBox(height: 12),
                     Expanded(
                       child: TabBarView(
                         children: [
@@ -206,8 +213,9 @@ class _TasksList extends StatelessWidget {
   }
 }
 
-class _TasksTab extends StatelessWidget {
-  const _TasksTab({
+/// Сегмент как `_GradesTab` на экране оценок.
+class _TasksSegmentTab extends StatelessWidget {
+  const _TasksSegmentTab({
     required this.label,
     required this.selected,
     required this.onTap,
@@ -219,24 +227,26 @@ class _TasksTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: selected ? Colors.white : Colors.transparent,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Center(
-            child: Text(
-              label,
-              textAlign: TextAlign.center,
-              style: AppTextStyle.inter(
-                fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
-                fontSize: 12,
-                height: 1.0,
-                color: selected ? AppColors.primaryBlue : AppColors.caption,
-              ),
+    final bg = selected ? const Color(0xFF2563EB) : Colors.transparent;
+    final textColor = selected ? Colors.white : const Color(0xFF2563EB);
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Container(
+        height: 30,
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Center(
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: AppTextStyle.inter(
+              fontWeight: FontWeight.w700,
+              fontSize: 10.44,
+              height: 1.0,
+              color: textColor,
             ),
           ),
         ),

@@ -32,9 +32,9 @@ class NewsDetailPage extends StatelessWidget {
                 SizedBox(
                   width: double.infinity,
                   height: imageHeight,
-                  child: (item.imageUrl != null && item.imageUrl!.isNotEmpty)
+                  child: (NewsModel.resolveImageUrl(item.imageUrl) != null)
                       ? Image.network(
-                          item.imageUrl!,
+                          NewsModel.resolveImageUrl(item.imageUrl)!,
                           fit: BoxFit.cover,
                           errorBuilder: (_, _, _) => Container(
                             color: AppColors.backgroundSecondary,

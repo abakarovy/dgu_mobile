@@ -31,5 +31,33 @@ abstract final class ApiConstants {
   static const String authMePath = '/auth/me';
 
   /// Профиль студента из 1С (HTTP-сервис зачётки + оценки).
+  /// Руководство backend: `GET /api/1c/my-profile?mobile=true`.
   static const String oneCMyProfilePath = '/1c/my-profile';
+
+  /// Оценки из 1С: `GET /api/1c/sync-grades?student_id=…`
+  static const String oneCSyncGradesPath = '/1c/sync-grades';
+
+  /// Итоговые оценки: `GET /api/1c/final-grades?student_id=…`
+  static const String oneCFinalGradesPath = '/1c/final-grades';
+
+  /// Пропуски: `GET /api/1c/absences?student_id=&start=&end=`
+  static const String oneCAbsencesPath = '/1c/absences';
+
+  /// Учебный план: `GET /api/1c/curriculum?student_id=`
+  static const String oneCCurriculumPath = '/1c/curriculum';
+
+  /// Состав группы: `GET /api/1c/group-list?student_id=`
+  static const String oneCGroupListPath = '/1c/group-list';
+
+  /// Курсовые, ВКР, практики: `GET /api/1c/practices?student_id=`
+  static const String oneCPracticesPath = '/1c/practices';
+
+  /// Заказы справок: `GET /api/1c/orders?student_id=`
+  static const String oneCOrdersPath = '/1c/orders';
+
+  /// Кураторские часы в 1С (не путать с `GET /api/mobile/events`).
+  static const String oneCCuratorEventsPath = '/1c/events';
+
+  /// `GET /api/health`
+  static const String healthPath = '/health';
 }

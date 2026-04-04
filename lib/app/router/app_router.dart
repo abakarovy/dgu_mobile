@@ -19,7 +19,9 @@ import '../../features/notifications/presentation/pages/notifications_page.dart'
 import '../../features/profile/presentation/pages/profile_page.dart';
 import '../../features/schedule/presentation/pages/schedule_page.dart';
 import '../../features/support/presentation/pages/support_page.dart';
+import '../../features/profile/presentation/pages/settings_page.dart';
 import '../../features/profile/presentation/pages/student_id_page.dart';
+import '../../features/profile/presentation/pages/absences_page.dart';
 import '../../features/tasks/presentation/pages/tasks_page.dart';
 import '../../features/shell/presentation/pages/app_shell_page.dart';
 import '../../features/account/presentation/pages/email_change_page.dart';
@@ -79,6 +81,25 @@ final GoRouter appRouter = GoRouter(
                   name: 'studentId',
                   builder: (context, state) => const StudentIdPage(),
                 ),
+                GoRoute(
+                  path: 'absences',
+                  name: 'absences',
+                  pageBuilder: (context, state) => NoTransitionPage<void>(
+                    key: state.pageKey,
+                    name: state.name,
+                    child: const AbsencesPage(),
+                  ),
+                ),
+                GoRoute(
+                  path: 'settings',
+                  name: 'settings',
+                  // Без слайда: иначе тени у карточек визуально «едут» вместе с переходом.
+                  pageBuilder: (context, state) => NoTransitionPage<void>(
+                    key: state.pageKey,
+                    name: state.name,
+                    child: const SettingsPage(),
+                  ),
+                ),
               ],
             ),
           ],
@@ -88,8 +109,14 @@ final GoRouter appRouter = GoRouter(
             GoRoute(
               path: '/app/grades',
               name: 'grades',
-              builder: (context, state) =>
-                  GradesPage(key: ValueKey(AuthSession.epoch)),
+              builder: (context, state) {
+                final tabParam = state.uri.queryParameters['tab'];
+                final tab = int.tryParse(tabParam ?? '')?.clamp(0, 2) ?? 0;
+                return GradesPage(
+                  key: ValueKey('grades-${AuthSession.epoch}-${state.uri}'),
+                  initialTabIndex: tab,
+                );
+              },
             ),
           ],
         ),
