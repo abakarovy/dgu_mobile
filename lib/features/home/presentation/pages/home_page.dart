@@ -258,6 +258,30 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  /// Минимальная ширина карточки действия, чтобы подпись помещалась в одну строку.
+  double _minActionCardWidth(
+    BuildContext context,
+    double sf,
+    String label,
+    double labelFontSize,
+  ) {
+    final style = AppTextStyle.inter(
+      fontWeight: FontWeight.w700,
+      fontSize: labelFontSize * sf,
+      color: AppColors.textPrimary,
+    );
+    final tp = TextPainter(
+      text: TextSpan(text: label, style: style),
+      textDirection: Directionality.of(context),
+      maxLines: 1,
+      textScaler: MediaQuery.textScalerOf(context),
+    )..layout();
+    final horizPad = 12 * sf * 2;
+    final iconW = 35 * sf;
+    final gap = 10 * sf;
+    return horizPad + iconW + gap + tp.width;
+  }
+
   int? _readActiveAssignmentsCount() {
     try {
       final list = AppContainer.jsonCache.getJsonList('mobile:assignments:my');
@@ -575,36 +599,42 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _actionsSection({required double sf}) {
-    // Карточки: «Мои задания» и «Расписание» (в этом порядке).
+    // «Мои задания» и «Расписание»: в ряд пополам, пока обе подписи помещаются
+    // в одну строку в своей половине; иначе — колонка на всю ширину.
+    const labelFont = 11.72;
     return LayoutBuilder(
       builder: (context, constraints) {
         final gap = 12 * sf;
-        final slotW = (constraints.maxWidth - gap) / 2;
-        final useColumn = slotW < 140 || constraints.maxWidth < 360;
-        if (useColumn) {
+        final minTasks = _minActionCardWidth(context, sf, 'Мои задания', labelFont);
+        final minSchedule = _minActionCardWidth(context, sf, 'Расписание', labelFont);
+        // Половины равны: каждая должна вместить свою самую длинную подпись в одну строку.
+        final minHalf = max(minTasks, minSchedule);
+        final minRowTotal = 2 * minHalf + gap;
+
+        if (constraints.maxWidth < minRowTotal) {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _tasksCard(context, sf: sf, stretchLabel: true),
+              _tasksCard(context, sf: sf),
               SizedBox(height: gap),
-              _scheduleCard(context, sf: sf, stretchLabel: true),
+              _scheduleCard(context, sf: sf),
             ],
           );
         }
-        // Ширина по содержимому (текст целиком), высота фиксированная в карточке.
+
         return Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _tasksCard(context, sf: sf, stretchLabel: false),
+            Expanded(child: _tasksCard(context, sf: sf)),
             SizedBox(width: gap),
-            _scheduleCard(context, sf: sf, stretchLabel: false),
+            Expanded(child: _scheduleCard(context, sf: sf)),
           ],
         );
       },
     );
   }
 
-  Widget _tasksCard(BuildContext context, {required double sf, bool stretchLabel = false}) {
+  Widget _tasksCard(BuildContext context, {required double sf}) {
     // Точный цвет из дизайна: #10B98121 (alpha 0x21).
     final greenBg = const Color(0x2110B981);
     final iconBg = const Color(0xFFECFDF5);
@@ -622,12 +652,11 @@ class _HomePageState extends State<HomePage> {
       label: 'Мои задания',
       labelColor: iconColor,
       labelFontSize: 11.72,
-      stretchLabel: stretchLabel,
       onPressed: () => context.push('/app/tasks'),
     );
   }
 
-  Widget _scheduleCard(BuildContext context, {required double sf, bool stretchLabel = false}) {
+  Widget _scheduleCard(BuildContext context, {required double sf}) {
     final iconBg = const Color.fromRGBO(46, 99, 213, 0.1);
     final iconColor = const Color.fromRGBO(37, 99, 235, 1);
 
@@ -643,7 +672,6 @@ class _HomePageState extends State<HomePage> {
       label: 'Расписание',
       labelColor: iconColor,
       labelFontSize: 11.72,
-      stretchLabel: stretchLabel,
       onPressed: () => context.push('/app/schedule'),
     );
   }
@@ -660,7 +688,6 @@ class _HomePageState extends State<HomePage> {
     required String iconAsset,
     required double iconW,
     required double iconH,
-    required bool stretchLabel,
     required VoidCallback onPressed,
   }) {
     final radius = 20 * sf;
@@ -695,38 +722,24 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
             SizedBox(width: 10 * sf),
-            if (stretchLabel)
-              Expanded(
-                child: Text(
-                  label,
-                  textAlign: TextAlign.left,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTextStyle.inter(
-                    fontWeight: FontWeight.w700,
-                    fontSize: labelFontSize * sf,
-                    color: labelColor,
-                  ),
-                ),
-              )
-            else
-              Text(
+            Expanded(
+              child: Text(
                 label,
                 textAlign: TextAlign.left,
-                maxLines: 1,
-                softWrap: false,
                 style: AppTextStyle.inter(
                   fontWeight: FontWeight.w700,
                   fontSize: labelFontSize * sf,
                   color: labelColor,
                 ),
               ),
+            ),
           ],
         ),
       ),
     );
 
-    final shadowLayer = DecoratedBox(
+    final shadowLayer = Container(
+      height: 90 * sf,
       decoration: BoxDecoration(
         color: Colors.white, // блокируем просвет тени через альфу
         borderRadius: BorderRadius.circular(radius),
@@ -744,15 +757,11 @@ class _HomePageState extends State<HomePage> {
       behavior: HitTestBehavior.opaque,
       onTap: onPressed,
       child: withShadow
-          ? IntrinsicWidth(
-              child: Stack(
-                clipBehavior: Clip.none,
-                alignment: Alignment.topLeft,
-                children: [
-                  Positioned.fill(child: shadowLayer),
-                  card,
-                ],
-              ),
+          ? Stack(
+              children: [
+                shadowLayer,
+                card,
+              ],
             )
           : card,
     );
