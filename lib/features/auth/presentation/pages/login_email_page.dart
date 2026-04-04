@@ -29,6 +29,7 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
   bool _showWrongCredentialsError = false;
   String _credentialsErrorMessage = 'Неверный E-Mail или пароль';
   bool _submitting = false;
+  bool _obscurePassword = true;
 
   bool _hasText(TextEditingController c) => c.text.trim().isNotEmpty;
 
@@ -156,6 +157,7 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
     const figmaH = 1920.0;
     final size = MediaQuery.sizeOf(context);
     final sf = math.min(size.width / figmaW, size.height / figmaH);
+    final sfW = size.width / figmaW;
     final blue = const Color.fromRGBO(46, 99, 213, 1);
 
     final fieldRadius = 89.16 * sf;
@@ -275,12 +277,30 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
                   top: false,
                   child: LayoutBuilder(
                     builder: (context, constraints) {
-                      final content = ConstrainedBox(
-                        constraints: BoxConstraints(maxWidth: 900 * sf),
+                      final innerMaxW = math.max(
+                        0.0,
+                        constraints.maxWidth - 2 * sidePad,
+                      );
+                      final formColumnW = math.min(900.0 * sfW, innerMaxW);
+                      final content = SizedBox(
+                        width: formColumnW,
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
+                            if (_showWrongCredentialsError) ...[
+                              Text(
+                                _credentialsErrorMessage,
+                                textAlign: TextAlign.center,
+                                style: AppTextStyle.inter(
+                                  fontWeight: FontWeight.w500,
+                                  fontSize: 14,
+                                  height: 1.2,
+                                  color: Colors.red,
+                                ),
+                              ),
+                              SizedBox(height: gap),
+                            ],
                             _buildField(
                               key: 'email',
                               hint: 'E-mail',
@@ -313,24 +333,12 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
                               blue: blue,
                               hintStyle: hintStyle,
                               valueStyle: valueStyle,
-                              obscureText: true,
+                              obscureText: _obscurePassword,
+                              onPasswordVisibilityToggle: () => setState(
+                                () => _obscurePassword = !_obscurePassword,
+                              ),
                             ),
                             SizedBox(height: gap),
-                            if (_showWrongCredentialsError) ...[
-                              Center(
-                                child: Text(
-                                  _credentialsErrorMessage,
-                                  textAlign: TextAlign.center,
-                                  style: AppTextStyle.inter(
-                                    fontWeight: FontWeight.w500,
-                                    fontSize: 14,
-                                    height: 1.2,
-                                    color: Colors.red,
-                                  ),
-                                ),
-                              ),
-                              SizedBox(height: gap),
-                            ],
                             SizedBox(
                               height: btnHeight,
                               child: FilledButton(
@@ -451,8 +459,10 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
                           sidePad,
                           18 * sf,
                         ),
-                        child: SizedBox(
-                          height: constraints.maxHeight,
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            minHeight: constraints.maxHeight,
+                          ),
                           child: Center(child: content),
                         ),
                       );
@@ -483,6 +493,7 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
     required TextStyle hintStyle,
     required TextStyle valueStyle,
     required bool obscureText,
+    VoidCallback? onPasswordVisibilityToggle,
   }) {
     final hasError = _errorFields.contains(key);
     final hasValue = _hasText(controller);
@@ -503,8 +514,14 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
       ),
     );
 
+    final fs = valueStyle.fontSize ?? 16;
+    final lineH = fs * (valueStyle.height ?? 1.0);
+    final vPad = ((fieldHeight - 2 * fieldBorderW - lineH) / 2).clamp(0.0, fieldHeight);
+    final rightPad = onPasswordVisibilityToggle != null ? 12.0 : 24.0;
+
     return SizedBox(
       height: fieldHeight,
+      width: double.infinity,
       child: TextFormField(
         controller: controller,
         focusNode: focusNode,
@@ -519,6 +536,13 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
             onLastFieldSubmitted?.call();
           }
         },
+        strutStyle: StrutStyle(
+          fontSize: fs,
+          height: valueStyle.height,
+          fontFamily: valueStyle.fontFamily,
+          fontWeight: valueStyle.fontWeight,
+          forceStrutHeight: true,
+        ),
         inputFormatters: [
           if (key == 'email') FilteringTextInputFormatter.deny(RegExp(r'\s')),
         ],
@@ -526,6 +550,11 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
           hintText: hint,
           hintStyle: hintStyle,
           filled: false,
+          isDense: false,
+          constraints: BoxConstraints(
+            minHeight: fieldHeight,
+            maxHeight: fieldHeight,
+          ),
           border: enabledBorder,
           enabledBorder: enabledBorder,
           focusedBorder: focusedBorder,
@@ -535,11 +564,29 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
           focusedErrorBorder: focusedBorder.copyWith(
             borderSide: BorderSide(color: Colors.red, width: fieldBorderW),
           ),
+          suffixIcon: onPasswordVisibilityToggle == null
+              ? null
+              : IconButton(
+                  onPressed: onPasswordVisibilityToggle,
+                  style: IconButton.styleFrom(
+                    padding: EdgeInsets.only(right: fieldLeftPad),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  icon: Icon(
+                    obscureText
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
+                    size: fs*1.5,
+                    color: Colors.black.withValues(alpha: 0.45),
+                  ),
+                ),
           contentPadding: EdgeInsets.only(
             left: fieldLeftPad,
-            right: 24,
-            top: 0,
-            bottom: 0,
+            right: rightPad,
+            top: vPad,
+            bottom: vPad,
           ),
           errorText: null,
           errorStyle: const TextStyle(height: 0, fontSize: 0),

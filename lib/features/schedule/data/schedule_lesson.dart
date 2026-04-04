@@ -55,8 +55,12 @@ class ScheduleLesson {
     } else if (pn != null) {
       pairNo = int.tryParse('$pn');
     }
+    int? widx = j['weekday_index'] is int ? (j['weekday_index'] as int) : null;
+    if (widx == null && lessonDate != null) {
+      widx = lessonDate.weekday - 1;
+    }
     return ScheduleLesson(
-      weekdayIndex: j['weekday_index'] is int ? (j['weekday_index'] as int) : null,
+      weekdayIndex: widx,
       lessonDate: lessonDate,
       pairNumber: pairNo,
       subject: (j['subject'] as String?) ?? '',

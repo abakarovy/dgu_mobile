@@ -59,7 +59,9 @@ class _SchedulePageState extends State<SchedulePage> {
   @override
   Widget build(BuildContext context) {
     final layoutScale = ScheduleLessonTile.layoutScaleOf(context);
-    final hPad = 14.0 * layoutScale;
+    final screenW = MediaQuery.sizeOf(context).width;
+    // Боковые отступы экрана: от ширины окна (узкие телефоны — меньше, шире — больше, с потолком).
+    final hPad = (screenW * 0.038).clamp(12.0, 28.0);
     final stripBlockGap = 32.0 * layoutScale;
 
     return Column(
@@ -102,11 +104,15 @@ class _SchedulePageState extends State<SchedulePage> {
                     padding: EdgeInsets.symmetric(horizontal: hPad),
                     child: LayoutBuilder(
                       builder: (context, constraints) {
-                        const cellW = 37.5;
-                        const gap = 14.0;
-                        const stripTotalW = 7 * cellW + 6 * gap;
-                        const innerPadH = 7.5 * 2;
-                        // Ширина под Row — минус внутренние отступы чёрного контейнера (макет фиксирован).
+                        final s = layoutScale;
+                        final cellW = 37.5 * s;
+                        final gap = 14.0 * s;
+                        final stripTotalW = 7 * cellW + 6 * gap;
+                        // Внутренние отступы контейнера с датами: слева/справа — от ширины полосы.
+                        final padV = 7.5 * s;
+                        final padSide = (constraints.maxWidth * 0.028)
+                            .clamp(6.0 * s, 14.0 * s);
+                        final innerPadH = padSide * 2;
                         final rowMaxW = constraints.maxWidth - innerPadH;
 
                         final row = Row(
@@ -114,32 +120,41 @@ class _SchedulePageState extends State<SchedulePage> {
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
                             for (int index = 0; index < 7; index++) ...[
-                              if (index > 0) const SizedBox(width: gap),
-                              _buildStripDayCell(index),
+                              if (index > 0) SizedBox(width: gap),
+                              _buildStripDayCell(index, s),
                             ],
                           ],
                         );
 
                         return Container(
-                          height: 60,
+                          height: 60 * s,
                           decoration: BoxDecoration(
                             color: const Color(0xFF1A1A1A),
-                            borderRadius: BorderRadius.circular(15),
-                            boxShadow: const [
+                            borderRadius: BorderRadius.circular(15 * s),
+                            boxShadow: [
                               BoxShadow(
-                                color: Color(0x0A000000),
-                                offset: Offset(0, 3.75),
-                                blurRadius: 18.75,
+                                color: const Color(0x0A000000),
+                                offset: Offset(0, 3.75 * s),
+                                blurRadius: 18.75 * s,
                                 spreadRadius: 0,
                               ),
                             ],
                           ),
-                          padding: const EdgeInsets.all(7.5),
-                          child: rowMaxW + 0.5 >= stripTotalW
-                              ? Center(child: row)
-                              : SingleChildScrollView(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: padSide,
+                            vertical: padV,
+                          ),
+                          child: rowMaxW < stripTotalW
+                              ? SingleChildScrollView(
                                   scrollDirection: Axis.horizontal,
                                   child: row,
+                                )
+                              : Center(
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    alignment: Alignment.center,
+                                    child: row,
+                                  ),
                                 ),
                         );
                       },
@@ -159,21 +174,26 @@ class _SchedulePageState extends State<SchedulePage> {
     );
   }
 
-  Widget _buildStripDayCell(int index) {
+  Widget _buildStripDayCell(int index, double stripScale) {
     final date = _dateFor(index);
     final isSelected = index == _selectedDayIndex;
+    final dayFs = 9.37 * stripScale;
+    final numFs = 11.25 * stripScale;
 
     return GestureDetector(
       onTap: () => setState(() => _selectedDayIndex = index),
       behavior: HitTestBehavior.opaque,
       child: Container(
-        width: 37.5,
-        height: 45,
+        width: 37.5 * stripScale,
+        height: 45 * stripScale,
         decoration: BoxDecoration(
           color: isSelected ? _stripSelected : Colors.transparent,
-          borderRadius: BorderRadius.circular(11.25),
+          borderRadius: BorderRadius.circular(11.25 * stripScale),
         ),
-        padding: const EdgeInsets.symmetric(vertical: 7.5, horizontal: 11.25),
+        padding: EdgeInsets.symmetric(
+          vertical: 7.5 * stripScale,
+          horizontal: 11.25 * stripScale,
+        ),
         child: FittedBox(
           fit: BoxFit.scaleDown,
           alignment: Alignment.center,
@@ -186,7 +206,7 @@ class _SchedulePageState extends State<SchedulePage> {
                 textAlign: TextAlign.center,
                 style: AppTextStyle.inter(
                   fontWeight: FontWeight.w700,
-                  fontSize: 9.37,
+                  fontSize: dayFs,
                   height: 14.06 / 9.37,
                   color: _stripDayText,
                 ),
@@ -196,7 +216,7 @@ class _SchedulePageState extends State<SchedulePage> {
                 textAlign: TextAlign.center,
                 style: AppTextStyle.inter(
                   fontWeight: FontWeight.w700,
-                  fontSize: 11.25,
+                  fontSize: numFs,
                   height: 1.0,
                   color: isSelected ? _stripDayText : _stripNumMuted,
                 ),

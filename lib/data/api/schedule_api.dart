@@ -317,8 +317,20 @@ class ScheduleApi {
       pairNumber = int.tryParse(str(pn));
     }
 
+    int? wi = weekdayIndex;
+    final wiRaw = json['weekday_index'];
+    if (wiRaw is int) {
+      wi = wiRaw.clamp(0, 6);
+    } else if (wiRaw != null) {
+      wi = int.tryParse(str(wiRaw))?.clamp(0, 6);
+    }
+    if (wi == null && lessonDate != null) {
+      // ПН=0 … ВС=6, как в [ScheduleLesson.weekdayIndex]
+      wi = lessonDate.weekday - 1;
+    }
+
     return ScheduleLesson(
-      weekdayIndex: weekdayIndex,
+      weekdayIndex: wi,
       lessonDate: lessonDate,
       pairNumber: pairNumber,
       subject: subject.isEmpty ? 'Пара' : subject,

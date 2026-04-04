@@ -80,7 +80,7 @@ class MockDioInterceptor extends Interceptor {
       return _jsonResponse(o, 200, MockPayloads.syncGrades(uid));
     }
     if (method == 'GET' && _pathEnds(path, '/journal/grades/my')) {
-      return _jsonResponse(o, 200, MockPayloads.syncGrades(uid)['grades']);
+      return _jsonResponse(o, 200, MockPayloads.journalGradesFlat(uid));
     }
 
     if (method == 'GET' && _pathEnds(path, '/1c/schedule')) {

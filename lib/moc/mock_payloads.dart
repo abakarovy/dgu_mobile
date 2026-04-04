@@ -2,6 +2,42 @@ import 'mock_accounts.dart';
 
 /// JSON-ответы мокового API в зависимости от студента ([MockAccounts.variantIndexForUserId]).
 abstract final class MockPayloads {
+  static String _ymd(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  /// Строки «Пропуск…» для журнала — экран «Пропуски» → «Текущие» ([AbsencesPage._journalAbsencesInRange]).
+  static List<Map<String, dynamic>> _mockAbsenceJournalRows(String semester, int count) {
+    if (count <= 0) return [];
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    const offsets = [1, 2, 3, 5, 7, 10, 11, 12, 13];
+    const subjects = [
+      'Математика',
+      'СУБД',
+      'Физкультура',
+      'История',
+      'Английский язык',
+      'ООП',
+      'Информатика',
+    ];
+    const types = [
+      'Пропуск по уважительной причине',
+      'Пропуск (болезнь)',
+      'пропуск по семейным обстоятельствам',
+    ];
+    return [
+      for (var i = 0; i < count; i++)
+        {
+          'subject_name': subjects[i % subjects.length],
+          'grade': 'Н',
+          'grade_type': types[i % types.length],
+          'teacher_name': 'Преподаватель Т.Т.',
+          'date': _ymd(today.subtract(Duration(days: offsets[i % offsets.length]))),
+          'semester': semester,
+        },
+    ];
+  }
+
   static Map<String, dynamic> oneCProfile(int userId) {
     final v = MockAccounts.variantIndexForUserId(userId);
     if (v == 1) {
@@ -63,7 +99,7 @@ abstract final class MockPayloads {
         'title': 'Добро пожаловать в приложение (мок)',
         'content': 'Это демонстрационная новость. Режим моковых данных без обращения к серверу.',
         'excerpt': 'Демо-режим',
-        'image_url': null,
+        'image_url': 'assets/images/2.png',
         'created_at': DateTime.now().toIso8601String(),
       },
       {
@@ -71,7 +107,7 @@ abstract final class MockPayloads {
         'title': 'Расписание и задания',
         'content': 'Проверьте вкладки «Расписание» и «Задания» — данные сгенерированы для $tag.',
         'excerpt': null,
-        'image_url': null,
+        'image_url': 'assets/images/3.png',
         'created_at': DateTime.now().subtract(const Duration(days: 1)).toIso8601String(),
       },
     ];
@@ -129,9 +165,16 @@ abstract final class MockPayloads {
     ];
   }
 
+  /// Текущие + зачёт/экзамен для вкладки «Сессия»; даты в пределах последних 14 дней.
+  /// Плюс записи «Пропуск» — столько же, сколько [absences] `total_absences`, для списка на экране пропусков.
   static Map<String, dynamic> syncGrades(int userId) {
     final sem = '1 сем 2025-2026';
     final subj = MockAccounts.variantIndexForUserId(userId) == 1 ? 'ООП' : 'СУБД';
+    final absenceCount = MockAccounts.variantIndexForUserId(userId) == 1 ? 2 : 5;
+    final now = DateTime.now();
+    final d1 = DateTime(now.year, now.month, now.day).subtract(const Duration(days: 1));
+    final d2 = now.subtract(const Duration(days: 4));
+    final d3 = now.subtract(const Duration(days: 9));
     return {
       'grades': [
         {
@@ -142,7 +185,7 @@ abstract final class MockPayloads {
               'grade': '5',
               'grade_type': 'Текущая',
               'teacher_name': 'Преподаватель П.П.',
-              'date': '2026-02-10',
+              'date': _ymd(d1),
               'semester': sem,
             },
             {
@@ -150,13 +193,61 @@ abstract final class MockPayloads {
               'grade': '4',
               'grade_type': 'Текущая',
               'teacher_name': 'Иванов И.И.',
-              'date': '2026-02-05',
+              'date': _ymd(d2),
               'semester': sem,
             },
+            {
+              'subject_name': 'История',
+              'grade': '5',
+              'grade_type': 'Ответ у доски',
+              'teacher_name': 'Смирнов С.С.',
+              'date': _ymd(d3),
+              'semester': sem,
+            },
+            {
+              'subject_name': 'Математика',
+              'grade': '4',
+              'grade_type': 'Зачёт',
+              'teacher_name': 'Иванов И.И.',
+              'date': _ymd(d1),
+              'semester': sem,
+            },
+            {
+              'subject_name': subj,
+              'grade': '5',
+              'grade_type': 'Экзамен',
+              'teacher_name': 'Петрова А.С.',
+              'date': _ymd(d2),
+              'semester': sem,
+            },
+            {
+              'subject_name': 'Английский язык',
+              'grade': 'зачтено',
+              'grade_type': '1 АТ',
+              'teacher_name': 'Ли О.В.',
+              'date': _ymd(d3),
+              'semester': sem,
+            },
+            ..._mockAbsenceJournalRows(sem, absenceCount),
           ],
         },
       ],
     };
+  }
+
+  /// Плоский список для `GET /journal/grades/my` (fallback без student_id).
+  static List<dynamic> journalGradesFlat(int userId) {
+    final root = syncGrades(userId);
+    final grades = root['grades'];
+    if (grades is! List) return [];
+    final out = <dynamic>[];
+    for (final e in grades) {
+      if (e is! Map) continue;
+      final records = e['records'];
+      if (records is! List) continue;
+      out.addAll(records);
+    }
+    return out;
   }
 
   static Map<String, dynamic> mobileHelp() {
@@ -194,10 +285,46 @@ abstract final class MockPayloads {
     };
   }
 
+  /// Учебный маршрут: часы как объект (см. [LearningRouteView]).
   static List<dynamic> curriculum(int userId) {
+    final v = MockAccounts.variantIndexForUserId(userId);
+    final s2 = v == 1 ? 'ООП' : 'СУБД';
     return [
-      {'subject': 'Математика', 'hours': 120},
-      {'subject': 'Программирование', 'hours': 180},
+      {
+        'subject': 'Математика',
+        'discipline': 'Математика',
+        'control_form': 'Экзамен',
+        'hours': {
+          'total': 120,
+          'theory_lectures': 48,
+          'lab': 0,
+          'practical': 48,
+          'independent': 24,
+        },
+      },
+      {
+        'subject': s2,
+        'discipline': s2,
+        'control_form': 'Зачёт с оценкой',
+        'hours': {
+          'total': 180,
+          'theory_lectures': 60,
+          'lab': 72,
+          'practical': 36,
+          'independent': 12,
+        },
+      },
+      {
+        'subject': 'Информатика',
+        'control_form': 'Дифференцированный зачёт',
+        'hours': {
+          'total': 64,
+          'theory_lectures': 32,
+          'lab': 32,
+          'practical': 0,
+          'independent': 0,
+        },
+      },
     ];
   }
 
@@ -220,33 +347,75 @@ abstract final class MockPayloads {
     return [];
   }
 
-  /// Расписание на один календарный день (`for_date` = yyyy-MM-dd).
+  static const List<String> _dayShort = ['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс'];
+
+  /// Расписание на один календарный день (`for_date` = yyyy-MM-dd): разные пары по дням недели.
   static Map<String, dynamic> scheduleForDate(String forDateYmd, int userId) {
     final d = DateTime.tryParse(forDateYmd);
     final ddMmYyyy = d == null
         ? forDateYmd
         : '${d.day.toString().padLeft(2, '0')}.${d.month.toString().padLeft(2, '0')}.${d.year}';
     final weekday = d?.weekday ?? DateTime.monday;
-    if (weekday == DateTime.saturday || weekday == DateTime.sunday) {
+    // Только воскресенье без пар (как выходной); суббота — учебный день с парами.
+    if (weekday == DateTime.sunday) {
       return {'schedule': <dynamic>[]};
     }
-    final subj = MockAccounts.variantIndexForUserId(userId) == 1 ? 'ООП' : 'СУБД';
+    final dayIdx = weekday - 1;
+    final dayShort = _dayShort[dayIdx.clamp(0, 6)];
+    final spec = MockAccounts.variantIndexForUserId(userId) == 1 ? 'ООП' : 'СУБД';
+
+    final pair1Subjects = [
+      'Математика',
+      'Физика',
+      'История',
+      'Английский язык',
+      'Информатика',
+      'Английский язык',
+    ];
+    final pair2Subjects = [
+      spec,
+      'Компьютерные сети',
+      'Физкультура',
+      'Экономика',
+      'Право',
+      'Компьютерные сети',
+    ];
+    final t1 = [
+      '09:00 - 10:30',
+      '09:00 - 10:30',
+      '10:45 - 12:15',
+      '09:00 - 10:30',
+      '08:30 - 10:00',
+      '08:30 - 10:00',
+    ];
+    final t2 = [
+      '10:45 - 12:15',
+      '10:45 - 12:15',
+      '12:30 - 14:00',
+      '10:45 - 12:15',
+      '10:15 - 11:45',
+      '10:30 - 12:00',
+    ];
+
+    final i = dayIdx.clamp(0, pair1Subjects.length - 1);
     return {
       'schedule': [
         {
           'pair_number': 1,
-          'subject': 'Математика',
-          'time': '09:00 - 10:30',
+          'day_short': dayShort,
+          'subject': pair1Subjects[i],
+          'time': t1[i],
           'teacher': 'Иванов Иван Иванович',
-          'auditorium': '101',
+          'auditorium': '${101 + i}',
           'date': ddMmYyyy,
         },
         {
           'pair_number': 2,
-          'subject': subj,
-          'time': '10:45 - 12:15',
+          'day_short': dayShort,
+          'subject': pair2Subjects[i],
+          'time': t2[i],
           'teacher': 'Петрова Анна Сергеевна',
-          'auditorium': '204',
+          'auditorium': '${204 + i}',
           'date': ddMmYyyy,
         },
       ],
@@ -255,8 +424,7 @@ abstract final class MockPayloads {
 
   static Map<String, dynamic> scheduleToday(int userId) {
     final now = DateTime.now();
-    final ymd =
-        '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    final ymd = _ymd(now);
     return scheduleForDate(ymd, userId);
   }
 

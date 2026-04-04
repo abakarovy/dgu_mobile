@@ -144,6 +144,7 @@ class _LoginPageState extends State<LoginPage> {
     const figmaH = 1920.0;
     final size = MediaQuery.sizeOf(context);
     final sf = math.min(size.width / figmaW, size.height / figmaH);
+    final sfW = size.width / figmaW;
     final blue = const Color.fromRGBO(46, 99, 213, 1);
     final fieldRadius = 89.16 * sf;
     final fieldBorderW = (4.46 * sf).clamp(2.0, 6.0);
@@ -265,12 +266,32 @@ class _LoginPageState extends State<LoginPage> {
                   top: false,
                   child: LayoutBuilder(
                     builder: (context, constraints) {
-                      final content = ConstrainedBox(
-                        constraints: BoxConstraints(maxWidth: 900 * sf),
+                      final innerMaxW = math.max(
+                        0.0,
+                        constraints.maxWidth - 2 * sidePad,
+                      );
+                      // Ширина колонки только от ширины экрана (900×sfW), не от min(w,h) — иначе
+                      // на низком окне поля и кнопки становятся непропорционально узкими.
+                      final formColumnW = math.min(900.0 * sfW, innerMaxW);
+                      final content = SizedBox(
+                        width: formColumnW,
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
+                            if (_showWrongCredentialsError) ...[
+                              Text(
+                                _credentialsErrorMessage,
+                                textAlign: TextAlign.center,
+                                style: AppTextStyle.inter(
+                                  fontWeight: FontWeight.w500,
+                                  fontSize: 14,
+                                  height: 1.2,
+                                  color: Colors.red,
+                                ),
+                              ),
+                              SizedBox(height: gap),
+                            ],
                             _buildForm(
                               fieldHeight: fieldHeight,
                               fieldRadius: fieldRadius,
@@ -282,21 +303,6 @@ class _LoginPageState extends State<LoginPage> {
                               gap: gap,
                             ),
                             SizedBox(height: gap),
-                            if (_showWrongCredentialsError) ...[
-                              Center(
-                                child: Text(
-                                  _credentialsErrorMessage,
-                                  textAlign: TextAlign.center,
-                                  style: AppTextStyle.inter(
-                                    fontWeight: FontWeight.w500,
-                                    fontSize: 14,
-                                    height: 1.2,
-                                    color: Colors.red,
-                                  ),
-                                ),
-                              ),
-                              SizedBox(height: gap),
-                            ],
 
                             SizedBox(
                               height: btnHeight,
@@ -421,8 +427,10 @@ class _LoginPageState extends State<LoginPage> {
                           sidePad,
                           18 * sf,
                         ),
-                        child: SizedBox(
-                          height: constraints.maxHeight,
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            minHeight: constraints.maxHeight,
+                          ),
                           child: Center(child: content),
                         ),
                       );
@@ -536,6 +544,7 @@ class _LoginPageState extends State<LoginPage> {
     required Color blue,
     required TextStyle hintStyle,
     required TextStyle valueStyle,
+    VoidCallback? onPasswordVisibilityToggle,
   }) {
     final hasError = _errorFields.contains(key);
     final hasValue = _hasText(controller);
@@ -556,8 +565,14 @@ class _LoginPageState extends State<LoginPage> {
       ),
     );
 
+    final fs = valueStyle.fontSize ?? 16;
+    final lineH = fs * (valueStyle.height ?? 1.0);
+    final vPad = ((fieldHeight - 2 * fieldBorderW - lineH) / 2).clamp(0.0, fieldHeight);
+    final rightPad = onPasswordVisibilityToggle != null ? 12.0 : 24.0;
+
     return SizedBox(
       height: fieldHeight,
+      width: double.infinity,
       child: TextFormField(
         controller: controller,
         focusNode: focusNode,
@@ -572,6 +587,13 @@ class _LoginPageState extends State<LoginPage> {
             onLastFieldSubmitted?.call();
           }
         },
+        strutStyle: StrutStyle(
+          fontSize: fs,
+          height: valueStyle.height,
+          fontFamily: valueStyle.fontFamily,
+          fontWeight: valueStyle.fontWeight,
+          forceStrutHeight: true,
+        ),
         inputFormatters: [
           if (keyboardType == TextInputType.number)
             FilteringTextInputFormatter.digitsOnly,
@@ -581,6 +603,11 @@ class _LoginPageState extends State<LoginPage> {
           hintText: hint,
           hintStyle: hintStyle,
           filled: false,
+          isDense: false,
+          constraints: BoxConstraints(
+            minHeight: fieldHeight,
+            maxHeight: fieldHeight,
+          ),
           border: enabledBorder,
           enabledBorder: enabledBorder,
           focusedBorder: focusedBorder,
@@ -590,11 +617,31 @@ class _LoginPageState extends State<LoginPage> {
           focusedErrorBorder: focusedBorder.copyWith(
             borderSide: BorderSide(color: Colors.red, width: fieldBorderW),
           ),
+          suffixIcon: onPasswordVisibilityToggle == null
+              ? null
+              : IconButton(
+                  onPressed: onPasswordVisibilityToggle,
+                  tooltip:
+                      obscureText ? 'Показать пароль' : 'Скрыть пароль',
+                  style: IconButton.styleFrom(
+                    padding: EdgeInsets.only(right: fieldLeftPad),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  icon: Icon(
+                    obscureText
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
+                    size: fs,
+                    color: Colors.black.withValues(alpha: 0.45),
+                  ),
+                ),
           contentPadding: EdgeInsets.only(
             left: fieldLeftPad,
-            right: 24,
-            top: 0,
-            bottom: 0,
+            right: rightPad,
+            top: vPad,
+            bottom: vPad,
           ),
           errorText: null,
           errorStyle: const TextStyle(height: 0, fontSize: 0),

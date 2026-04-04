@@ -45,10 +45,20 @@ class NewsModel {
         'created_at': createdAt.toIso8601String(),
       };
 
+  /// Локальный ассет из `pubspec` (моки: `assets/images/...`).
+  static String? bundleAssetPath(String? path) {
+    if (path == null || path.isEmpty) return null;
+    final t = path.trim();
+    if (t.startsWith('assets/')) return t;
+    return null;
+  }
+
   /// Полный URL картинки: бэкенд часто отдаёт `/uploads/...` относительно хоста (не `/api`).
+  /// Пути `assets/...` не превращаются в URL — используйте [bundleAssetPath] и [Image.asset].
   static String? resolveImageUrl(String? path) {
     if (path == null || path.isEmpty) return null;
     final t = path.trim();
+    if (t.startsWith('assets/')) return null;
     if (t.startsWith('http://') || t.startsWith('https://')) return t;
     final base = Uri.parse(ApiConstants.baseUrl);
     final origin = base.origin;

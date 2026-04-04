@@ -75,12 +75,15 @@ void main() async {
     RealtimeWsClient.instance.connectIfPossible();
   });
 
+  // Прозрачный статус-бар: под вырезом/чёлкой виден фон экрана (например photo.png на логине),
+  // а не сплошная заливка.
+  SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-    statusBarColor: Colors.green,
+    statusBarColor: Colors.transparent,
     statusBarIconBrightness: Brightness.light,
     systemNavigationBarColor: Colors.transparent,
     systemNavigationBarIconBrightness: Brightness.light,
-
+    systemStatusBarContrastEnforced: false,
   ));
 
   runApp(const App());

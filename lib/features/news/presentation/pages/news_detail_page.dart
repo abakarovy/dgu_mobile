@@ -9,6 +9,34 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../data/models/news_model.dart';
 
+Widget _newsDetailImage(String? rawUrl, double imageHeight) {
+  final placeholder = Container(
+    color: AppColors.backgroundSecondary,
+    child: const Icon(Icons.image_outlined, size: 48, color: AppColors.caption),
+  );
+  final asset = NewsModel.bundleAssetPath(rawUrl);
+  if (asset != null) {
+    return Image.asset(
+      asset,
+      fit: BoxFit.cover,
+      width: double.infinity,
+      height: imageHeight,
+      errorBuilder: (_, _, _) => placeholder,
+    );
+  }
+  final url = NewsModel.resolveImageUrl(rawUrl);
+  if (url != null && url.isNotEmpty) {
+    return Image.network(
+      url,
+      fit: BoxFit.cover,
+      width: double.infinity,
+      height: imageHeight,
+      errorBuilder: (_, _, _) => placeholder,
+    );
+  }
+  return placeholder;
+}
+
 /// Экран детали новости: без аппбара, картинка 320, стрелка назад в круге, категория, дата, заголовок, текст.
 class NewsDetailPage extends StatelessWidget {
   const NewsDetailPage({super.key, required this.item});
@@ -32,19 +60,7 @@ class NewsDetailPage extends StatelessWidget {
                 SizedBox(
                   width: double.infinity,
                   height: imageHeight,
-                  child: (NewsModel.resolveImageUrl(item.imageUrl) != null)
-                      ? Image.network(
-                          NewsModel.resolveImageUrl(item.imageUrl)!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => Container(
-                            color: AppColors.backgroundSecondary,
-                            child: const Icon(Icons.image_outlined, size: 48, color: AppColors.caption),
-                          ),
-                        )
-                      : Container(
-                          color: AppColors.backgroundSecondary,
-                          child: const Icon(Icons.image_outlined, size: 48, color: AppColors.caption),
-                        ),
+                  child: _newsDetailImage(item.imageUrl, imageHeight),
                 ),
                 Positioned(
                   left: paddingH,

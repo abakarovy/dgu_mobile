@@ -212,6 +212,16 @@ class _NewsPageState extends State<NewsPage> {
   }
 
   Widget? _buildNewsImage(String? rawUrl) {
+    final asset = NewsModel.bundleAssetPath(rawUrl);
+    if (asset != null) {
+      return Image.asset(
+        asset,
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: 160,
+        errorBuilder: (_, _, _) => const SizedBox.shrink(),
+      );
+    }
     final url = NewsModel.resolveImageUrl(rawUrl);
     if (url == null || url.isEmpty) return null;
     return Image.network(
