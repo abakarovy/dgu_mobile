@@ -1,20 +1,14 @@
 import 'dart:convert';
 
-/// Тестовые студенты (только при [useMockBackend]).
-///
-/// | Email | Пароль |
-/// |-------|--------|
-/// | ivan.petrov@student.dgu.mock | MockStud1! |
-/// | maria.sidorova@student.dgu.mock | MockStud2! |
 abstract final class MockAccounts {
   static const int ivanId = 1001;
   static const int mariaId = 1002;
 
-  static const String ivanEmail = 'ivan.petrov@student.dgu.mock';
-  static const String ivanPassword = 'MockStud1!';
+  static const String ivanEmail = 'test1@test.ru';
+  static const String ivanPassword = 'Test1234';
 
-  static const String mariaEmail = 'maria.sidorova@student.dgu.mock';
-  static const String mariaPassword = 'MockStud2!';
+  static const String mariaEmail = 'test2@test.ru';
+  static const String mariaPassword = 'Test1234';
 
   static Map<String, dynamic> userJsonById(int id) {
     if (id == ivanId) return _ivanUser;

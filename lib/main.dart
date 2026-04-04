@@ -46,8 +46,6 @@ void main() async {
   );
 
   /// `true` — данные из `lib/moc`, HTTP к бэкенду не выполняется ([MockDioInterceptor]).
-  /// Тестовые студенты: `ivan.petrov@student.dgu.mock` / `MockStud1!`,
-  /// `maria.sidorova@student.dgu.mock` / `MockStud2!`.
   /// `false` — реальный API ([ApiConstants.baseUrl]).
   useMockBackend = true;
 
