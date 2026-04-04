@@ -15,7 +15,15 @@ import '../widgets/schedule_lesson_tile.dart';
 class SchedulePage extends StatefulWidget {
   const SchedulePage({super.key});
 
-  static const List<String> _dayNames = ['ПН', 'ВТ', 'СР', 'ЧТ', 'ПТ', 'СБ', 'ВС'];
+  static const List<String> _dayNames = [
+    'ПН',
+    'ВТ',
+    'СР',
+    'ЧТ',
+    'ПТ',
+    'СБ',
+    'ВС',
+  ];
   @override
   State<SchedulePage> createState() => _SchedulePageState();
 }
@@ -40,12 +48,20 @@ class _SchedulePageState extends State<SchedulePage> {
   }
 
   DateTime _dateFor(int index) {
-    final m = DateTime(_mondayOfWeek.year, _mondayOfWeek.month, _mondayOfWeek.day);
+    final m = DateTime(
+      _mondayOfWeek.year,
+      _mondayOfWeek.month,
+      _mondayOfWeek.day,
+    );
     return m.add(Duration(days: index));
   }
 
   @override
   Widget build(BuildContext context) {
+    final layoutScale = ScheduleLessonTile.layoutScaleOf(context);
+    final hPad = 14.0 * layoutScale;
+    final stripBlockGap = 32.0 * layoutScale;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -77,35 +93,62 @@ class _SchedulePageState extends State<SchedulePage> {
               ),
             ),
             body: SingleChildScrollView(
-              padding: const EdgeInsets.only(bottom: 30),
+              padding: EdgeInsets.only(bottom: 30 * layoutScale),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const SizedBox(height: 16),
+                  SizedBox(height: 16 * layoutScale),
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
-                    child: Container(
-                      height: 60,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1A1A1A),
-                        borderRadius: BorderRadius.circular(15),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Color(0x0A000000),
-                            offset: Offset(0, 3.75),
-                            blurRadius: 18.75,
-                            spreadRadius: 0,
+                    padding: EdgeInsets.symmetric(horizontal: hPad),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        const cellW = 37.5;
+                        const gap = 14.0;
+                        const stripTotalW = 7 * cellW + 6 * gap;
+                        const innerPadH = 7.5 * 2;
+                        // Ширина под Row — минус внутренние отступы чёрного контейнера (макет фиксирован).
+                        final rowMaxW = constraints.maxWidth - innerPadH;
+
+                        final row = Row(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            for (int index = 0; index < 7; index++) ...[
+                              if (index > 0) const SizedBox(width: gap),
+                              _buildStripDayCell(index),
+                            ],
+                          ],
+                        );
+
+                        return Container(
+                          height: 60,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF1A1A1A),
+                            borderRadius: BorderRadius.circular(15),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Color(0x0A000000),
+                                offset: Offset(0, 3.75),
+                                blurRadius: 18.75,
+                                spreadRadius: 0,
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                      padding: const EdgeInsets.all(7.5),
-                      child: _buildWeekStrip(),
+                          padding: const EdgeInsets.all(7.5),
+                          child: rowMaxW + 0.5 >= stripTotalW
+                              ? Center(child: row)
+                              : SingleChildScrollView(
+                                  scrollDirection: Axis.horizontal,
+                                  child: row,
+                                ),
+                        );
+                      },
                     ),
                   ),
-                  const SizedBox(height: 32),
+                  SizedBox(height: stripBlockGap),
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
-                    child: _buildLessonsSection(),
+                    padding: EdgeInsets.symmetric(horizontal: hPad),
+                    child: _buildLessonsSection(layoutScale),
                   ),
                 ],
               ),
@@ -113,36 +156,6 @@ class _SchedulePageState extends State<SchedulePage> {
           ),
         ),
       ],
-    );
-  }
-
-  /// Полоса дней: ячейки 37.5×45, промежуток 27; при узком экране — горизонтальный скролл.
-  Widget _buildWeekStrip() {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        const cellW = 37.5;
-        const gap = 27.0;
-        const totalStripWidth = 7 * cellW + 6 * gap;
-
-        final row = Row(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            for (int index = 0; index < 7; index++) ...[
-              if (index > 0) const SizedBox(width: gap),
-              _buildStripDayCell(index),
-            ],
-          ],
-        );
-
-        if (constraints.maxWidth >= totalStripWidth) {
-          return Center(child: row);
-        }
-        return SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: row,
-        );
-      },
     );
   }
 
@@ -195,27 +208,27 @@ class _SchedulePageState extends State<SchedulePage> {
     );
   }
 
-  Widget _buildLessonsSection() {
+  Widget _buildLessonsSection(double layoutScale) {
     final selectedDate = _dateFor(_selectedDayIndex);
     final items = lessonsForSelectedCalendarDay(_week, selectedDate);
 
     if (_loading && _week.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 48),
-        child: Center(child: CircularProgressIndicator()),
+      return Padding(
+        padding: EdgeInsets.symmetric(vertical: 48 * layoutScale),
+        child: const Center(child: CircularProgressIndicator()),
       );
     }
 
     if (items.isEmpty) {
       return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 48),
+        padding: EdgeInsets.symmetric(vertical: 48 * layoutScale),
         child: Center(
           child: Text(
             'Нет пар',
             textAlign: TextAlign.center,
             style: AppTextStyle.inter(
               fontWeight: FontWeight.w600,
-              fontSize: 14,
+              fontSize: 14 * layoutScale,
               color: AppColors.caption,
             ),
           ),
@@ -227,9 +240,9 @@ class _SchedulePageState extends State<SchedulePage> {
       width: double.infinity,
       decoration: BoxDecoration(
         color: const Color(0x120069FF),
-        borderRadius: BorderRadius.circular(26),
+        borderRadius: BorderRadius.circular(26 * layoutScale),
       ),
-      padding: const EdgeInsets.fromLTRB(0, 0, 0, 12),
+      padding: EdgeInsets.fromLTRB(0, 0, 0, 12 * layoutScale),
       child: _buildLessonsColumn(context, items),
     );
   }
@@ -270,12 +283,12 @@ class _SchedulePageState extends State<SchedulePage> {
 
     // 2) Тихо обновляем из сети (без блокировки UI).
     try {
-      final fresh = await AppContainer.scheduleApi
-          .getWeekForCalendar(_mondayOfWeek);
-      await AppContainer.jsonCache.setJson(
-        cacheKey,
-        [for (final l in fresh) l.toJsonMap()],
+      final fresh = await AppContainer.scheduleApi.getWeekForCalendar(
+        _mondayOfWeek,
       );
+      await AppContainer.jsonCache.setJson(cacheKey, [
+        for (final l in fresh) l.toJsonMap(),
+      ]);
       if (mounted) {
         setState(() {
           _week = fresh;

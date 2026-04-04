@@ -211,7 +211,6 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
         data: noTapFxTheme,
         child: Scaffold(
           backgroundColor: Colors.white,
-          resizeToAvoidBottomInset: true,
           body: Column(
             children: [
               Expanded(
@@ -287,6 +286,7 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
                               hint: 'E-mail',
                               controller: _emailController,
                               focusNode: _emailFocusNode,
+                              nextFocus: _passwordFocusNode,
                               keyboardType: TextInputType.emailAddress,
                               fieldHeight: fieldHeight,
                               fieldRadius: fieldRadius,
@@ -296,10 +296,6 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
                               hintStyle: hintStyle,
                               valueStyle: valueStyle,
                               obscureText: false,
-                              textInputAction: TextInputAction.next,
-                              onFieldSubmitted: (_) {
-                                _passwordFocusNode.requestFocus();
-                              },
                             ),
                             SizedBox(height: gap),
                             _buildField(
@@ -307,6 +303,8 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
                               hint: 'Пароль',
                               controller: _passwordController,
                               focusNode: _passwordFocusNode,
+                              nextFocus: null,
+                              onLastFieldSubmitted: _submit,
                               keyboardType: TextInputType.visiblePassword,
                               fieldHeight: fieldHeight,
                               fieldRadius: fieldRadius,
@@ -316,10 +314,6 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
                               hintStyle: hintStyle,
                               valueStyle: valueStyle,
                               obscureText: true,
-                              textInputAction: TextInputAction.done,
-                              onFieldSubmitted: (_) {
-                                if (!_submitting) _submit();
-                              },
                             ),
                             SizedBox(height: gap),
                             if (_showWrongCredentialsError) ...[
@@ -451,8 +445,6 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
                       );
 
                       return SingleChildScrollView(
-                        keyboardDismissBehavior:
-                            ScrollViewKeyboardDismissBehavior.manual,
                         padding: EdgeInsets.fromLTRB(
                           sidePad,
                           18 * sf,
@@ -480,6 +472,8 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
     required String hint,
     required TextEditingController controller,
     required FocusNode focusNode,
+    FocusNode? nextFocus,
+    VoidCallback? onLastFieldSubmitted,
     required TextInputType keyboardType,
     required double fieldHeight,
     required double fieldRadius,
@@ -489,8 +483,6 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
     required TextStyle hintStyle,
     required TextStyle valueStyle,
     required bool obscureText,
-    TextInputAction textInputAction = TextInputAction.next,
-    void Function(String value)? onFieldSubmitted,
   }) {
     final hasError = _errorFields.contains(key);
     final hasValue = _hasText(controller);
@@ -511,70 +503,53 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
       ),
     );
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        SizedBox(
-          height: fieldHeight,
-          child: TextFormField(
-            controller: controller,
-            focusNode: focusNode,
-            keyboardType: keyboardType,
-            obscureText: obscureText,
-            autocorrect: key == 'email',
-            enableSuggestions: key == 'email',
-            textInputAction: textInputAction,
-            onFieldSubmitted: onFieldSubmitted,
-            inputFormatters: [
-              if (key == 'email') FilteringTextInputFormatter.deny(RegExp(r'\s')),
-            ],
-            decoration: InputDecoration(
-              hintText: hint,
-              hintStyle: hintStyle,
-              filled: false,
-              isDense: true,
-              border: enabledBorder,
-              enabledBorder: enabledBorder,
-              focusedBorder: focusedBorder,
-              errorBorder: enabledBorder.copyWith(
-                borderSide: BorderSide(color: Colors.red, width: fieldBorderW),
-              ),
-              focusedErrorBorder: focusedBorder.copyWith(
-                borderSide: BorderSide(color: Colors.red, width: fieldBorderW),
-              ),
-              contentPadding: EdgeInsets.only(
-                left: fieldLeftPad,
-                right: 24,
-                top: 0,
-                bottom: 0,
-              ),
-              errorText: null,
-              errorStyle: const TextStyle(height: 0, fontSize: 0),
-              counterText: '',
-            ),
-            style: valueStyle,
-            onChanged: (_) {
-              if (mounted) setState(() {});
-            },
-          ),
-        ),
-        if (hasError) ...[
-          const SizedBox(height: 6),
-          Padding(
-            padding: EdgeInsets.only(left: fieldLeftPad * 0.2),
-            child: Text(
-              'Заполните поле',
-              style: AppTextStyle.inter(
-                fontWeight: FontWeight.w500,
-                fontSize: 12,
-                height: 1.2,
-                color: Colors.red,
-              ),
-            ),
-          ),
+    return SizedBox(
+      height: fieldHeight,
+      child: TextFormField(
+        controller: controller,
+        focusNode: focusNode,
+        keyboardType: keyboardType,
+        obscureText: obscureText,
+        textInputAction:
+            nextFocus != null ? TextInputAction.next : TextInputAction.done,
+        onFieldSubmitted: (_) {
+          if (nextFocus != null) {
+            nextFocus.requestFocus();
+          } else {
+            onLastFieldSubmitted?.call();
+          }
+        },
+        inputFormatters: [
+          if (key == 'email') FilteringTextInputFormatter.deny(RegExp(r'\s')),
         ],
-      ],
+        decoration: InputDecoration(
+          hintText: hint,
+          hintStyle: hintStyle,
+          filled: false,
+          border: enabledBorder,
+          enabledBorder: enabledBorder,
+          focusedBorder: focusedBorder,
+          errorBorder: enabledBorder.copyWith(
+            borderSide: BorderSide(color: Colors.red, width: fieldBorderW),
+          ),
+          focusedErrorBorder: focusedBorder.copyWith(
+            borderSide: BorderSide(color: Colors.red, width: fieldBorderW),
+          ),
+          contentPadding: EdgeInsets.only(
+            left: fieldLeftPad,
+            right: 24,
+            top: 0,
+            bottom: 0,
+          ),
+          errorText: null,
+          errorStyle: const TextStyle(height: 0, fontSize: 0),
+          counterText: '',
+        ),
+        style: valueStyle,
+        onChanged: (_) {
+          if (mounted) setState(() {});
+        },
+      ),
     );
   }
 }

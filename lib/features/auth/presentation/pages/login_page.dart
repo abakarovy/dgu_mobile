@@ -201,7 +201,6 @@ class _LoginPageState extends State<LoginPage> {
         data: noTapFxTheme,
         child: Scaffold(
           backgroundColor: Colors.white,
-          resizeToAvoidBottomInset: true,
           body: Column(
             children: [
               Expanded(
@@ -298,6 +297,7 @@ class _LoginPageState extends State<LoginPage> {
                               ),
                               SizedBox(height: gap),
                             ],
+
                             SizedBox(
                               height: btnHeight,
                               child: FilledButton(
@@ -415,8 +415,6 @@ class _LoginPageState extends State<LoginPage> {
                       );
 
                       return SingleChildScrollView(
-                        keyboardDismissBehavior:
-                            ScrollViewKeyboardDismissBehavior.manual,
                         padding: EdgeInsets.fromLTRB(
                           sidePad,
                           18 * sf,
@@ -459,6 +457,7 @@ class _LoginPageState extends State<LoginPage> {
             hint: 'Фамилия',
             controller: _lastNameController,
             focusNode: _lastNameFocusNode,
+            nextFocus: _firstNameFocusNode,
             fieldHeight: fieldHeight,
             fieldRadius: fieldRadius,
             fieldBorderW: fieldBorderW,
@@ -466,8 +465,6 @@ class _LoginPageState extends State<LoginPage> {
             blue: blue,
             hintStyle: hintStyle,
             valueStyle: valueStyle,
-            textInputAction: TextInputAction.next,
-            onFieldSubmitted: (_) => _firstNameFocusNode.requestFocus(),
           ),
           SizedBox(height: gap),
           _buildField(
@@ -475,6 +472,7 @@ class _LoginPageState extends State<LoginPage> {
             hint: 'Имя',
             controller: _firstNameController,
             focusNode: _firstNameFocusNode,
+            nextFocus: _patronymicFocusNode,
             fieldHeight: fieldHeight,
             fieldRadius: fieldRadius,
             fieldBorderW: fieldBorderW,
@@ -482,8 +480,6 @@ class _LoginPageState extends State<LoginPage> {
             blue: blue,
             hintStyle: hintStyle,
             valueStyle: valueStyle,
-            textInputAction: TextInputAction.next,
-            onFieldSubmitted: (_) => _patronymicFocusNode.requestFocus(),
           ),
           SizedBox(height: gap),
           _buildField(
@@ -491,6 +487,7 @@ class _LoginPageState extends State<LoginPage> {
             hint: 'Отчество',
             controller: _patronymicController,
             focusNode: _patronymicFocusNode,
+            nextFocus: _studentIdFocusNode,
             fieldHeight: fieldHeight,
             fieldRadius: fieldRadius,
             fieldBorderW: fieldBorderW,
@@ -498,8 +495,6 @@ class _LoginPageState extends State<LoginPage> {
             blue: blue,
             hintStyle: hintStyle,
             valueStyle: valueStyle,
-            textInputAction: TextInputAction.next,
-            onFieldSubmitted: (_) => _studentIdFocusNode.requestFocus(),
           ),
           SizedBox(height: gap),
           _buildField(
@@ -507,6 +502,8 @@ class _LoginPageState extends State<LoginPage> {
             hint: 'Номер з/к',
             controller: _studentIdController,
             focusNode: _studentIdFocusNode,
+            nextFocus: null,
+            onLastFieldSubmitted: _submit,
             keyboardType: TextInputType.number,
             maxLength: 5,
             fieldHeight: fieldHeight,
@@ -516,10 +513,6 @@ class _LoginPageState extends State<LoginPage> {
             blue: blue,
             hintStyle: hintStyle,
             valueStyle: valueStyle,
-            textInputAction: TextInputAction.done,
-            onFieldSubmitted: (_) {
-              if (!_submitting) _submit();
-            },
           ),
         ],
       ),
@@ -531,6 +524,8 @@ class _LoginPageState extends State<LoginPage> {
     required String hint,
     required TextEditingController controller,
     required FocusNode focusNode,
+    FocusNode? nextFocus,
+    VoidCallback? onLastFieldSubmitted,
     TextInputType keyboardType = TextInputType.name,
     bool obscureText = false,
     int? maxLength,
@@ -541,8 +536,6 @@ class _LoginPageState extends State<LoginPage> {
     required Color blue,
     required TextStyle hintStyle,
     required TextStyle valueStyle,
-    TextInputAction textInputAction = TextInputAction.next,
-    void Function(String value)? onFieldSubmitted,
   }) {
     final hasError = _errorFields.contains(key);
     final hasValue = _hasText(controller);
@@ -563,74 +556,56 @@ class _LoginPageState extends State<LoginPage> {
       ),
     );
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        SizedBox(
-          height: fieldHeight,
-          child: TextFormField(
-            controller: controller,
-            focusNode: focusNode,
-            keyboardType: keyboardType,
-            obscureText: obscureText,
-            textCapitalization: keyboardType == TextInputType.name
-                ? TextCapitalization.words
-                : TextCapitalization.none,
-            textInputAction: textInputAction,
-            onFieldSubmitted: onFieldSubmitted,
-            inputFormatters: [
-              if (keyboardType == TextInputType.number)
-                FilteringTextInputFormatter.digitsOnly,
-              if (maxLength != null) LengthLimitingTextInputFormatter(maxLength),
-            ],
-            decoration: InputDecoration(
-              hintText: hint,
-              hintStyle: hintStyle,
-              filled: false,
-              isDense: true,
-              border: enabledBorder,
-              enabledBorder: enabledBorder,
-              focusedBorder: focusedBorder,
-              errorBorder: enabledBorder.copyWith(
-                borderSide: BorderSide(color: Colors.red, width: fieldBorderW),
-              ),
-              focusedErrorBorder: focusedBorder.copyWith(
-                borderSide: BorderSide(color: Colors.red, width: fieldBorderW),
-              ),
-              contentPadding: EdgeInsets.only(
-                left: fieldLeftPad,
-                right: 24,
-                top: 0,
-                bottom: 0,
-              ),
-              errorText: null,
-              errorStyle: const TextStyle(height: 0, fontSize: 0),
-              counterText: '',
-            ),
-            style: valueStyle,
-            onChanged: (_) {
-              // Чтобы обновлять цвет обводки (пусто/есть текст) и стиль значения.
-              if (mounted) setState(() {});
-            },
-          ),
-        ),
-        if (hasError) ...[
-          const SizedBox(height: 6),
-          Padding(
-            padding: EdgeInsets.only(left: fieldLeftPad * 0.2),
-            child: Text(
-              'Заполните поле',
-              style: AppTextStyle.inter(
-                fontWeight: FontWeight.w500,
-                fontSize: 12,
-                height: 1.2,
-                color: Colors.red,
-              ),
-            ),
-          ),
+    return SizedBox(
+      height: fieldHeight,
+      child: TextFormField(
+        controller: controller,
+        focusNode: focusNode,
+        keyboardType: keyboardType,
+        obscureText: obscureText,
+        textInputAction:
+            nextFocus != null ? TextInputAction.next : TextInputAction.done,
+        onFieldSubmitted: (_) {
+          if (nextFocus != null) {
+            nextFocus.requestFocus();
+          } else {
+            onLastFieldSubmitted?.call();
+          }
+        },
+        inputFormatters: [
+          if (keyboardType == TextInputType.number)
+            FilteringTextInputFormatter.digitsOnly,
+          if (maxLength != null) LengthLimitingTextInputFormatter(maxLength),
         ],
-      ],
+        decoration: InputDecoration(
+          hintText: hint,
+          hintStyle: hintStyle,
+          filled: false,
+          border: enabledBorder,
+          enabledBorder: enabledBorder,
+          focusedBorder: focusedBorder,
+          errorBorder: enabledBorder.copyWith(
+            borderSide: BorderSide(color: Colors.red, width: fieldBorderW),
+          ),
+          focusedErrorBorder: focusedBorder.copyWith(
+            borderSide: BorderSide(color: Colors.red, width: fieldBorderW),
+          ),
+          contentPadding: EdgeInsets.only(
+            left: fieldLeftPad,
+            right: 24,
+            top: 0,
+            bottom: 0,
+          ),
+          errorText: null,
+          errorStyle: const TextStyle(height: 0, fontSize: 0),
+          counterText: '',
+        ),
+        style: valueStyle,
+        onChanged: (_) {
+          // Чтобы обновлять цвет обводки (пусто/есть текст) и стиль значения.
+          if (mounted) setState(() {});
+        },
+      ),
     );
   }
 

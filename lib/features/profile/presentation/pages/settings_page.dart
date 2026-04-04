@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' show min;
 
 import 'package:dgu_mobile/core/constants/app_colors.dart';
 import 'package:dgu_mobile/core/constants/app_constants.dart';
@@ -133,6 +134,19 @@ class _SettingsPageState extends State<SettingsPage> {
           pushCollegeEvents: true,
         );
 
+    final size = MediaQuery.sizeOf(context);
+    const figmaW = 402.0;
+    const figmaH = 874.0;
+    final layoutScale = min(size.width / figmaW, size.height / figmaH);
+    final hPad = 12 * layoutScale;
+    final gapSection = 16 * layoutScale;
+    final gapBlock = 30 * layoutScale;
+    final gapToggle = 10 * layoutScale;
+    // Секции «Уведомления» / «Дополнительные»: в 1.5× к прежнему визуалу.
+    final sectionLabelFs = 8.56 * layoutScale * 1.5;
+    final sectionIconW = size.width * (7 / figmaW) * 1.5;
+    final sectionIconH = size.width * (7.78 / figmaW) * 1.5;
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppHeader(
@@ -159,39 +173,33 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.only(bottom: 32),
+        padding: EdgeInsets.only(bottom: 32 * layoutScale),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _SettingsProfileHero(
+              layoutScale: layoutScale,
               fullName: fullName.isEmpty ? '—' : fullName,
               avatarPath: _avatarPath,
             ),
-            const SizedBox(height: 30),
+            SizedBox(height: gapBlock),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: EdgeInsets.symmetric(horizontal: hPad),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Builder(
-                    builder: (context) {
-                      final w = MediaQuery.sizeOf(context).width;
-                      final iw = w * (7 / 402);
-                      final ih = w * (7.78 / 402);
-                      return SvgPicture.asset(
-                        'assets/icons/notification_icon.svg',
-                        width: iw,
-                        height: ih,
-                        colorFilter: const ColorFilter.mode(_muted, BlendMode.srcIn),
-                      );
-                    },
+                  SvgPicture.asset(
+                    'assets/icons/notification_icon.svg',
+                    width: sectionIconW,
+                    height: sectionIconH,
+                    colorFilter: const ColorFilter.mode(_muted, BlendMode.srcIn),
                   ),
-                  const SizedBox(width: 6),
+                  SizedBox(width: 6 * layoutScale),
                   Text(
                     'Уведомления',
                     style: AppTextStyle.inter(
                       fontWeight: FontWeight.w600,
-                      fontSize: 8.56,
+                      fontSize: sectionLabelFs,
                       height: 1.0,
                       color: _muted,
                     ),
@@ -199,32 +207,35 @@ class _SettingsPageState extends State<SettingsPage> {
                 ],
               ),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: gapSection),
             if (_loadingPrefs)
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16),
-                child: LinearProgressIndicator(minHeight: 2),
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: hPad),
+                child: LinearProgressIndicator(minHeight: 2 * layoutScale),
               ),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: EdgeInsets.symmetric(horizontal: hPad),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   _SettingsToggleCard(
+                    layoutScale: layoutScale,
                     title: 'Новые оценки',
                     subtitle: 'Получать уведомления о новых оценках',
                     value: p.pushNewGrades,
                     onChanged: (v) => _patch(p.copyWith(pushNewGrades: v)),
                   ),
-                  const SizedBox(height: 10),
+                  SizedBox(height: gapToggle),
                   _SettingsToggleCard(
+                    layoutScale: layoutScale,
                     title: 'Изменения в расписании',
                     subtitle: 'Оповещать о переносе пар',
                     value: p.pushScheduleChange,
                     onChanged: (v) => _patch(p.copyWith(pushScheduleChange: v)),
                   ),
-                  const SizedBox(height: 10),
+                  SizedBox(height: gapToggle),
                   _SettingsToggleCard(
+                    layoutScale: layoutScale,
                     title: 'Дедлайны заданий',
                     subtitle: 'Напоминания о сроках сдачи',
                     value: p.pushAssignmentDeadlines,
@@ -233,60 +244,69 @@ class _SettingsPageState extends State<SettingsPage> {
                 ],
               ),
             ),
-            const SizedBox(height: 30),
+            SizedBox(height: gapBlock),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: EdgeInsets.symmetric(horizontal: hPad),
               child: Text(
                 'Дополнительные',
                 style: AppTextStyle.inter(
                   fontWeight: FontWeight.w600,
-                  fontSize: 8.56,
+                  fontSize: sectionLabelFs,
                   height: 1.0,
                   color: _muted,
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: gapSection),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: EdgeInsets.symmetric(horizontal: hPad),
               child: _SettingsToggleCard(
+                layoutScale: layoutScale,
                 title: 'Новости колледжа',
                 subtitle: 'Важные события и объявления',
                 value: p.pushCollegeNews,
                 onChanged: (v) => _patch(p.copyWith(pushCollegeNews: v)),
               ),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: gapSection),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: EdgeInsets.symmetric(horizontal: hPad),
               child: Row(
                 children: [
                   Expanded(
                     child: _FooterActionButton(
-                      height: 39,
-                      border: Border.all(color: const Color(0xFFC84547), width: 0.68),
+                      layoutScale: layoutScale,
+                      height: 39 * layoutScale,
+                      border: Border.all(
+                        color: const Color(0xFFC84547),
+                        width: 0.68 * layoutScale,
+                      ),
                       background: const Color(0x26C84547),
                       innerBoxColor: const Color(0xFFFEF2F2),
-                      innerRadius: 9,
-                      innerSize: 29,
+                      innerRadius: 9 * layoutScale,
+                      innerSize: 29 * layoutScale,
                       iconAsset: 'assets/icons/exit.svg',
-                      iconSize: 15,
+                      iconSize: 15 * layoutScale,
                       label: 'Выйти из аккаунта',
                       labelColor: const Color(0xFFC84547),
                       onTap: _loggingOut ? null : _onLogout,
                     ),
                   ),
-                  const SizedBox(width: 20),
+                  SizedBox(width: 20 * layoutScale),
                   Expanded(
                     child: _FooterActionButton(
-                      height: 39,
-                      border: Border.all(color: const Color(0xFF9A9A9A), width: 0.68),
+                      layoutScale: layoutScale,
+                      height: 39 * layoutScale,
+                      border: Border.all(
+                        color: const Color(0xFF9A9A9A),
+                        width: 0.68 * layoutScale,
+                      ),
                       background: const Color(0x26747474),
                       innerBoxColor: const Color(0xFFF8FAFC),
-                      innerRadius: 9,
-                      innerSize: 29,
+                      innerRadius: 9 * layoutScale,
+                      innerSize: 29 * layoutScale,
                       iconAsset: 'assets/icons/help.svg',
-                      iconSize: 15,
+                      iconSize: 15 * layoutScale,
                       label: 'Поддержка',
                       labelColor: const Color(0xFF515151),
                       onTap: () => context.push('/app/profile/support'),
@@ -297,13 +317,13 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
             if (_savingPrefs)
               Padding(
-                padding: const EdgeInsets.only(top: 12),
+                padding: EdgeInsets.only(top: 12 * layoutScale),
                 child: Text(
                   'Сохраняем…',
                   textAlign: TextAlign.center,
                   style: AppTextStyle.inter(
                     fontWeight: FontWeight.w500,
-                    fontSize: 12,
+                    fontSize: 12 * layoutScale,
                     color: _muted,
                   ),
                 ),
@@ -318,17 +338,25 @@ class _SettingsPageState extends State<SettingsPage> {
 /// Верхний блок как на экране профиля: градиент, аватар, ФИО, «Колледж ДГУ».
 class _SettingsProfileHero extends StatelessWidget {
   const _SettingsProfileHero({
+    required this.layoutScale,
     required this.fullName,
     required this.avatarPath,
   });
 
+  final double layoutScale;
   final String fullName;
   final String? avatarPath;
 
   @override
   Widget build(BuildContext context) {
+    final heroH = 248 * layoutScale;
+    final avatar = 96 * layoutScale;
+    final radius = 30 * layoutScale;
+    final borderW = 3.34 * layoutScale;
+    final nameSize = 20.03 * layoutScale;
+    final subtitleSize = 16.5 * layoutScale;
     return SizedBox(
-      height: 309,
+      height: heroH,
       width: double.infinity,
       child: Stack(
         clipBehavior: Clip.none,
@@ -345,14 +373,16 @@ class _SettingsProfileHero extends StatelessWidget {
               ),
             ),
           ),
-          Positioned(
-            right: 0,
-            bottom: 0,
-            child: Image.asset(
-              'assets/images/profile_image.png',
-              fit: BoxFit.fitHeight,
+          Positioned.fill(
+            child: Align(
               alignment: Alignment.centerRight,
-              errorBuilder: (_, _, _) => const SizedBox.shrink(),
+              child: Image.asset(
+                'assets/images/profile_image.png',
+                height: heroH,
+                fit: BoxFit.fitHeight,
+                alignment: Alignment.centerRight,
+                errorBuilder: (_, _, _) => const SizedBox.shrink(),
+              ),
             ),
           ),
           Center(
@@ -360,41 +390,41 @@ class _SettingsProfileHero extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  width: 110,
-                  height: 110,
+                  width: avatar,
+                  height: avatar,
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(34),
-                    border: Border.all(color: Colors.white, width: 3.34),
-                    boxShadow: const [
+                    borderRadius: BorderRadius.circular(radius),
+                    border: Border.all(color: Colors.white, width: borderW),
+                    boxShadow: [
                       BoxShadow(
-                        color: Color(0x1A000000),
-                        offset: Offset(0, 8.35),
-                        blurRadius: 20.86,
+                        color: const Color(0x1A000000),
+                        offset: Offset(0, 8.35 * layoutScale),
+                        blurRadius: 20.86 * layoutScale,
                       ),
                     ],
                   ),
                   child: ClipRRect(
-                    borderRadius: BorderRadius.circular(34),
-                    child: _avatar(),
+                    borderRadius: BorderRadius.circular(radius),
+                    child: _avatar(layoutScale),
                   ),
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: 8 * layoutScale),
                 Text(
                   fullName,
                   textAlign: TextAlign.center,
                   style: AppTextStyle.inter(
                     fontWeight: FontWeight.w800,
-                    fontSize: 20.03,
+                    fontSize: nameSize,
                     height: 1.0,
                     color: Colors.white,
                   ),
                 ),
-                const SizedBox(height: 3),
+                SizedBox(height: 3 * layoutScale),
                 Text(
                   'Колледж ДГУ',
                   style: AppTextStyle.inter(
                     fontWeight: FontWeight.w600,
-                    fontSize: 16.5,
+                    fontSize: subtitleSize,
                     height: 1.0,
                     color: const Color(0xFF94A3B8),
                   ),
@@ -407,31 +437,33 @@ class _SettingsProfileHero extends StatelessWidget {
     );
   }
 
-  Widget _avatar() {
+  Widget _avatar(double layoutScale) {
     final p = avatarPath;
     if (p != null && p.isNotEmpty) {
       final f = File(p);
-      return Image.file(f, fit: BoxFit.cover, errorBuilder: (_, _, _) => _fallback());
+      return Image.file(f, fit: BoxFit.cover, errorBuilder: (_, _, _) => _fallback(layoutScale));
     }
-    return _fallback();
+    return _fallback(layoutScale);
   }
 
-  Widget _fallback() {
+  Widget _fallback(double layoutScale) {
     return Container(
       color: Colors.white.withValues(alpha: 0.15),
-      child: const Icon(Icons.person, color: Colors.white, size: 48),
+      child: Icon(Icons.person, color: Colors.white, size: 48 * layoutScale),
     );
   }
 }
 
 class _SettingsToggleCard extends StatelessWidget {
   const _SettingsToggleCard({
+    required this.layoutScale,
     required this.title,
     required this.subtitle,
     required this.value,
     required this.onChanged,
   });
 
+  final double layoutScale;
   final String title;
   final String subtitle;
   final bool value;
@@ -439,53 +471,57 @@ class _SettingsToggleCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final r = 26.4 * layoutScale;
+    final padL = 14.4 * layoutScale;
+    final padR = 12 * layoutScale;
+    final padV = 12 * layoutScale;
     return Container(
-      height: 64,
-      padding: const EdgeInsets.only(left: 12, right: 10),
+      constraints: BoxConstraints(minHeight: 64 * layoutScale),
+      padding: EdgeInsets.only(left: padL, right: padR, top: padV, bottom: padV),
       decoration: BoxDecoration(
         color: const Color(0xFFFFFFFF),
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: const [
+        borderRadius: BorderRadius.circular(r),
+        boxShadow: [
           BoxShadow(
-            offset: Offset(2, 4),
-            blurRadius: 12.9,
+            color: const Color(0x1A000000),
+            offset: Offset(4 * layoutScale, 5 * layoutScale),
+            blurRadius: 4 * layoutScale,
             spreadRadius: 0,
-            color: Color(0x26000000),
           ),
         ],
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Expanded(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
                   title,
                   style: AppTextStyle.inter(
                     fontWeight: FontWeight.w800,
-                    fontSize: 12.16,
+                    fontSize: 12.16 * layoutScale,
                     height: 1.0,
                     color: const Color(0xFF000000),
                   ),
                 ),
-                const SizedBox(height: 4),
+                SizedBox(height: 4 * layoutScale),
                 Text(
                   subtitle,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
                   style: AppTextStyle.inter(
                     fontWeight: FontWeight.w600,
-                    fontSize: 8.56,
-                    height: 1.2,
+                    fontSize: 8.56 * layoutScale,
+                    height: 1.25,
                     color: const Color(0xFF94A3B8),
                   ),
                 ),
               ],
             ),
           ),
-          _PillSwitch(value: value, onChanged: onChanged),
+          _PillSwitch(layoutScale: layoutScale, value: value, onChanged: onChanged),
         ],
       ),
     );
@@ -494,40 +530,41 @@ class _SettingsToggleCard extends StatelessWidget {
 
 class _PillSwitch extends StatelessWidget {
   const _PillSwitch({
+    required this.layoutScale,
     required this.value,
     required this.onChanged,
   });
 
+  final double layoutScale;
   final bool value;
   final ValueChanged<bool> onChanged;
 
-  static const double _w = 40;
-  static const double _h = 20.4;
-  static const double _thumb = 15;
-  static const double _pad = 2.5;
-
   @override
   Widget build(BuildContext context) {
+    final w = 40 * layoutScale;
+    final h = 20.4 * layoutScale;
+    final thumb = 15 * layoutScale;
+    final pad = 2.5 * layoutScale;
     final onColor = const Color(0xFF2664EB);
     final offColor = const Color(0xFFBDBDBD);
-    final thumbLeft = value ? _w - _pad - _thumb : _pad;
+    final thumbLeft = value ? w - pad - thumb : pad;
 
     return GestureDetector(
       onTap: () => onChanged(!value),
       behavior: HitTestBehavior.opaque,
       child: SizedBox(
-        width: _w,
-        height: _h,
+        width: w,
+        height: h,
         child: Stack(
           clipBehavior: Clip.none,
           children: [
             AnimatedContainer(
               duration: const Duration(milliseconds: 200),
               curve: Curves.easeInOut,
-              width: _w,
-              height: _h,
+              width: w,
+              height: h,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(45),
+                borderRadius: BorderRadius.circular(45 * layoutScale),
                 color: value ? onColor : offColor,
               ),
             ),
@@ -535,10 +572,10 @@ class _PillSwitch extends StatelessWidget {
               duration: const Duration(milliseconds: 200),
               curve: Curves.easeInOut,
               left: thumbLeft,
-              top: (_h - _thumb) / 2,
+              top: (h - thumb) / 2,
               child: Container(
-                width: _thumb,
-                height: _thumb,
+                width: thumb,
+                height: thumb,
                 decoration: const BoxDecoration(
                   shape: BoxShape.circle,
                   color: Color(0xFFFFFFFF),
@@ -554,6 +591,7 @@ class _PillSwitch extends StatelessWidget {
 
 class _FooterActionButton extends StatelessWidget {
   const _FooterActionButton({
+    required this.layoutScale,
     required this.height,
     required this.border,
     required this.background,
@@ -567,6 +605,7 @@ class _FooterActionButton extends StatelessWidget {
     this.onTap,
   });
 
+  final double layoutScale;
   final double height;
   final BoxBorder border;
   final Color background;
@@ -586,9 +625,9 @@ class _FooterActionButton extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       child: Container(
         height: height,
-        padding: const EdgeInsets.only(left: 6),
+        padding: EdgeInsets.only(left: 6 * layoutScale),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(10 * layoutScale),
           border: border,
           color: background,
         ),
@@ -609,7 +648,7 @@ class _FooterActionButton extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(width: 14),
+            SizedBox(width: 14 * layoutScale),
             Expanded(
               child: Text(
                 label,
@@ -617,7 +656,7 @@ class _FooterActionButton extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: AppTextStyle.inter(
                   fontWeight: FontWeight.w600,
-                  fontSize: 11,
+                  fontSize: 11 * layoutScale,
                   height: 1.1,
                   color: labelColor,
                 ),

@@ -1,4 +1,4 @@
-import 'package:flutter/widgets.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:go_router/go_router.dart';
 
 import '../bootstrap/bootstrap_page.dart';
@@ -26,6 +26,19 @@ import '../../features/tasks/presentation/pages/tasks_page.dart';
 import '../../features/shell/presentation/pages/app_shell_page.dart';
 import '../../features/account/presentation/pages/email_change_page.dart';
 import '../../features/account/presentation/pages/password_reset_page.dart';
+
+/// Полноэкранные подмаршруты с кнопкой «назад»: [CupertinoPage] даёт свайп с края (iOS).
+Page<void> _cupertinoSubpage({
+  required LocalKey key,
+  required String? name,
+  required Widget child,
+}) {
+  return CupertinoPage<void>(
+    key: key,
+    name: name,
+    child: child,
+  );
+}
 
 /// Конфигурация маршрутизации приложения.
 /// StatefulShellRoute.indexedStack устраняет дублирование GlobalKey при переключении вкладок.
@@ -69,22 +82,34 @@ final GoRouter appRouter = GoRouter(
                 GoRoute(
                   path: 'notifications',
                   name: 'notifications',
-                  builder: (context, state) => const NotificationsPage(),
+                  pageBuilder: (context, state) => _cupertinoSubpage(
+                    key: state.pageKey,
+                    name: state.name,
+                    child: const NotificationsPage(),
+                  ),
                 ),
                 GoRoute(
                   path: 'support',
                   name: 'support',
-                  builder: (context, state) => const SupportPage(),
+                  pageBuilder: (context, state) => _cupertinoSubpage(
+                    key: state.pageKey,
+                    name: state.name,
+                    child: const SupportPage(),
+                  ),
                 ),
                 GoRoute(
                   path: 'student-id',
                   name: 'studentId',
-                  builder: (context, state) => const StudentIdPage(),
+                  pageBuilder: (context, state) => _cupertinoSubpage(
+                    key: state.pageKey,
+                    name: state.name,
+                    child: const StudentIdPage(),
+                  ),
                 ),
                 GoRoute(
                   path: 'absences',
                   name: 'absences',
-                  pageBuilder: (context, state) => NoTransitionPage<void>(
+                  pageBuilder: (context, state) => _cupertinoSubpage(
                     key: state.pageKey,
                     name: state.name,
                     child: const AbsencesPage(),
@@ -93,8 +118,7 @@ final GoRouter appRouter = GoRouter(
                 GoRoute(
                   path: 'settings',
                   name: 'settings',
-                  // Без слайда: иначе тени у карточек визуально «едут» вместе с переходом.
-                  pageBuilder: (context, state) => NoTransitionPage<void>(
+                  pageBuilder: (context, state) => _cupertinoSubpage(
                     key: state.pageKey,
                     name: state.name,
                     child: const SettingsPage(),
@@ -150,10 +174,15 @@ final GoRouter appRouter = GoRouter(
                 GoRoute(
                   path: 'events/detail',
                   name: 'eventDetailInNews',
-                  builder: (context, state) {
+                  pageBuilder: (context, state) {
                     final item = state.extra as EventItem?;
-                    if (item == null) return const EventsPage();
-                    return EventDetailPage(item: item);
+                    return _cupertinoSubpage(
+                      key: state.pageKey,
+                      name: state.name,
+                      child: item == null
+                          ? const EventsPage()
+                          : EventDetailPage(item: item),
+                    );
                   },
                 ),
               ],
@@ -165,32 +194,52 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: '/app/schedule',
       name: 'schedule',
-      builder: (context, state) =>
-          SchedulePage(key: ValueKey(AuthSession.epoch)),
+      pageBuilder: (context, state) => _cupertinoSubpage(
+        key: state.pageKey,
+        name: state.name,
+        child: SchedulePage(key: ValueKey(AuthSession.epoch)),
+      ),
     ),
     // Аккаунт: отдельные полноэкранные страницы БЕЗ нижнего меню.
     GoRoute(
       path: '/account/email-change',
       name: 'accountEmailChange',
-      builder: (context, state) => const EmailChangePage(),
+      pageBuilder: (context, state) => _cupertinoSubpage(
+        key: state.pageKey,
+        name: state.name,
+        child: const EmailChangePage(),
+      ),
     ),
     GoRoute(
       path: '/account/password-reset',
       name: 'accountPasswordReset',
-      builder: (context, state) => const PasswordResetPage(),
+      pageBuilder: (context, state) => _cupertinoSubpage(
+        key: state.pageKey,
+        name: state.name,
+        child: const PasswordResetPage(),
+      ),
     ),
     GoRoute(
       path: '/app/tasks',
       name: 'tasks',
-      builder: (context, state) => const TasksPage(),
+      pageBuilder: (context, state) => _cupertinoSubpage(
+        key: state.pageKey,
+        name: state.name,
+        child: const TasksPage(),
+      ),
     ),
     GoRoute(
       path: '/app/news/detail',
       name: 'newsDetail',
-      builder: (context, state) {
+      pageBuilder: (context, state) {
         final item = state.extra as NewsModel?;
-        if (item == null) return const NewsPage();
-        return NewsDetailPage(item: item);
+        return _cupertinoSubpage(
+          key: state.pageKey,
+          name: state.name,
+          child: item == null
+              ? const NewsPage()
+              : NewsDetailPage(item: item),
+        );
       },
     ),
   ],

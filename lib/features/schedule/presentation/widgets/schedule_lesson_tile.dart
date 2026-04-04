@@ -137,27 +137,28 @@ class ScheduleLessonTile extends StatelessWidget {
     final topPad = isFirstInList ? vPad : 0.0;
     final bottomPad = showBottomDivider ? 0.0 : vPad;
 
+    const textMul = 1.2;
     final timeStyle = AppTextStyle.inter(
       fontWeight: FontWeight.w700,
-      fontSize: 11.48 * sc,
+      fontSize: 11.48 * sc * textMul,
       height: 1.0,
       color: const Color(0x66000000),
     );
     final pairStyle = AppTextStyle.inter(
       fontWeight: FontWeight.w400,
-      fontSize: 8.2 * sc,
+      fontSize: 8.2 * sc * textMul,
       height: 1.0,
       color: const Color(0x66000000),
     );
     final subjectStyle = AppTextStyle.inter(
       fontWeight: FontWeight.w700,
-      fontSize: 11.48 * sc,
+      fontSize: 11.48 * sc * textMul,
       height: 1.0,
       color: const Color(0xFF000000),
     );
     final metaStyle = AppTextStyle.inter(
       fontWeight: FontWeight.w400,
-      fontSize: 9.84 * sc,
+      fontSize: 9.84 * sc * textMul,
       height: 1.2,
       color: const Color(0xFF64748B),
     );

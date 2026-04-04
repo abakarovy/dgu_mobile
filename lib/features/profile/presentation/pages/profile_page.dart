@@ -325,10 +325,15 @@ class _ProfilePageState extends State<ProfilePage> {
     final absenceLabel = _absenceHoursText ?? '—';
     final performanceLabel = _performanceAvgText ?? '—';
 
-    // Макет 402×874 — как на главной (`HomePage`).
+    // Макет 402×874 — все размеры относительно `layoutScale` (как на главной).
     final size = MediaQuery.sizeOf(context);
-    final layoutScale = min(size.width / 402, size.height / 874);
+    const figmaW = 402.0;
+    const figmaH = 874.0;
+    final layoutScale = min(size.width / figmaW, size.height / figmaH);
     final minProfileCardHeight = 100 * layoutScale;
+    final hPad = 12 * layoutScale;
+    final gapM = 16 * layoutScale;
+    final gapL = 24 * layoutScale;
 
     return ColoredBox(
       color: Colors.white,
@@ -337,12 +342,13 @@ class _ProfilePageState extends State<ProfilePage> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _topHero(
+              layoutScale: layoutScale,
               fullName: fullName.isEmpty ? '—' : fullName,
               onAvatarTap: _pickAndSaveAvatar,
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: gapM),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
+              padding: EdgeInsets.symmetric(horizontal: hPad),
               child: IntrinsicHeight(
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -358,14 +364,17 @@ class _ProfilePageState extends State<ProfilePage> {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 16),
+                    SizedBox(width: gapM),
                     Expanded(
                       child: ConstrainedBox(
                         constraints: BoxConstraints(minHeight: minProfileCardHeight),
                         child: GestureDetector(
                           behavior: HitTestBehavior.opaque,
                           onTap: () => context.go('/app/grades?tab=0'),
-                          child: _performanceCard(valueText: performanceLabel),
+                          child: _performanceCard(
+                            layoutScale: layoutScale,
+                            valueText: performanceLabel,
+                          ),
                         ),
                       ),
                     ),
@@ -373,9 +382,9 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: gapM),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
+              padding: EdgeInsets.symmetric(horizontal: hPad),
               child: IntrinsicHeight(
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -393,7 +402,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 16),
+                    SizedBox(width: gapM),
                     Expanded(
                       child: ConstrainedBox(
                         constraints: BoxConstraints(minHeight: minProfileCardHeight),
@@ -411,7 +420,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
               ),
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: gapL),
           ],
         ),
       ),
@@ -419,11 +428,19 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _topHero({
+    required double layoutScale,
     required String fullName,
     required VoidCallback onAvatarTap,
   }) {
+    // Ниже, чем в макете 309 — компактнее шапка профиля.
+    final heroH = 248 * layoutScale;
+    final avatar = 96 * layoutScale;
+    final radius = 30 * layoutScale;
+    final borderW = 3.34 * layoutScale;
+    final nameSize = 20.03 * layoutScale;
+    final subtitleSize = 16.5 * layoutScale;
     return SizedBox(
-      height: 309,
+      height: heroH,
       width: double.infinity,
       child: Stack(
         clipBehavior: Clip.none,
@@ -440,14 +457,16 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
             ),
           ),
-          Positioned(
-            right: 0,
-            bottom: 0,
-            child: Image.asset(
-              'assets/images/profile_image.png',
-              fit: BoxFit.fitHeight,
+          Positioned.fill(
+            child: Align(
               alignment: Alignment.centerRight,
-              errorBuilder: (_, _, _) => const SizedBox.shrink(),
+              child: Image.asset(
+                'assets/images/profile_image.png',
+                height: heroH,
+                fit: BoxFit.fitHeight,
+                alignment: Alignment.centerRight,
+                errorBuilder: (_, _, _) => const SizedBox.shrink(),
+              ),
             ),
           ),
           Center(
@@ -457,42 +476,42 @@ class _ProfilePageState extends State<ProfilePage> {
                 GestureDetector(
                   onTap: onAvatarTap,
                   child: Container(
-                    width: 110,
-                    height: 110,
+                    width: avatar,
+                    height: avatar,
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(34),
-                      border: Border.all(color: Colors.white, width: 3.34),
-                      boxShadow: const [
+                      borderRadius: BorderRadius.circular(radius),
+                      border: Border.all(color: Colors.white, width: borderW),
+                      boxShadow: [
                         BoxShadow(
-                          color: Color(0x1A000000),
-                          offset: Offset(0, 8.35),
-                          blurRadius: 20.86,
+                          color: const Color(0x1A000000),
+                          offset: Offset(0, 8.35 * layoutScale),
+                          blurRadius: 20.86 * layoutScale,
                         ),
                       ],
                     ),
                     child: ClipRRect(
-                      borderRadius: BorderRadius.circular(34),
-                      child: _avatarImage(),
+                      borderRadius: BorderRadius.circular(radius),
+                      child: _avatarImage(layoutScale),
                     ),
                   ),
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: 8 * layoutScale),
                 Text(
                   fullName,
                   textAlign: TextAlign.center,
                   style: AppTextStyle.inter(
                     fontWeight: FontWeight.w800,
-                    fontSize: 20.03,
+                    fontSize: nameSize,
                     height: 1.0,
                     color: Colors.white,
                   ),
                 ),
-                const SizedBox(height: 3),
+                SizedBox(height: 3 * layoutScale),
                 Text(
                   'Колледж ДГУ',
                   style: AppTextStyle.inter(
                     fontWeight: FontWeight.w600,
-                    fontSize: 16.5,
+                    fontSize: subtitleSize,
                     height: 1.0,
                     color: const Color(0xFF94A3B8),
                   ),
@@ -505,19 +524,19 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  Widget _avatarImage() {
+  Widget _avatarImage(double layoutScale) {
     final p = _savedAvatarPath;
     if (p != null && p.isNotEmpty) {
       final f = File(p);
-      return Image.file(f, fit: BoxFit.cover, errorBuilder: (_, _, _) => _fallbackAvatar());
+      return Image.file(f, fit: BoxFit.cover, errorBuilder: (_, _, _) => _fallbackAvatar(layoutScale));
     }
-    return _fallbackAvatar();
+    return _fallbackAvatar(layoutScale);
   }
 
-  Widget _fallbackAvatar() {
+  Widget _fallbackAvatar(double layoutScale) {
     return Container(
       color: Colors.white.withValues(alpha: 0.15),
-      child: const Icon(Icons.person, color: Colors.white, size: 48),
+      child: Icon(Icons.person, color: Colors.white, size: 48 * layoutScale),
     );
   }
 
@@ -527,26 +546,32 @@ class _ProfilePageState extends State<ProfilePage> {
     required String directionText,
     required String formText,
   }) {
+    final r = 22 * layoutScale;
+    final padL = 16 * layoutScale;
+    final padV = 12 * layoutScale;
+    final chipR = 10.2 * layoutScale;
+    final chipPadH = 7.2 * layoutScale;
+    final chipPadV = 3.6 * layoutScale;
     return Container(
       decoration: BoxDecoration(
         color: Colors.black,
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: const [
+        borderRadius: BorderRadius.circular(r),
+        boxShadow: [
           BoxShadow(
-            color: Color(0x1A000000),
-            offset: Offset(4, 5),
-            blurRadius: 4,
+            color: const Color(0x1A000000),
+            offset: Offset(4 * layoutScale, 5 * layoutScale),
+            blurRadius: 4 * layoutScale,
             spreadRadius: 0,
           ),
         ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(r),
         child: Stack(
           fit: StackFit.expand,
           children: [
             Positioned(
-              right: -8,
+              right: -8 * layoutScale,
               top: 0,
               bottom: 0,
               child: SvgPicture.asset(
@@ -561,7 +586,7 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.only(left: 16, top: 12, right: 16, bottom: 12),
+              padding: EdgeInsets.only(left: padL, top: padV, right: padL, bottom: padV),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -569,18 +594,19 @@ class _ProfilePageState extends State<ProfilePage> {
                     courseText,
                     style: AppTextStyle.inter(
                       fontWeight: FontWeight.w800,
-                      fontSize: 13.95,
+                      fontSize: 13.95 * layoutScale,
                       height: 1.0,
                       color: Colors.white,
                     ),
                   ),
-                  const SizedBox(height: 2),
+                  SizedBox(height: 2 * layoutScale),
                   Text(
                     directionText,
                     style: AppTextStyle.inter(
                       fontWeight: FontWeight.w600,
-                      fontSize: 10.0224,
-                      height: 1.0,
+                      // В 1.2 раза меньше, чем было (10.0224).
+                      fontSize: (10.0224 / 1.2) * layoutScale,
+                      height: 1.25,
                       color: const Color(0xFF94A3B8),
                     ),
                   ),
@@ -589,10 +615,10 @@ class _ProfilePageState extends State<ProfilePage> {
                     alignment: Alignment.bottomRight,
                     child: Container(
                       constraints: const BoxConstraints(maxWidth: double.infinity),
-                      padding: const EdgeInsets.symmetric(horizontal: 7.2, vertical: 3.6),
+                      padding: EdgeInsets.symmetric(horizontal: chipPadH, vertical: chipPadV),
                       decoration: BoxDecoration(
                         color: Colors.white,
-                        borderRadius: BorderRadius.circular(10.2),
+                        borderRadius: BorderRadius.circular(chipR),
                       ),
                       child: Text(
                         formText,
@@ -601,7 +627,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         textAlign: TextAlign.center,
                         style: AppTextStyle.inter(
                           fontWeight: FontWeight.w600,
-                          fontSize: 7.8,
+                          fontSize: 7.8 * layoutScale,
                           height: 1.15,
                           color: const Color(0xFF1E293B),
                         ),
@@ -617,39 +643,50 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  Widget _performanceCard({required String valueText}) {
+  Widget _performanceCard({
+    required double layoutScale,
+    required String valueText,
+  }) {
+    final r = 26.4 * layoutScale;
+    final pad = 14.4 * layoutScale;
+    final iconBox = 42 * layoutScale;
+    final iconInner = 14.4 * layoutScale;
+    final gap = 14.4 * layoutScale;
+    // Чуть меньше, чем в макете — компактнее заголовок карточки.
+    final titleFs = 12.0 * layoutScale;
+    final valueFs = 22.224 * layoutScale;
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(26.4),
-        boxShadow: const [
+        borderRadius: BorderRadius.circular(r),
+        boxShadow: [
           BoxShadow(
-            color: Color(0x1A000000),
-            offset: Offset(4, 5),
-            blurRadius: 4,
+            color: const Color(0x1A000000),
+            offset: Offset(4 * layoutScale, 5 * layoutScale),
+            blurRadius: 4 * layoutScale,
             spreadRadius: 0,
           ),
         ],
       ),
-      padding: const EdgeInsets.all(14.4),
+      padding: EdgeInsets.all(pad),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                width: 42,
-                height: 42,
+                width: iconBox,
+                height: iconBox,
                 decoration: BoxDecoration(
                   color: const Color(0x1A2E63D5),
-                  borderRadius: BorderRadius.circular(10.62),
+                  borderRadius: BorderRadius.circular(10.62 * layoutScale),
                 ),
                 child: Center(
                   child: SvgPicture.asset(
                     'assets/icons/uspex.svg',
-                    width: 14.4,
-                    height: 14.4,
+                    width: iconInner,
+                    height: iconInner,
                     colorFilter: const ColorFilter.mode(
                       Color(0xFF2563EB),
                       BlendMode.srcIn,
@@ -657,14 +694,14 @@ class _ProfilePageState extends State<ProfilePage> {
                   ),
                 ),
               ),
-              const SizedBox(width: 14.4),
+              SizedBox(width: gap),
               Expanded(
                 child: Text(
                   'Успеваемость',
                   style: AppTextStyle.inter(
                     fontWeight: FontWeight.w700,
-                    fontSize: 14.064,
-                    height: 1.0,
+                    fontSize: titleFs,
+                    height: 1.2,
                     color: const Color(0xFF2563EB),
                   ),
                 ),
@@ -678,7 +715,7 @@ class _ProfilePageState extends State<ProfilePage> {
               valueText,
               style: AppTextStyle.inter(
                 fontWeight: FontWeight.w700,
-                fontSize: 22.224,
+                fontSize: valueFs,
                 height: 1.0,
                 color: const Color(0xFF000000),
               ),
@@ -689,24 +726,25 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  static const _shadowProfile = [
-    BoxShadow(
-      color: Color(0x1A000000),
-      offset: Offset(4, 5),
-      blurRadius: 4,
-      spreadRadius: 0,
-    ),
-  ];
+  List<BoxShadow> _shadowProfile(double layoutScale) => [
+        BoxShadow(
+          color: const Color(0x1A000000),
+          offset: Offset(4 * layoutScale, 5 * layoutScale),
+          blurRadius: 4 * layoutScale,
+          spreadRadius: 0,
+        ),
+      ];
 
   Widget _studentTicketCard({
     required double layoutScale,
     required String ticketNumber,
   }) {
+    final r = 26.4 * layoutScale;
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(26.4),
-        boxShadow: _shadowProfile,
+        borderRadius: BorderRadius.circular(r),
+        boxShadow: _shadowProfile(layoutScale),
       ),
       padding: EdgeInsets.all(14.4 * layoutScale),
       child: Column(
@@ -744,19 +782,20 @@ class _ProfilePageState extends State<ProfilePage> {
     required String hoursLabel,
   }) {
     final pad = 14.4 * layoutScale;
+    final r = 26.4 * layoutScale;
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFF0267FB),
-        borderRadius: BorderRadius.circular(26.4),
-        boxShadow: _shadowProfile,
+        borderRadius: BorderRadius.circular(r),
+        boxShadow: _shadowProfile(layoutScale),
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(26.4),
+        borderRadius: BorderRadius.circular(r),
         child: Stack(
           fit: StackFit.expand,
           children: [
             Positioned(
-              right: -8,
+              right: -8 * layoutScale,
               top: 0,
               bottom: 0,
               child: SvgPicture.asset(
