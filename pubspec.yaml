@@ -39,8 +39,7 @@ flutter:
     - assets/icons/
     - assets/images/
     - assets/fonts/
-    - assets/env/.env
-    - assets/env/.env.example
+    - assets/env/
   fonts:
     - family: Inter
       fonts:
