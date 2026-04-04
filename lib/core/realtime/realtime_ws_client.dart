@@ -6,6 +6,7 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 import '../constants/api_constants.dart';
 import '../di/app_container.dart';
 import '../logging/app_log_file.dart';
+import '../../moc/mock_mode.dart';
 
 class RealtimeWsClient {
   RealtimeWsClient._();
@@ -20,6 +21,7 @@ class RealtimeWsClient {
   bool get isConnected => _ch != null;
 
   Future<void> connectIfPossible() async {
+    if (useMockBackend) return;
     if (_connecting || _ch != null) return;
     final token = await AppContainer.tokenStorage.getToken();
     if (token == null || token.isEmpty) return;
