@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:math' show min;
 
@@ -132,7 +133,7 @@ class _ProfilePageState extends State<ProfilePage> {
     // Фото студента из 1С (бинарное). Используем только если пользователь не поставил своё.
     try {
       if ((_savedAvatarPath ?? '').trim().isEmpty) {
-        await _ensure1cPhotoCached();
+        unawaited(_ensure1cPhotoCached(refreshIfCached: true));
       }
     } catch (_) {}
 
@@ -262,9 +263,32 @@ class _ProfilePageState extends State<ProfilePage> {
       _savedAvatarPath = userAvatar;
       _saved1cPhotoPath = oneCPhoto;
     });
+
+    // Показываем кэш сразу, а обновление с бэка делаем в фоне.
+    if ((userAvatar ?? '').trim().isEmpty) {
+      unawaited(_ensure1cPhotoCached(refreshIfCached: true));
+    }
   }
 
-  Future<void> _ensure1cPhotoCached() async {
+  Future<void> _ensure1cPhotoCached({required bool refreshIfCached}) async {
+    // If we already have a cached file on disk, don't refetch on every app restart.
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final existingPath = prefs.getString(AppConstants.profile1cPhotoPathKey);
+      if (existingPath != null && existingPath.trim().isNotEmpty) {
+        final f = File(existingPath);
+        if (await f.exists()) {
+          final len = await f.length();
+          if (len > 0) {
+            if (mounted) setState(() => _saved1cPhotoPath = existingPath);
+            if (!refreshIfCached) return;
+          }
+        }
+      }
+    } catch (_) {
+      // If cache check fails, fall back to fetch.
+    }
+
     final bytes = await AppContainer.profile1cApi
         .getStudentPhotoBytes()
         .timeout(ApiConstants.prefetchRequestTimeout);
@@ -507,7 +531,7 @@ class _ProfilePageState extends State<ProfilePage> {
   }) {
     final r = 26.4 * layoutScale;
     // 53px по макету
-    final h = 53 * layoutScale;
+    final h = 70 * layoutScale;
     final titleFs = 11.53 * layoutScale * 1.5 / 1.2;
     final subFs = 8.56 * layoutScale * 1.5 / 1.2;
     return SizedBox(
@@ -543,7 +567,7 @@ class _ProfilePageState extends State<ProfilePage> {
               style: AppTextStyle.inter(
                 fontWeight: FontWeight.w600,
                 fontSize: subFs,
-                height: 1.15,
+                height: 1.1,
                 color: const Color(0x70FFFFFF),
               ),
             ),
@@ -635,20 +659,13 @@ class _ProfilePageState extends State<ProfilePage> {
                 left: 0,
                 top: 0,
                 bottom: 0,
-                child: Container(
-                  width: iconW,
-                  color: const Color(0x52000000), // #00000052
-                ),
-              ),
-              Positioned(
-                left: 0,
-                top: 0,
-                bottom: 0,
                 child: Image.asset(
                   'assets/images/profile_image.png',
                   width: iconW,
                   fit: BoxFit.contain,
                   alignment: Alignment.centerLeft,
+                  color: const Color(0x52000000), // #00000052
+                  colorBlendMode: BlendMode.srcIn,
                   errorBuilder: (_, _, _) => const SizedBox.shrink(),
                 ),
               ),
@@ -846,6 +863,7 @@ class _ProfilePageState extends State<ProfilePage> {
       return Image.file(
         f,
         fit: BoxFit.cover,
+        gaplessPlayback: true,
         errorBuilder: (_, _, _) => _fallbackAvatar(layoutScale),
       );
     }
@@ -970,7 +988,7 @@ class _ProfilePageState extends State<ProfilePage> {
     final pad = 14.4 * layoutScale;
     final iconBox = 42 * layoutScale;
     final iconInner = 14.4 * layoutScale;
-    final gap = 14.4 * layoutScale;
+    final gap = (14.4 * layoutScale) / 2;
     // Чуть меньше, чем в макете — компактнее заголовок карточки.
     final titleFs = 12.0 * layoutScale;
     final valueFs = 22.224 * layoutScale;
@@ -1015,13 +1033,19 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
               SizedBox(width: gap),
               Expanded(
-                child: Text(
-                  'Успеваемость',
-                  style: AppTextStyle.inter(
-                    fontWeight: FontWeight.w700,
-                    fontSize: titleFs,
-                    height: 1.2,
-                    color: const Color(0xFF2563EB),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Успеваемость',
+                    maxLines: 1,
+                    softWrap: false,
+                    style: AppTextStyle.inter(
+                      fontWeight: FontWeight.w700,
+                      fontSize: titleFs,
+                      height: 1.2,
+                      color: const Color(0xFF2563EB),
+                    ),
                   ),
                 ),
               ),
