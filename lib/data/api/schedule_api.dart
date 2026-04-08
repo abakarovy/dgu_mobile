@@ -98,7 +98,22 @@ class ScheduleApi {
         chunks.add(<ScheduleLesson>[]);
       }
     }
-    return _mergeDedupeLessons(chunks);
+    final merged = _mergeDedupeLessons(chunks);
+    if (merged.isNotEmpty) return merged;
+
+    // Fallback: если все 7 дней пустые — пробуем полную выгрузку недели по типу недели 1С,
+    // затем привязываем пары к календарной неделе (ПН–ВС) по `weekdayIndex`.
+    try {
+      final a = await _fetchScheduleWeekFilter('числитель', todayOnly: false);
+      final b = await _fetchScheduleWeekFilter('знаменатель', todayOnly: false);
+      final remapped = <ScheduleLesson>[];
+      remapped.addAll(_anchorWeekByWeekdayIndex(a, monday));
+      remapped.addAll(_anchorWeekByWeekdayIndex(b, monday));
+      final out = _mergeDedupeLessons([remapped]);
+      return out;
+    } catch (_) {
+      return merged;
+    }
   }
 
   Future<List<ScheduleLesson>> _fetchScheduleForDate(String forDateYmd) async {
@@ -130,10 +145,59 @@ class ScheduleApi {
           list = _remapLessonsToAnchorDay(list, anchor);
         }
       }
+      // Fallback: на некоторых стендах `today_only=true` стабильно возвращает пустой список.
+      // Пробуем запрос с `today_only=false` (если backend его учитывает) и всё равно привязываем к дате.
+      if (list.isEmpty) {
+        try {
+          final res2 = await _api.dio.get<dynamic>(
+            '/1c/schedule',
+            queryParameters: {
+              'for_date': forDateYmd,
+              'today_only': false,
+            },
+            options: Options(
+              validateStatus: (s) => s != null && s < 500,
+              receiveTimeout: ApiConstants.scheduleReceiveTimeout,
+            ),
+          );
+          if (res2.statusCode == 200) {
+            var list2 = _parseSchedule(res2.data);
+            final anchor = DateTime.tryParse(forDateYmd);
+            if (anchor != null) {
+              list2 = _remapLessonsToAnchorDay(list2, anchor);
+            }
+            if (list2.isNotEmpty) return list2;
+          }
+        } catch (_) {
+          // ignore fallback errors
+        }
+      }
       return list;
     } on DioException catch (e) {
       throw ApiException.fromDio(e);
     }
+  }
+
+  /// Если у уроков нет `lessonDate`, но есть `weekdayIndex`, привязываем к календарной неделе (ПН–ВС).
+  static List<ScheduleLesson> _anchorWeekByWeekdayIndex(List<ScheduleLesson> list, DateTime monday) {
+    final base = DateTime(monday.year, monday.month, monday.day);
+    return [
+      for (final l in list)
+        if (l.lessonDate != null)
+          l
+        else if (l.weekdayIndex != null && l.weekdayIndex! >= 0 && l.weekdayIndex! <= 6)
+          ScheduleLesson(
+            weekdayIndex: l.weekdayIndex,
+            lessonDate: base.add(Duration(days: l.weekdayIndex!)),
+            pairNumber: l.pairNumber,
+            subject: l.subject,
+            time: l.time,
+            teacher: l.teacher,
+            auditorium: l.auditorium,
+          )
+        else
+          l,
+    ];
   }
 
   Future<List<ScheduleLesson>> _fetchScheduleWeekFilter(
@@ -317,20 +381,8 @@ class ScheduleApi {
       pairNumber = int.tryParse(str(pn));
     }
 
-    int? wi = weekdayIndex;
-    final wiRaw = json['weekday_index'];
-    if (wiRaw is int) {
-      wi = wiRaw.clamp(0, 6);
-    } else if (wiRaw != null) {
-      wi = int.tryParse(str(wiRaw))?.clamp(0, 6);
-    }
-    if (wi == null && lessonDate != null) {
-      // ПН=0 … ВС=6, как в [ScheduleLesson.weekdayIndex]
-      wi = lessonDate.weekday - 1;
-    }
-
     return ScheduleLesson(
-      weekdayIndex: wi,
+      weekdayIndex: weekdayIndex,
       lessonDate: lessonDate,
       pairNumber: pairNumber,
       subject: subject.isEmpty ? 'Пара' : subject,

@@ -47,7 +47,7 @@ void main() async {
 
   /// `true` — данные из `lib/moc`, HTTP к бэкенду не выполняется ([MockDioInterceptor]).
   /// `false` — реальный API ([ApiConstants.baseUrl]).
-  useMockBackend = true;
+  useMockBackend = false;
 
   // Firebase is optional for backend API, but enable when configured.
   try {
@@ -75,15 +75,12 @@ void main() async {
     RealtimeWsClient.instance.connectIfPossible();
   });
 
-  // Прозрачный статус-бар: под вырезом/чёлкой виден фон экрана (например photo.png на логине),
-  // а не сплошная заливка.
-  SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-    statusBarColor: Colors.transparent,
+    statusBarColor: Colors.green,
     statusBarIconBrightness: Brightness.light,
     systemNavigationBarColor: Colors.transparent,
     systemNavigationBarIconBrightness: Brightness.light,
-    systemStatusBarContrastEnforced: false,
+
   ));
 
   runApp(const App());
