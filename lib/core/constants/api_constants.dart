@@ -58,6 +58,9 @@ abstract final class ApiConstants {
   /// Кураторские часы в 1С (не путать с `GET /api/mobile/events`).
   static const String oneCCuratorEventsPath = '/1c/events';
 
+  /// Фото студента (бинарное): `GET /api/1c/student-photo?student_id=`
+  static const String oneCStudentPhotoPath = '/1c/student-photo';
+
   /// `GET /api/health`
   static const String healthPath = '/health';
 }

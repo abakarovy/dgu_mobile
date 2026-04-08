@@ -62,6 +62,40 @@ class Profile1cApi {
     }
   }
 
+  /// Фото студента (бинарный файл) через `GET /api/1c/student-photo`.
+  ///
+  /// - Возвращает `null`, если фото не найдено (`404`) или зачётки нет (`400`).
+  /// - Для роли `parent` требуется `studentId` (см. backend doc).
+  Future<List<int>?> getStudentPhotoBytes({int? studentId}) async {
+    try {
+      final qp = <String, dynamic>{};
+      if (studentId != null) qp['student_id'] = studentId;
+      final res = await _api.dio.get<List<int>>(
+        ApiConstants.oneCStudentPhotoPath,
+        queryParameters: qp.isEmpty ? null : qp,
+        options: Options(
+          validateStatus: (s) => s != null && s < 500,
+          responseType: ResponseType.bytes,
+          receiveTimeout: ApiConstants.scheduleReceiveTimeout,
+        ),
+      );
+      final code = res.statusCode ?? 0;
+      if (code == 404 || code == 400) return null;
+      if (code != 200) {
+        throw DioException(
+          requestOptions: res.requestOptions,
+          response: res,
+          type: DioExceptionType.badResponse,
+        );
+      }
+      final bytes = res.data;
+      if (bytes == null || bytes.isEmpty) return null;
+      return bytes;
+    } on DioException catch (e) {
+      throw ApiException.fromDio(e);
+    }
+  }
+
   /// Учебный план: `GET /api/1c/curriculum?student_id=` (см. руководство мобильного клиента).
   Future<Object?> getCurriculum() async {
     final sid = await _studentIdFromToken();

@@ -28,6 +28,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   static const Duration _silentScheduleMinInterval = Duration(minutes: 8);
+  static const double _uiScaleBoost = 1.2;
 
   late _BannerData _banner;
   List<ScheduleLesson> _todayLessons = const <ScheduleLesson>[];
@@ -399,7 +400,7 @@ class _HomePageState extends State<HomePage> {
     final sf = min(
       MediaQuery.sizeOf(context).width / 402,
       MediaQuery.sizeOf(context).height / 874,
-    );
+    ) * _uiScaleBoost;
     return ColoredBox(
       color: Colors.white,
       child: RefreshIndicator(
@@ -433,7 +434,7 @@ class _HomePageState extends State<HomePage> {
   Widget _buildMainGradientCard(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
     // Масштабируемся от фига 402x874.
-    final sf = min(size.width / 402, size.height / 874);
+    final sf = min(size.width / 402, size.height / 874) * _uiScaleBoost;
 
     final radius = 20.0 * sf;
     final pad = 20.0 * sf;

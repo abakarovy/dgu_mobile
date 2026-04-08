@@ -27,6 +27,7 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   String? _savedAvatarPath;
+  String? _saved1cPhotoPath;
   UserModel? _me;
   StudentTicketModel? _ticket;
   OneCMyProfile? _oneC;
@@ -125,6 +126,13 @@ class _ProfilePageState extends State<ProfilePage> {
         setState(() {
           _oneC = p;
         });
+      }
+    } catch (_) {}
+
+    // Фото студента из 1С (бинарное). Используем только если пользователь не поставил своё.
+    try {
+      if ((_savedAvatarPath ?? '').trim().isEmpty) {
+        await _ensure1cPhotoCached();
       }
     } catch (_) {}
 
@@ -247,10 +255,26 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<void> _loadAvatarPath() async {
     final prefs = await SharedPreferences.getInstance();
-    final path = prefs.getString(AppConstants.profileAvatarPathKey);
-    if (path != null && mounted) {
-      setState(() => _savedAvatarPath = path);
-    }
+    final userAvatar = prefs.getString(AppConstants.profileAvatarPathKey);
+    final oneCPhoto = prefs.getString(AppConstants.profile1cPhotoPathKey);
+    if (!mounted) return;
+    setState(() {
+      _savedAvatarPath = userAvatar;
+      _saved1cPhotoPath = oneCPhoto;
+    });
+  }
+
+  Future<void> _ensure1cPhotoCached() async {
+    final bytes = await AppContainer.profile1cApi
+        .getStudentPhotoBytes()
+        .timeout(ApiConstants.prefetchRequestTimeout);
+    if (bytes == null || bytes.isEmpty) return;
+    final dir = await getApplicationDocumentsDirectory();
+    final file = File('${dir.path}/${AppConstants.profile1cPhotoFileName}');
+    await file.writeAsBytes(bytes, flush: true);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(AppConstants.profile1cPhotoPathKey, file.path);
+    if (mounted) setState(() => _saved1cPhotoPath = file.path);
   }
 
   Future<void> _pickAndSaveAvatar() async {
@@ -271,7 +295,9 @@ class _ProfilePageState extends State<ProfilePage> {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(AppConstants.profileAvatarPathKey, file.path);
       if (mounted) {
-        setState(() => _savedAvatarPath = file.path);
+        setState(() {
+          _savedAvatarPath = file.path;
+        });
       }
     } catch (_) {
       if (mounted) {
@@ -329,11 +355,12 @@ class _ProfilePageState extends State<ProfilePage> {
     final size = MediaQuery.sizeOf(context);
     const figmaW = 402.0;
     const figmaH = 874.0;
-    final layoutScale = min(size.width / figmaW, size.height / figmaH);
+    final layoutScale = min(size.width / figmaW, size.height / figmaH) * 1.2;
     final minProfileCardHeight = 100 * layoutScale;
     final hPad = 12 * layoutScale;
     final gapM = 16 * layoutScale;
-    final gapL = 24 * layoutScale;
+    // Единый вертикальный отступ между кнопками/карточками внизу профиля.
+    final actionGap = 6 * layoutScale;
 
     return ColoredBox(
       color: Colors.white,
@@ -420,8 +447,292 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
               ),
             ),
-            SizedBox(height: gapL),
+            // Отступ как между верхними карточками.
+            SizedBox(height: gapM),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: hPad),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Скоро: приглашение родителя')),
+                      );
+                    },
+                    child: _primaryActionCard(
+                      layoutScale: layoutScale,
+                      title: 'Пригласить родителя',
+                      subtitle: 'Родитель получит доступ к вашим данным об успеваемости',
+                    ),
+                  ),
+                  SizedBox(height: actionGap),
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Скоро: заказ справки')),
+                      );
+                    },
+                    child: _secondaryActionCard(
+                      layoutScale: layoutScale,
+                      title: 'Заказать справку с места учебы',
+                    ),
+                  ),
+                  SizedBox(height: actionGap),
+                  _mailCard(
+                    layoutScale: layoutScale,
+                    email: () {
+                      final e = (me?.email ?? '').trim();
+                      return e.isEmpty ? '—' : e;
+                    }(),
+                    onChangePassword: () => context.push('/account/password-reset'),
+                    onChangeEmail: () => context.push('/account/email-change'),
+                  ),
+                  SizedBox(height: actionGap),
+                ],
+              ),
+            ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _primaryActionCard({
+    required double layoutScale,
+    required String title,
+    required String subtitle,
+  }) {
+    final r = 26.4 * layoutScale;
+    // 53px по макету
+    final h = 53 * layoutScale;
+    final titleFs = 11.53 * layoutScale * 1.5 / 1.2;
+    final subFs = 8.56 * layoutScale * 1.5 / 1.2;
+    return SizedBox(
+      height: h,
+      child: Container(
+        decoration: BoxDecoration(
+          color: const Color(0xFF0267FB),
+          borderRadius: BorderRadius.circular(r),
+          boxShadow: _shadowProfile(layoutScale),
+        ),
+        padding: EdgeInsets.symmetric(
+          horizontal: 14.4 * layoutScale,
+          vertical: 6 * layoutScale,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              title,
+              style: AppTextStyle.inter(
+                fontWeight: FontWeight.w800,
+                fontSize: titleFs,
+                height: 1.0,
+                color: Colors.white,
+              ),
+            ),
+            SizedBox(height: 2 * layoutScale),
+            Text(
+              subtitle,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: AppTextStyle.inter(
+                fontWeight: FontWeight.w600,
+                fontSize: subFs,
+                height: 1.15,
+                color: const Color(0x70FFFFFF),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _secondaryActionCard({
+    required double layoutScale,
+    required String title,
+  }) {
+    final r = 26.4 * layoutScale;
+    // Такой же размер, как у "Пригласить родителя".
+    final titleFs = 11.53 * layoutScale * 1.5 / 1.2;
+    final h = 70 * layoutScale;
+    return SizedBox(
+      height: h,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(r),
+          border: Border.all(color: const Color(0x24000000), width: 1),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x40000000),
+              offset: Offset(2, 0),
+              blurRadius: 13.8,
+              spreadRadius: 0,
+            ),
+          ],
+        ),
+        padding: EdgeInsets.symmetric(horizontal: 14.4 * layoutScale),
+        alignment: Alignment.centerLeft,
+        child: Text(
+          title,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: AppTextStyle.inter(
+            fontWeight: FontWeight.w800,
+            fontSize: titleFs,
+            height: 1.05,
+            color: const Color(0xFF000000),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _mailCard({
+    required double layoutScale,
+    required String email,
+    required VoidCallback onChangePassword,
+    required VoidCallback onChangeEmail,
+  }) {
+    final r = 26.4 * layoutScale;
+    final titleFs = 11.53 * layoutScale;
+    final valueFs = 8.56 * layoutScale;
+    final iconW = 120 * layoutScale;
+    final h = 100 * layoutScale;
+
+    final miniR = 13.5 * layoutScale;
+    final miniPad = 8 * layoutScale;
+    final miniFs = 8.66 * layoutScale;
+
+    return SizedBox(
+      height: h,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(r),
+          border: Border.all(color: const Color(0x24000000), width: 1),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x40000000),
+              offset: Offset(2, 0),
+              blurRadius: 13.8,
+              spreadRadius: 0,
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(r),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Positioned(
+                left: 0,
+                top: 0,
+                bottom: 0,
+                child: Container(
+                  width: iconW,
+                  color: const Color(0x52000000), // #00000052
+                ),
+              ),
+              Positioned(
+                left: 0,
+                top: 0,
+                bottom: 0,
+                child: Image.asset(
+                  'assets/images/profile_image.png',
+                  width: iconW,
+                  fit: BoxFit.contain,
+                  alignment: Alignment.centerLeft,
+                  errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                ),
+              ),
+              Padding(
+                padding: EdgeInsets.all(14.4 * layoutScale),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Почта',
+                      style: AppTextStyle.inter(
+                        fontWeight: FontWeight.w800,
+                        fontSize: titleFs,
+                        height: 1.0,
+                        color: const Color(0xFF000000),
+                      ),
+                    ),
+                    SizedBox(height: 6 * layoutScale),
+                    Text(
+                      email,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTextStyle.inter(
+                        fontWeight: FontWeight.w600,
+                        fontSize: valueFs,
+                        height: 1.0,
+                        color: const Color(0x4D000000),
+                      ),
+                    ),
+                    const Spacer(),
+                    Align(
+                      alignment: Alignment.bottomRight,
+                      child: Wrap(
+                        spacing: (8 * layoutScale) / 4,
+                        runSpacing: (8 * layoutScale) / 4,
+                        children: [
+                          GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: onChangePassword,
+                            child: Container(
+                              padding: EdgeInsets.all(miniPad),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF000000),
+                                borderRadius: BorderRadius.circular(miniR),
+                              ),
+                              child: Text(
+                                'Поменять пароль',
+                                style: AppTextStyle.inter(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: miniFs,
+                                  height: 1.0,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ),
+                          GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: onChangeEmail,
+                            child: Container(
+                              padding: EdgeInsets.all(miniPad),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF000000),
+                                borderRadius: BorderRadius.circular(miniR),
+                              ),
+                              child: Text(
+                                'Поменять e-mail',
+                                style: AppTextStyle.inter(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: miniFs,
+                                  height: 1.0,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -525,10 +836,18 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _avatarImage(double layoutScale) {
-    final p = _savedAvatarPath;
-    if (p != null && p.isNotEmpty) {
+    final p = (_savedAvatarPath != null && _savedAvatarPath!.trim().isNotEmpty)
+        ? _savedAvatarPath
+        : ((_saved1cPhotoPath != null && _saved1cPhotoPath!.trim().isNotEmpty)
+            ? _saved1cPhotoPath
+            : null);
+    if (p != null) {
       final f = File(p);
-      return Image.file(f, fit: BoxFit.cover, errorBuilder: (_, _, _) => _fallbackAvatar(layoutScale));
+      return Image.file(
+        f,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => _fallbackAvatar(layoutScale),
+      );
     }
     return _fallbackAvatar(layoutScale);
   }

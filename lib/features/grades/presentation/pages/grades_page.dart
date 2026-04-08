@@ -50,17 +50,16 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
     if (s.contains('пропуск')) return false;
     if (s.contains('контрольная')) return false;
     if (s.contains('к/р')) return false;
-    return s.contains('аттестация') ||
-        s.contains('экзам') ||
+    // В ответах 1С встречаются "Юрайт", "Практика", "Опрос терминов", "1 АТ"/"2 АТ" —
+    // это текущие активности/аттестации, а не "сессия" в смысле зачётов/экзаменов.
+    // Поэтому здесь оставляем только явные итоги: зачёт/экзамен/дифф.зачёт/курсовая/итоговая аттестация.
+    return s.contains('экзам') ||
         s.contains('зач') ||
         s.contains('дифф') ||
         s.contains('курсов') ||
-        s.contains('юрайт') ||
-        s.contains('тестирование') ||
-        s.contains('опрос') ||
-        s.contains('практика') ||
-        raw.contains('1 АТ') ||
-        raw.contains('2 АТ');
+        s.contains('итог') ||
+        s.contains('гэк') ||
+        s.contains('гос');
   }
 
   /// В журнале с бэка часто приходят строки без оценки (grade_value: null) — для «Текущие» их не показываем,

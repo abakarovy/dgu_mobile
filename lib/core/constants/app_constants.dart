@@ -6,4 +6,9 @@ abstract final class AppConstants {
   /// Ключ SharedPreferences для пути к аватарке профиля.
   static const String profileAvatarPathKey = 'profile_avatar_path';
   static const String profileAvatarFileName = 'avatar.jpg';
+
+  /// Фото студента из 1С: кэшированный файл, полученный через `GET /api/1c/student-photo`.
+  /// Используется, если пользователь не выбрал собственную аватарку.
+  static const String profile1cPhotoPathKey = 'profile_1c_photo_path';
+  static const String profile1cPhotoFileName = 'avatar_1c.jpg';
 }

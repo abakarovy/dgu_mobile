@@ -64,8 +64,11 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> _loadAvatarPath() async {
     final prefs = await SharedPreferences.getInstance();
-    final path = prefs.getString(AppConstants.profileAvatarPathKey);
-    if (mounted) setState(() => _avatarPath = path);
+    final userAvatar = prefs.getString(AppConstants.profileAvatarPathKey);
+    final oneCPhoto = prefs.getString(AppConstants.profile1cPhotoPathKey);
+    final chosen =
+        (userAvatar != null && userAvatar.trim().isNotEmpty) ? userAvatar : oneCPhoto;
+    if (mounted) setState(() => _avatarPath = chosen);
   }
 
   Future<void> _loadPrefs() async {
@@ -137,7 +140,7 @@ class _SettingsPageState extends State<SettingsPage> {
     final size = MediaQuery.sizeOf(context);
     const figmaW = 402.0;
     const figmaH = 874.0;
-    final layoutScale = min(size.width / figmaW, size.height / figmaH);
+    final layoutScale = min(size.width / figmaW, size.height / figmaH) * 1.2;
     final hPad = 12 * layoutScale;
     final gapSection = 16 * layoutScale;
     final gapBlock = 30 * layoutScale;

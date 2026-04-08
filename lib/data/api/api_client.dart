@@ -59,6 +59,18 @@ class _ApiLogInterceptor extends Interceptor {
     AppLogFile.writeln(line);
   }
 
+  static String _summarizeData(dynamic data) {
+    if (data == null) return 'null';
+    // Binary payloads (e.g. student photo) may be `List<int>` and would spam logs.
+    if (data is List<int>) return 'bytes(len=${data.length})';
+    if (data is Uint8List) return 'bytes(len=${data.length})';
+    if (data is List && data.isNotEmpty && data.first is int) return 'bytes(len=${data.length})';
+    final s = data.toString();
+    // Avoid huge payloads in logs.
+    if (s.length > 2000) return '${s.substring(0, 2000)}…(truncated)';
+    return s;
+  }
+
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
     final uri = options.uri;
@@ -83,7 +95,7 @@ class _ApiLogInterceptor extends Interceptor {
     _log('[API] ← ${response.statusCode} ${response.requestOptions.method} ${response.requestOptions.uri}'
         '${dt == null ? '' : ' (${dt}ms)'}');
     if (response.data != null) {
-      _log('[API]   data: ${response.data}');
+      _log('[API]   data: ${_summarizeData(response.data)}');
     }
     super.onResponse(response, handler);
   }
@@ -97,7 +109,7 @@ class _ApiLogInterceptor extends Interceptor {
     _log('[API]   type: ${err.type} message: ${err.message}');
     if (err.response != null) {
       _log('[API]   status: ${err.response?.statusCode}');
-      _log('[API]   data: ${err.response?.data}');
+      _log('[API]   data: ${_summarizeData(err.response?.data)}');
     }
     super.onError(err, handler);
   }
