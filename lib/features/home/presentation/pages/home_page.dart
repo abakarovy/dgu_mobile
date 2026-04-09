@@ -845,111 +845,117 @@ class _HomePageState extends State<HomePage> {
         borderRadius: BorderRadius.circular(r),
         border: border,
       ),
-      padding: EdgeInsets.symmetric(horizontal: padH, vertical: padV),
-      child: Row(
+      child: Stack(
+        fit: StackFit.expand,
         children: [
-          SizedBox(
-            width: 62 * sf,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: padH, vertical: padV),
+            child: Row(
               children: [
-                Text(
-                  start,
-                  textAlign: TextAlign.center,
-                  style: AppTextStyle.inter(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 12.7 * sf,
-                    height: 18.14 / 12.7,
-                    color: timeColor,
+                SizedBox(
+                  width: 62 * sf,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        start,
+                        textAlign: TextAlign.center,
+                        style: AppTextStyle.inter(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 12.7 * sf,
+                          height: 18.14 / 12.7,
+                          color: timeColor,
+                        ),
+                      ),
+                      Text(
+                        pairLabel,
+                        textAlign: TextAlign.center,
+                        style: AppTextStyle.inter(
+                          fontWeight: FontWeight.w400,
+                          fontSize: 9.07 * sf,
+                          height: 13.6 / 9.07,
+                          letterSpacing: 0,
+                          color: pairColor,
+                        ).copyWith(
+                          // keep "uppercase" look as requested
+                          // (label already generated in uppercase)
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                Text(
-                  pairLabel,
-                  textAlign: TextAlign.center,
-                  style: AppTextStyle.inter(
-                    fontWeight: FontWeight.w400,
-                    fontSize: 9.07 * sf,
-                    height: 13.6 / 9.07,
-                    letterSpacing: 0,
-                    color: pairColor,
-                  ).copyWith(
-                    // keep "uppercase" look as requested
-                    // (label already generated in uppercase)
+                SizedBox(width: 20 * sf),
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Flexible(
+                        fit: FlexFit.loose,
+                        child: Text(
+                          subject.isEmpty ? '—' : subject,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textHeightBehavior: const TextHeightBehavior(
+                            applyHeightToFirstAscent: false,
+                            applyHeightToLastDescent: false,
+                          ),
+                          style: AppTextStyle.inter(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 12.7 * sf,
+                            height: 1.0,
+                            color: const Color(0xFF000000),
+                          ),
+                        ),
+                      ),
+                      if (details.isNotEmpty) ...[
+                        Text(
+                          details,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textHeightBehavior: const TextHeightBehavior(
+                            applyHeightToFirstAscent: false,
+                            applyHeightToLastDescent: false,
+                          ),
+                          style: AppTextStyle.inter(
+                            fontWeight: FontWeight.w400,
+                            fontSize: 10.88 * sf,
+                            height: 1.0,
+                            color: const Color(0xFF64748B),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
+                // Badge is positioned on the left-bottom corner.
               ],
             ),
           ),
-          SizedBox(width: 20 * sf),
-          Expanded(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Flexible(
-                  fit: FlexFit.loose,
-                  child: Text(
-                    subject.isEmpty ? '—' : subject,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textHeightBehavior: const TextHeightBehavior(
-                      applyHeightToFirstAscent: false,
-                      applyHeightToLastDescent: false,
-                    ),
-                    style: AppTextStyle.inter(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 12.7 * sf,
-                      height: 1.0,
-                      color: const Color(0xFF000000),
-                    ),
-                  ),
-                ),
-                if (details.isNotEmpty) ...[
-                  Text(
-                    details,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textHeightBehavior: const TextHeightBehavior(
-                      applyHeightToFirstAscent: false,
-                      applyHeightToLastDescent: false,
-                    ),
-                    style: AppTextStyle.inter(
-                      fontWeight: FontWeight.w400,
-                      fontSize: 10.88 * sf,
-                      height: 1.0,
-                      color: const Color(0xFF64748B),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          if (ongoing) ...[
-            SizedBox(width: 12 * sf),
-            Align(
-              alignment: Alignment.bottomRight,
+          if (ongoing)
+            Positioned(
+              left: 6 * sf,
+              bottom: 3 * sf,
               child: Container(
-                width: 49.14008712768555 * sf,
-                height: 17.72265625 * sf,
+                width: 34 * sf,
+                height: 12 * sf,
                 decoration: BoxDecoration(
                   color: const Color(0x332B5ED0),
-                  borderRadius: BorderRadius.circular(6.48 * sf),
+                  borderRadius: BorderRadius.circular(6 * sf),
                 ),
-                child: Center(
-                  child: Text(
-                    'ИДЕТ',
-                    style: AppTextStyle.inter(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 6.16 * sf,
-                      color: const Color(0xFF2B5ED0),
-                      height: 1.0,
-                    ),
+                alignment: Alignment.center,
+                child: Text(
+                  'ИДЕТ',
+                  style: AppTextStyle.inter(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 5.0 * sf,
+                    color: const Color(0xFF2B5ED0),
+                    height: 1.0,
                   ),
                 ),
               ),
             ),
-          ],
         ],
       ),
     );

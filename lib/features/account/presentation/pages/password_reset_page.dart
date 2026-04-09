@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -130,7 +131,21 @@ class _PasswordResetPageState extends State<PasswordResetPage> {
     final canTap = !_busy && _cooldownLeftSec <= 0;
     final showSpamHint = _sentOnce || _cooldownLeftSec > 0;
 
-    return Scaffold(
+    return Shortcuts(
+      shortcuts: const <ShortcutActivator, Intent>{
+        SingleActivator(LogicalKeyboardKey.enter): ActivateIntent(),
+        SingleActivator(LogicalKeyboardKey.numpadEnter): ActivateIntent(),
+      },
+      child: Actions(
+        actions: <Type, Action<Intent>>{
+          ActivateIntent: CallbackAction<Intent>(
+            onInvoke: (_) {
+              if (canTap) _requestSelf();
+              return null;
+            },
+          ),
+        },
+        child: Scaffold(
       backgroundColor: Colors.white,
       appBar: AppHeader(
         leadingLeftPadding: 6,
@@ -146,7 +161,7 @@ class _PasswordResetPageState extends State<PasswordResetPage> {
           ),
         ),
         headerTitle: Text(
-          'Сброс по ссылке',
+          'Смена пароля',
           style: AppTextStyle.inter(
             fontWeight: FontWeight.w700,
             fontSize: 18,
@@ -251,6 +266,8 @@ class _PasswordResetPageState extends State<PasswordResetPage> {
               ),
             ),
           ],
+        ),
+      ),
         ),
       ),
     );

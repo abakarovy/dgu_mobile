@@ -132,6 +132,8 @@ class _EmailChangePageState extends State<EmailChangePage> {
           controller: _emailCtrl,
           keyboardType: TextInputType.emailAddress,
           maxLines: 1,
+          textInputAction: TextInputAction.done,
+          onSubmitted: (_) => _request(),
           textAlignVertical: TextAlignVertical.center,
           decoration: const InputDecoration(
             isDense: true,

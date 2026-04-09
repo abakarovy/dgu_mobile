@@ -6,6 +6,7 @@ import 'package:dgu_mobile/core/constants/api_constants.dart';
 import 'package:dgu_mobile/core/constants/app_constants.dart';
 import 'package:dgu_mobile/core/di/app_container.dart';
 import 'package:dgu_mobile/core/theme/app_text_styles.dart';
+import 'package:dgu_mobile/data/api/api_exception.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -480,9 +481,234 @@ class _ProfilePageState extends State<ProfilePage> {
                   GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Скоро: приглашение родителя')),
-                      );
+                      final emailCtrl = TextEditingController();
+                      bool busy = false;
+                      String? errorText;
+                      showDialog<void>(
+                        context: context,
+                        barrierColor: Colors.black.withValues(alpha: 0.35),
+                        builder: (context) {
+                          return StatefulBuilder(
+                            builder: (context, setLocal) {
+                              Future<void> submit() async {
+                                final parentEmail = emailCtrl.text.trim();
+                                if (busy) return;
+                                if (parentEmail.isEmpty) {
+                                  setLocal(() => errorText = 'Введите e-mail родителя');
+                                  return;
+                                }
+                                setLocal(() {
+                                  busy = true;
+                                  errorText = null;
+                                });
+                                try {
+                                  await AppContainer.accountApi.inviteParent(
+                                    parentEmail: parentEmail,
+                                  );
+                                  if (context.mounted) Navigator.of(context).pop();
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(this.context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('Приглашение отправили на $parentEmail'),
+                                      ),
+                                    );
+                                  }
+                                } catch (e) {
+                                  final msg = (e is ApiException && e.message.trim().isNotEmpty)
+                                      ? e.message.trim()
+                                      : 'Не удалось отправить приглашение';
+                                  setLocal(() => errorText =
+                                      'Родитель уже привязан или e-mail некорректный. $msg');
+                                } finally {
+                                  if (context.mounted) setLocal(() => busy = false);
+                                }
+                              }
+
+                              return Dialog(
+                                backgroundColor: Colors.transparent,
+                                elevation: 0,
+                                insetPadding: const EdgeInsets.symmetric(horizontal: 16),
+                                child: Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                                    children: [
+                                      Text(
+                                        'Приглашение родителя',
+                                        style: AppTextStyle.inter(
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 18,
+                                          height: 24 / 18,
+                                          color: const Color(0xFF000000),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 10),
+                                      Text(
+                                        'Укажите e-mail родителя — мы отправим письмо с приглашением и ссылкой для подключения.',
+                                        style: AppTextStyle.inter(
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 13,
+                                          height: 1.2,
+                                          color: const Color(0xFF000000),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 12),
+                                      SizedBox(
+                                        height: 44,
+                                        child: Container(
+                                          width: double.infinity,
+                                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                                          decoration: BoxDecoration(
+                                            color: Colors.transparent,
+                                            borderRadius: BorderRadius.circular(8),
+                                            border: Border.all(
+                                              color: (errorText == null)
+                                                  ? const Color(0xFF000000)
+                                                  : const Color(0xFFE11D48),
+                                              width: 1.5,
+                                            ),
+                                          ),
+                                          alignment: Alignment.centerLeft,
+                                          child: TextField(
+                                            controller: emailCtrl,
+                                            keyboardType: TextInputType.emailAddress,
+                                            textInputAction: TextInputAction.done,
+                                            onSubmitted: (_) => submit(),
+                                            maxLines: 1,
+                                            decoration: const InputDecoration(
+                                              isDense: true,
+                                              contentPadding:
+                                                  EdgeInsets.symmetric(vertical: 14),
+                                              border: InputBorder.none,
+                                              hintText: 'parent@email.ru',
+                                            ),
+                                            style: AppTextStyle.inter(
+                                              fontWeight: FontWeight.w600,
+                                              fontSize: 12,
+                                              height: 1.0,
+                                              color: const Color(0xFF000000),
+                                            ),
+                                            onChanged: (_) {
+                                              if (errorText != null) {
+                                                setLocal(() => errorText = null);
+                                              }
+                                            },
+                                          ),
+                                        ),
+                                      ),
+                                      if (errorText != null) ...[
+                                        const SizedBox(height: 6),
+                                        Text(
+                                          errorText!,
+                                          style: AppTextStyle.inter(
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 12,
+                                            height: 1.1,
+                                            color: const Color(0xFFE11D48),
+                                          ),
+                                        ),
+                                      ],
+                                      const SizedBox(height: 12),
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Expanded(
+                                            child: SizedBox(
+                                              height: 30,
+                                              child: GestureDetector(
+                                              behavior: HitTestBehavior.opaque,
+                                              onTap: busy ? null : submit,
+                                              child: Container(
+                                                decoration: BoxDecoration(
+                                                  color: busy
+                                                      ? const Color(0xFF2E63D5)
+                                                          .withValues(alpha: 0.4)
+                                                      : const Color(0xFF2E63D5),
+                                                  borderRadius:
+                                                      BorderRadius.circular(15),
+                                                ),
+                                                alignment: Alignment.center,
+                                                child: busy
+                                                    ? const SizedBox(
+                                                        width: 16,
+                                                        height: 16,
+                                                        child:
+                                                            CircularProgressIndicator(
+                                                          strokeWidth: 2,
+                                                          valueColor:
+                                                              AlwaysStoppedAnimation<
+                                                                  Color>(
+                                                            Colors.white,
+                                                          ),
+                                                        ),
+                                                      )
+                                                    : Text(
+                                                        'Отправить приглашение',
+                                                        textAlign: TextAlign.center,
+                                                        maxLines: 1,
+                                                        overflow: TextOverflow.ellipsis,
+                                                        style: AppTextStyle.inter(
+                                                          fontWeight:
+                                                              FontWeight.w700,
+                                                          fontSize: 12,
+                                                          height: 1.0,
+                                                          color: Colors.white,
+                                                        ),
+                                                      ),
+                                              ),
+                                            ),
+                                          ),
+                                            ),
+                                          const SizedBox(width: 10),
+                                          SizedBox(
+                                            width: 110,
+                                            height: 30,
+                                            child: GestureDetector(
+                                              behavior: HitTestBehavior.opaque,
+                                              onTap: () => Navigator.of(context).pop(),
+                                              child: Container(
+                                                decoration: BoxDecoration(
+                                                  color: Colors.transparent,
+                                                  borderRadius:
+                                                      BorderRadius.circular(15),
+                                                  border: Border.all(
+                                                    color:
+                                                        const Color(0xFF2E63D5),
+                                                    width: 1,
+                                                  ),
+                                                ),
+                                                alignment: Alignment.center,
+                                                child: Text(
+                                                  'Отмена',
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
+                                                  style: AppTextStyle.inter(
+                                                    fontWeight: FontWeight.w700,
+                                                    fontSize: 12,
+                                                    height: 1.0,
+                                                    color:
+                                                        const Color(0xFF2E63D5),
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          );
+                        },
+                      ).whenComplete(emailCtrl.dispose);
                     },
                     child: _primaryActionCard(
                       layoutScale: layoutScale,
@@ -494,8 +720,114 @@ class _ProfilePageState extends State<ProfilePage> {
                   GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Скоро: заказ справки')),
+                      showDialog<void>(
+                        context: context,
+                        barrierColor: Colors.black.withValues(alpha: 0.35),
+                        builder: (context) {
+                          return Dialog(
+                            backgroundColor: Colors.transparent,
+                            elevation: 0,
+                            insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+                            child: Container(
+                              height: 167,
+                              padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(24),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          'Вы хотите заказать справку о том чтор обучаетесь в колледже ДГУ?',
+                                          style: AppTextStyle.inter(
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 14,
+                                            height: 1.2,
+                                            color: const Color(0xFF000000),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      SvgPicture.asset(
+                                        'assets/icons/logo.svg',
+                                        width: 29,
+                                        height: 29,
+                                      ),
+                                    ],
+                                  ),
+                                  const Spacer(),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      SizedBox(
+                                        width: 140,
+                                        height: 30,
+                                        child: GestureDetector(
+                                          behavior: HitTestBehavior.opaque,
+                                          onTap: () {
+                                            Navigator.of(context).pop();
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              const SnackBar(content: Text('Скоро: заказ справки')),
+                                            );
+                                          },
+                                          child: Container(
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFF2E63D5),
+                                              borderRadius: BorderRadius.circular(15),
+                                            ),
+                                            alignment: Alignment.center,
+                                            child: Text(
+                                              'Да, заказать справу',
+                                              style: AppTextStyle.inter(
+                                                fontWeight: FontWeight.w700,
+                                                fontSize: 12,
+                                                height: 1.0,
+                                                color: Colors.white,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      SizedBox(
+                                        width: 140,
+                                        height: 30,
+                                        child: GestureDetector(
+                                          behavior: HitTestBehavior.opaque,
+                                          onTap: () => Navigator.of(context).pop(),
+                                          child: Container(
+                                            decoration: BoxDecoration(
+                                              color: Colors.transparent,
+                                              borderRadius: BorderRadius.circular(15),
+                                              border: Border.all(
+                                                color: const Color(0xFF2E63D5),
+                                                width: 1,
+                                              ),
+                                            ),
+                                            alignment: Alignment.center,
+                                            child: Text(
+                                              'Отмена',
+                                              style: AppTextStyle.inter(
+                                                fontWeight: FontWeight.w700,
+                                                fontSize: 12,
+                                                height: 1.0,
+                                                color: const Color(0xFF2E63D5),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
                       );
                     },
                     child: _secondaryActionCard(
