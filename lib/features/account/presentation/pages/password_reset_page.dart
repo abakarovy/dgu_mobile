@@ -122,7 +122,7 @@ class _PasswordResetPageState extends State<PasswordResetPage> {
   String _cooldownLabel() {
     final s = _cooldownLeftSec;
     if (s <= 0) return 'Сбросить';
-    return 'Сбросить (${s}с)';
+    return 'Сбросить ($sс)';
   }
 
   @override

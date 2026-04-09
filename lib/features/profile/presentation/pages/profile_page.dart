@@ -36,6 +36,7 @@ class _ProfilePageState extends State<ProfilePage> {
   String? _absenceHoursText;
   /// Средний балл по кэшу оценок (текущий семестр), как на главной.
   String? _performanceAvgText;
+  static const String _certificateHistoryPrefsKey = 'profile:certificate_history';
 
   @override
   void initState() {
@@ -298,6 +299,31 @@ class _ProfilePageState extends State<ProfilePage> {
     unawaited(_ensure1cPhotoCached(refreshIfCached: true));
   }
 
+  Future<List<int>> _loadCertificateHistoryMs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final list = prefs.getStringList(_certificateHistoryPrefsKey);
+      if (list == null) return const <int>[];
+      return list.map((s) => int.tryParse(s) ?? 0).where((x) => x > 0).toList();
+    } catch (_) {
+      return const <int>[];
+    }
+  }
+
+  Future<void> _pushCertificateHistoryNow() async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final list = (prefs.getStringList(_certificateHistoryPrefsKey) ?? <String>[])
+          .where((s) => s.trim().isNotEmpty)
+          .toList();
+      list.insert(0, '$now');
+      // Keep last 10.
+      final trimmed = list.take(10).toList();
+      await prefs.setStringList(_certificateHistoryPrefsKey, trimmed);
+    } catch (_) {}
+  }
+
   Future<void> _ensure1cPhotoCached({required bool refreshIfCached}) async {
     // If we already have a cached file on disk, don't refetch on every app restart.
     try {
@@ -517,8 +543,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                   final msg = (e is ApiException && e.message.trim().isNotEmpty)
                                       ? e.message.trim()
                                       : 'Не удалось отправить приглашение';
-                                  setLocal(() => errorText =
-                                      'Родитель уже привязан или e-mail некорректный. $msg');
+                                  setLocal(() => errorText = msg);
                                 } finally {
                                   if (context.mounted) setLocal(() => busy = false);
                                 }
@@ -724,108 +749,265 @@ class _ProfilePageState extends State<ProfilePage> {
                         context: context,
                         barrierColor: Colors.black.withValues(alpha: 0.35),
                         builder: (context) {
-                          return Dialog(
-                            backgroundColor: Colors.transparent,
-                            elevation: 0,
-                            insetPadding: const EdgeInsets.symmetric(horizontal: 20),
-                            child: Container(
-                              height: 167,
-                              padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(24),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  Row(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                          bool busy = false;
+                          bool showHistory = true;
+                          List<int> historyMs = const <int>[];
+                          bool historyLoaded = false;
+
+                          String fmt(int ms) {
+                            final d = DateTime.fromMillisecondsSinceEpoch(ms);
+                            String p2(int n) => n.toString().padLeft(2, '0');
+                            return '${p2(d.day)}.${p2(d.month)}.${d.year} ${p2(d.hour)}:${p2(d.minute)}';
+                          }
+
+                          return StatefulBuilder(
+                            builder: (context, setLocal) {
+                              if (!historyLoaded) {
+                                historyLoaded = true;
+                                unawaited(() async {
+                                  final h = await _loadCertificateHistoryMs();
+                                  if (context.mounted) setLocal(() => historyMs = h);
+                                }());
+                              }
+
+                              Future<void> order() async {
+                                if (busy) return;
+                                setLocal(() => busy = true);
+                                try {
+                                  await _pushCertificateHistoryNow();
+                                  final h = await _loadCertificateHistoryMs();
+                                  if (context.mounted) {
+                                    setLocal(() {
+                                      historyMs = h;
+                                      showHistory = true;
+                                    });
+                                  }
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(this.context).showSnackBar(
+                                      const SnackBar(content: Text('Заявка на справку отправлена')),
+                                    );
+                                  }
+                                } finally {
+                                  if (context.mounted) setLocal(() => busy = false);
+                                }
+                              }
+
+                              return Dialog(
+                                backgroundColor: Colors.transparent,
+                                elevation: 0,
+                                insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+                                child: Container(
+                                  height: showHistory ? 250 : 167,
+                                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(24),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.stretch,
                                     children: [
-                                      Expanded(
-                                        child: Text(
-                                          'Вы хотите заказать справку о том чтор обучаетесь в колледже ДГУ?',
-                                          style: AppTextStyle.inter(
-                                            fontWeight: FontWeight.w700,
-                                            fontSize: 14,
-                                            height: 1.2,
-                                            color: const Color(0xFF000000),
+                                      Row(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              showHistory
+                                                  ? 'История заявок на справку'
+                                                  : 'Вы хотите заказать справку о том, что обучаетесь в колледже ДГУ?',
+                                              style: AppTextStyle.inter(
+                                                fontWeight: FontWeight.w700,
+                                                fontSize: 14,
+                                                height: 1.2,
+                                                color: const Color(0xFF000000),
+                                              ),
+                                            ),
                                           ),
-                                        ),
+                                          const SizedBox(width: 12),
+                                          ColorFiltered(
+                                            colorFilter: const ColorFilter.mode(
+                                              Color(0x52000000), // #00000052
+                                              BlendMode.srcIn,
+                                            ),
+                                            child: Image.asset(
+                                              'assets/images/profile_image.png',
+                                              width: 29,
+                                              height: 29,
+                                              fit: BoxFit.cover,
+                                              errorBuilder: (_, _, _) => const SizedBox(
+                                                width: 29,
+                                                height: 29,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
                                       ),
-                                      const SizedBox(width: 12),
-                                      SvgPicture.asset(
-                                        'assets/icons/logo.svg',
-                                        width: 29,
-                                        height: 29,
+                                      if (showHistory) ...[
+                                        const SizedBox(height: 12),
+                                        Expanded(
+                                          child: historyMs.isEmpty
+                                              ? Text(
+                                                  'Пока заявок нет. Нажмите «Да, заказать справку», чтобы отправить заявку.',
+                                                  style: AppTextStyle.inter(
+                                                    fontWeight: FontWeight.w700,
+                                                    fontSize: 12,
+                                                    height: 1.2,
+                                                    color: const Color(0xFF000000),
+                                                  ),
+                                                )
+                                              : ListView.separated(
+                                                  itemCount: historyMs.length,
+                                                  separatorBuilder: (_, _) =>
+                                                      const SizedBox(height: 8),
+                                                  itemBuilder: (context, i) {
+                                                    final ms = historyMs[i];
+                                                    return Container(
+                                                      padding: const EdgeInsets.symmetric(
+                                                        horizontal: 12,
+                                                        vertical: 10,
+                                                      ),
+                                                      decoration: BoxDecoration(
+                                                        color: const Color(0x0F2563EB),
+                                                        borderRadius:
+                                                            BorderRadius.circular(12),
+                                                        border: Border.all(
+                                                          color: const Color(0xFF2563EB)
+                                                              .withValues(alpha: 0.35),
+                                                          width: 1,
+                                                        ),
+                                                      ),
+                                                      child: Row(
+                                                        children: [
+                                                          Expanded(
+                                                            child: Text(
+                                                              fmt(ms),
+                                                              style: AppTextStyle.inter(
+                                                                fontWeight:
+                                                                    FontWeight.w700,
+                                                                fontSize: 12,
+                                                                height: 1.0,
+                                                                color: const Color(
+                                                                    0xFF000000),
+                                                              ),
+                                                            ),
+                                                          ),
+                                                          const SizedBox(width: 10),
+                                                          Text(
+                                                            'Отправлено',
+                                                            style: AppTextStyle.inter(
+                                                              fontWeight:
+                                                                  FontWeight.w700,
+                                                              fontSize: 10,
+                                                              height: 1.0,
+                                                              color: const Color(
+                                                                  0xFF2563EB),
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    );
+                                                  },
+                                                ),
+                                        ),
+                                        const SizedBox(height: 12),
+                                      ] else ...[
+                                        const Spacer(),
+                                      ],
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          SizedBox(
+                                            width: 140,
+                                            height: 30,
+                                            child: GestureDetector(
+                                              behavior: HitTestBehavior.opaque,
+                                              onTap: busy
+                                                  ? null
+                                                  : () async {
+                                                      await order();
+                                                      if (context.mounted) {
+                                                        setLocal(() => showHistory = true);
+                                                      }
+                                                    },
+                                              child: Container(
+                                                decoration: BoxDecoration(
+                                                  color: busy
+                                                      ? const Color(0xFF2E63D5)
+                                                          .withValues(alpha: 0.4)
+                                                      : const Color(0xFF2E63D5),
+                                                  borderRadius:
+                                                      BorderRadius.circular(15),
+                                                ),
+                                                alignment: Alignment.center,
+                                                child: busy
+                                                    ? const SizedBox(
+                                                        width: 16,
+                                                        height: 16,
+                                                        child:
+                                                            CircularProgressIndicator(
+                                                          strokeWidth: 2,
+                                                          valueColor:
+                                                              AlwaysStoppedAnimation<
+                                                                  Color>(
+                                                            Colors.white,
+                                                          ),
+                                                        ),
+                                                      )
+                                                    : Text(
+                                                        showHistory
+                                                            ? 'Заказать ещё раз'
+                                                            : 'Да, заказать справку',
+                                                        textAlign: TextAlign.center,
+                                                        maxLines: 1,
+                                                        overflow: TextOverflow.ellipsis,
+                                                        style: AppTextStyle.inter(
+                                                          fontWeight:
+                                                              FontWeight.w700,
+                                                          fontSize: 12,
+                                                          height: 1.0,
+                                                          color: Colors.white,
+                                                        ),
+                                                      ),
+                                              ),
+                                            ),
+                                          ),
+                                          SizedBox(
+                                            width: 140,
+                                            height: 30,
+                                            child: GestureDetector(
+                                              behavior: HitTestBehavior.opaque,
+                                              onTap: () {
+                                                Navigator.of(context).pop();
+                                              },
+                                              child: Container(
+                                                decoration: BoxDecoration(
+                                                  color: Colors.transparent,
+                                                  borderRadius:
+                                                      BorderRadius.circular(15),
+                                                  border: Border.all(
+                                                    color: const Color(0xFF2E63D5),
+                                                    width: 1,
+                                                  ),
+                                                ),
+                                                alignment: Alignment.center,
+                                                child: Text(
+                                                  'Отмена',
+                                                  style: AppTextStyle.inter(
+                                                    fontWeight: FontWeight.w700,
+                                                    fontSize: 12,
+                                                    height: 1.0,
+                                                    color: const Color(0xFF2E63D5),
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ],
                                   ),
-                                  const Spacer(),
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      SizedBox(
-                                        width: 140,
-                                        height: 30,
-                                        child: GestureDetector(
-                                          behavior: HitTestBehavior.opaque,
-                                          onTap: () {
-                                            Navigator.of(context).pop();
-                                            ScaffoldMessenger.of(context).showSnackBar(
-                                              const SnackBar(content: Text('Скоро: заказ справки')),
-                                            );
-                                          },
-                                          child: Container(
-                                            decoration: BoxDecoration(
-                                              color: const Color(0xFF2E63D5),
-                                              borderRadius: BorderRadius.circular(15),
-                                            ),
-                                            alignment: Alignment.center,
-                                            child: Text(
-                                              'Да, заказать справу',
-                                              style: AppTextStyle.inter(
-                                                fontWeight: FontWeight.w700,
-                                                fontSize: 12,
-                                                height: 1.0,
-                                                color: Colors.white,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                      SizedBox(
-                                        width: 140,
-                                        height: 30,
-                                        child: GestureDetector(
-                                          behavior: HitTestBehavior.opaque,
-                                          onTap: () => Navigator.of(context).pop(),
-                                          child: Container(
-                                            decoration: BoxDecoration(
-                                              color: Colors.transparent,
-                                              borderRadius: BorderRadius.circular(15),
-                                              border: Border.all(
-                                                color: const Color(0xFF2E63D5),
-                                                width: 1,
-                                              ),
-                                            ),
-                                            alignment: Alignment.center,
-                                            child: Text(
-                                              'Отмена',
-                                              style: AppTextStyle.inter(
-                                                fontWeight: FontWeight.w700,
-                                                fontSize: 12,
-                                                height: 1.0,
-                                                color: const Color(0xFF2E63D5),
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
+                                ),
+                              );
+                            },
                           );
                         },
                       );
