@@ -47,7 +47,7 @@ void main() async {
 
   /// `true` — данные из `lib/moc`, HTTP к бэкенду не выполняется ([MockDioInterceptor]).
   /// `false` — реальный API ([ApiConstants.baseUrl]).
-  useMockBackend = false;
+  useMockBackend = const bool.fromEnvironment('USE_MOCK_BACKEND', defaultValue: false);
 
   // Firebase is optional for backend API, but enable when configured.
   try {

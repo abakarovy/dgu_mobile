@@ -30,6 +30,31 @@ class AccountApi {
     }
   }
 
+  /// GET /api/students/me/parent-status
+  ///
+  /// Лёгкая проверка (без 1С): приглашён/привязан ли родитель, маска email, статус.
+  Future<Map<String, dynamic>> getParentStatus() async {
+    try {
+      final res = await _api.dio.get<dynamic>(
+        '/students/me/parent-status',
+        options: Options(validateStatus: (s) => s != null && s < 500),
+      );
+      if (res.statusCode != 200) {
+        throw DioException(
+          requestOptions: res.requestOptions,
+          response: res,
+          type: DioExceptionType.badResponse,
+        );
+      }
+      final raw = res.data;
+      if (raw is Map<String, dynamic>) return raw;
+      if (raw is Map) return Map<String, dynamic>.from(raw);
+      return const <String, dynamic>{};
+    } on DioException catch (e) {
+      throw ApiException.fromDio(e);
+    }
+  }
+
   /// POST /api/auth/email-change/request
   Future<void> requestEmailChange({required String newEmail}) async {
     try {

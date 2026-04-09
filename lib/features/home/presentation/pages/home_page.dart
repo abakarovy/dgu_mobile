@@ -884,7 +884,8 @@ class _HomePageState extends State<HomePage> {
                     ],
                   ),
                 ),
-                SizedBox(width: 20 * sf),
+                // Gap between time column and subject should be tighter.
+                SizedBox(width: 6 * sf),
                 Expanded(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,

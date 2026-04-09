@@ -58,7 +58,7 @@ class MockDioInterceptor extends Interceptor {
       return _postRegisterStudent(o);
     }
 
-    final uid = _userId(o) ?? MockAccounts.ivanId;
+    final uid = _userId(o) ?? MockAccounts.aliId;
 
     if (method == 'GET' && _pathEnds(path, ApiConstants.authMePath)) {
       return _getMe(o);
@@ -68,7 +68,8 @@ class MockDioInterceptor extends Interceptor {
       return _jsonResponse(o, 200, MockPayloads.newsList(uid));
     }
     if (method == 'GET' && _pathEnds(path, '/groups/my')) {
-      return _jsonResponse(o, 200, MockPayloads.groupMy(uid));
+      // В логах бэкенд возвращает список (часто `[]`).
+      return _jsonResponse(o, 200, <dynamic>[]);
     }
     if (method == 'GET' && _pathEnds(path, ApiConstants.oneCMyProfilePath)) {
       return _jsonResponse(o, 200, MockPayloads.oneCProfile(uid));
@@ -106,7 +107,7 @@ class MockDioInterceptor extends Interceptor {
     }
 
     if (method == 'GET' && _pathEnds(path, '/mobile/student-ticket')) {
-      return _jsonResponse(o, 200, {'ticket': MockPayloads.studentTicket(uid)});
+      return _jsonResponse(o, 200, MockPayloads.studentTicket(uid));
     }
     if (method == 'GET' && _pathEnds(path, '/mobile/help')) {
       return _jsonResponse(o, 200, MockPayloads.mobileHelp());
@@ -132,7 +133,7 @@ class MockDioInterceptor extends Interceptor {
     }
 
     if (method == 'GET' && _pathEnds(path, ApiConstants.oneCCurriculumPath)) {
-      return _jsonResponse(o, 200, MockPayloads.curriculum(uid));
+      return _jsonResponse(o, 200, {'curriculum': MockPayloads.curriculum(uid)});
     }
     if (method == 'GET' && _pathEnds(path, ApiConstants.oneCAbsencesPath)) {
       return _jsonResponse(o, 200, MockPayloads.absences(uid));
@@ -158,7 +159,7 @@ class MockDioInterceptor extends Interceptor {
     }
 
     if (method == 'POST' && _pathEnds(path, '/auth/parent/invite')) {
-      return _jsonResponse(o, 200, MockPayloads.emptyOk());
+      return _jsonResponse(o, 200, MockPayloads.parentInviteOk());
     }
     if (method == 'POST' && _pathEnds(path, '/auth/email-change/request')) {
       return _jsonResponse(o, 200, MockPayloads.emptyOk());
@@ -178,6 +179,18 @@ class MockDioInterceptor extends Interceptor {
 
     if (method == 'GET' && _pathEnds(path, ApiConstants.healthPath)) {
       return _jsonResponse(o, 200, {'status': 'ok', 'mock': true});
+    }
+
+    if (method == 'GET' && _pathEnds(path, ApiConstants.oneCStudentPhotoPath)) {
+      // Binary payload: return image bytes directly (Dio `ResponseType.bytes` compatible).
+      return Response(
+        requestOptions: o,
+        statusCode: 200,
+        headers: Headers.fromMap({
+          'content-type': ['image/png'],
+        }),
+        data: MockPayloads.studentPhotoBytes(uid),
+      );
     }
 
     return null;
@@ -211,7 +224,7 @@ class MockDioInterceptor extends Interceptor {
     final m = _asMap(o.data);
     final email = '${m['email'] ?? ''}'.trim();
     final fullName = '${m['full_name'] ?? 'Студент Моковый'}'.trim();
-    final user = Map<String, dynamic>.from(MockAccounts.userJsonById(MockAccounts.ivanId));
+    final user = Map<String, dynamic>.from(MockAccounts.userJsonById(MockAccounts.aliId));
     user['email'] = email.isNotEmpty ? email : user['email'];
     user['full_name'] = fullName;
     final id = user['id'] as int;

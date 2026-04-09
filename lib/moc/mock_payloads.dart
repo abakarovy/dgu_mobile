@@ -1,129 +1,107 @@
-import 'mock_accounts.dart';
+import 'dart:convert';
+import 'dart:typed_data';
 
-/// JSON-ответы мокового API в зависимости от студента ([MockAccounts.variantIndexForUserId]).
+/// JSON-ответы мокового API (один студент: Али Ягияев).
 abstract final class MockPayloads {
   static String _ymd(DateTime d) =>
       '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
-  /// Строки «Пропуск…» для журнала — экран «Пропуски» → «Текущие» ([AbsencesPage._journalAbsencesInRange]).
-  static List<Map<String, dynamic>> _mockAbsenceJournalRows(String semester, int count) {
-    if (count <= 0) return [];
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    const offsets = [1, 2, 3, 5, 7, 10, 11, 12, 13];
-    const subjects = [
-      'Математика',
-      'СУБД',
-      'Физкультура',
-      'История',
-      'Английский язык',
-      'ООП',
-      'Информатика',
-    ];
-    const types = [
-      'Пропуск по уважительной причине',
-      'Пропуск (болезнь)',
-      'пропуск по семейным обстоятельствам',
-    ];
-    return [
-      for (var i = 0; i < count; i++)
-        {
-          'subject_name': subjects[i % subjects.length],
-          'grade': 'Н',
-          'grade_type': types[i % types.length],
-          'teacher_name': 'Преподаватель Т.Т.',
-          'date': _ymd(today.subtract(Duration(days: offsets[i % offsets.length]))),
-          'semester': semester,
-        },
-    ];
-  }
+  static String _ddMmYyyy(DateTime d) =>
+      '${d.day.toString().padLeft(2, '0')}.${d.month.toString().padLeft(2, '0')}.${d.year}';
+
+  // (intentionally no unused helpers here; payloads are shaped to backend logs)
 
   static Map<String, dynamic> oneCProfile(int userId) {
-    final v = MockAccounts.variantIndexForUserId(userId);
-    if (v == 1) {
-      return {
-        'full_name': 'Сидорова Мария Александровна',
-        'birth_date': '12.05.2006',
-        'group': 'ПКС 2к 1г 2023',
-        'department': 'Информационные технологии',
-        'direction': 'Программирование',
-        'admission_year': '2023',
-        'study_form': 'Очная',
-        'status': 'Обучается',
-        'student_book_number': 'УБ654321',
-        'course': 2,
-      };
-    }
+    // Под форму ответа, которая видна в логах:
+    // {is_cached, student_id, last_name, first_name, middle_name, birthday(dd.MM.yyyy),
+    //  direction, group, department, education_form, admission_year, course, curator,
+    //  social_role, status, funding_type, student_book_number, study_form, full_name, grades:[...]}
     return {
-      'full_name': 'Ягияев Али Тажутдинович',
-      'birth_date': '03.08.2005',
-      'group': 'ИСиП 3к 2г 2022',
-      'department': 'Информационные технологии',
-      'direction': 'Информационные системы',
-      'admission_year': '2022',
-      'study_form': 'Очная',
-      'status': 'Обучается',
-      'student_book_number': 'УБ123456',
+      'is_cached': true,
+      'student_id': 23385,
+      'last_name': 'ЯГИЯЕВ',
+      'first_name': 'АЛИ',
+      'middle_name': 'ТАЖУТДИНОВИЧ',
+      'birthday': '10.09.2007',
+      'direction': '10.02.05 Обеспечение информационной безопасности автоматизированных систем',
+      'group': 'ОИБАС 3к 1г 2023',
+      'department': 'Обеспечение информационной безопасности автоматизированных систем',
+      'education_form': 'Очная форма обучения',
+      'admission_year': '2023',
       'course': 3,
+      'curator': 'Шахбанова Марият Ибрагимбековна',
+      'social_role': '',
+      'status': 'Обучается',
+      'funding_type': 'Бюджетное финансирование',
+      'student_book_number': '23385',
+      'study_form': 'Очная форма обучения',
+      'full_name': 'ЯГИЯЕВ АЛИ ТАЖУТДИНОВИЧ',
+      'grades': syncGrades(userId)['grades'],
     };
   }
 
   static Map<String, dynamic> studentTicket(int userId) {
+    // Под форму ответа в логах:
+    // {full_name, student_book_number, ticket_valid_until, ticket_issued_at, study_form, course}
     final p = oneCProfile(userId);
     return {
       'full_name': p['full_name'],
       'student_book_number': p['student_book_number'],
-      'birth_date': p['birth_date'],
-      'department': p['department'],
-      'study_group': p['group'],
-      'admission_year': p['admission_year'],
+      'ticket_valid_until': null,
+      'ticket_issued_at': null,
       'study_form': p['study_form'],
-      'status': p['status'],
       'course': p['course'],
     };
   }
 
   static Map<String, dynamic> groupMy(int userId) {
-    final v = MockAccounts.variantIndexForUserId(userId);
-    if (v == 1) {
-      return {'name': 'ПКС 2к 1г 2023', 'code': 'ПКС 2к 1г 2023'};
-    }
-    return {'name': 'ИСиП 3к 2г 2022', 'code': 'ИСиП 3к 2г 2022'};
+    // В логах `/groups/my` вернул `[]`.
+    return {};
   }
 
   static List<dynamic> newsList(int userId) {
-    final tag = userId == MockAccounts.mariaId ? 'Мария' : 'Иван';
+    // Под форму ответа в логах (список объектов).
     return [
       {
-        'id': 1,
-        'title': 'Добро пожаловать в приложение (мок)',
-        'content': 'Это демонстрационная новость. Режим моковых данных без обращения к серверу.',
-        'excerpt': 'Демо-режим',
-        'image_url': 'assets/images/2.png',
-        'created_at': DateTime.now().toIso8601String(),
+        'title': 'День открытых дверей (мок)',
+        'content': 'Приходите смотреть (мок).',
+        'excerpt': 'День открытых дверей',
+        'image_url': '/uploads/news/mock_1.png',
+        'id': 11,
+        'author_id': 7,
+        'is_published': true,
+        'created_at': DateTime.now().subtract(const Duration(days: 1)).toIso8601String(),
+        'updated_at': null,
       },
       {
-        'id': 2,
-        'title': 'Расписание и задания',
-        'content': 'Проверьте вкладки «Расписание» и «Задания» — данные сгенерированы для $tag.',
-        'excerpt': null,
-        'image_url': 'assets/images/3.png',
-        'created_at': DateTime.now().subtract(const Duration(days: 1)).toIso8601String(),
+        'title': 'Студвесна (мок)',
+        'content': 'Приходите смотреть, Али.',
+        'excerpt': 'Студвесна в колледже ДГУ',
+        'image_url': null,
+        'id': 10,
+        'author_id': 7,
+        'is_published': true,
+        'created_at': DateTime.now().subtract(const Duration(days: 2)).toIso8601String(),
+        'updated_at': null,
       },
     ];
   }
 
   static List<dynamic> eventsList(int userId) {
+    // Под форму ответа в логах:
+    // {id,title,description,image_url,location,starts_at,ends_at,is_published,created_at}
     final start = DateTime.now().add(const Duration(days: 7));
     return [
       {
-        'id': 101,
-        'title': 'День открытых дверей (мок)',
-        'description': 'Приглашаем будущих абитуриентов.',
-        'category': 'Колледж',
-        'location': 'Главный корпус',
-        'start_at': start.toIso8601String(),
-        'end_at': start.add(const Duration(hours: 3)).toIso8601String(),
+        'id': 1,
+        'title': 'Мероприятие (мок)',
+        'description': 'Описание мероприятия (мок).',
+        'image_url': null,
+        'location': 'Колледж ДГУ',
+        'starts_at': start.toIso8601String(),
+        'ends_at': null,
+        'is_published': true,
+        'created_at': DateTime.now().toIso8601String(),
       },
     ];
   }
@@ -133,16 +111,18 @@ abstract final class MockPayloads {
       'id': id,
       'title': 'Мероприятие #$id (мок)',
       'description': 'Описание демонстрационного мероприятия.',
-      'category': 'Мок',
+      'image_url': null,
       'location': 'Колледж ДГУ',
-      'start_at': DateTime.now().toIso8601String(),
-      'end_at': null,
+      'starts_at': DateTime.now().toIso8601String(),
+      'ends_at': null,
+      'is_published': true,
+      'created_at': DateTime.now().toIso8601String(),
     };
   }
 
   static List<dynamic> assignments(int userId) {
-    final v = MockAccounts.variantIndexForUserId(userId);
-    final subj = v == 1 ? 'Программирование' : 'Базы данных';
+    // Оставляем как есть — приложению достаточно списка; формат близкий к `/api/mobile/assignments/my`.
+    const subj = 'Сети и системы передачи информации';
     return [
       {
         'id': 9001,
@@ -168,67 +148,42 @@ abstract final class MockPayloads {
   /// Текущие + зачёт/экзамен для вкладки «Сессия»; даты в пределах последних 14 дней.
   /// Плюс записи «Пропуск» — столько же, сколько [absences] `total_absences`, для списка на экране пропусков.
   static Map<String, dynamic> syncGrades(int userId) {
-    final sem = '1 сем 2025-2026';
-    final subj = MockAccounts.variantIndexForUserId(userId) == 1 ? 'ООП' : 'СУБД';
-    final absenceCount = MockAccounts.variantIndexForUserId(userId) == 1 ? 2 : 5;
+    // Под форму ответа в логах:
+    // {grades:[{semester, records:[{subject, grade, type, date}]}]}
+    final sem = '2 сем 2025-2026';
     final now = DateTime.now();
     final d1 = DateTime(now.year, now.month, now.day).subtract(const Duration(days: 1));
-    final d2 = now.subtract(const Duration(days: 4));
-    final d3 = now.subtract(const Duration(days: 9));
+    final d2 = DateTime(now.year, now.month, now.day).subtract(const Duration(days: 4));
+    final d3 = DateTime(now.year, now.month, now.day).subtract(const Duration(days: 9));
     return {
       'grades': [
         {
           'semester': sem,
           'records': [
             {
-              'subject_name': subj,
-              'grade': '5',
-              'grade_type': 'Текущая',
-              'teacher_name': 'Преподаватель П.П.',
-              'date': _ymd(d1),
-              'semester': sem,
-            },
-            {
-              'subject_name': 'Математика',
-              'grade': '4',
-              'grade_type': 'Текущая',
-              'teacher_name': 'Иванов И.И.',
-              'date': _ymd(d2),
-              'semester': sem,
-            },
-            {
-              'subject_name': 'История',
-              'grade': '5',
-              'grade_type': 'Ответ у доски',
-              'teacher_name': 'Смирнов С.С.',
+              'subject': 'Электроника и схемотехника',
+              'grade': 'Н',
+              'type': 'Пропуск',
               'date': _ymd(d3),
-              'semester': sem,
             },
             {
-              'subject_name': 'Математика',
-              'grade': '4',
-              'grade_type': 'Зачёт',
-              'teacher_name': 'Иванов И.И.',
-              'date': _ymd(d1),
-              'semester': sem,
-            },
-            {
-              'subject_name': subj,
-              'grade': '5',
-              'grade_type': 'Экзамен',
-              'teacher_name': 'Петрова А.С.',
+              'subject': 'Сети и системы передачи информации',
+              'grade': 'Н',
+              'type': 'Пропуск',
               'date': _ymd(d2),
-              'semester': sem,
             },
             {
-              'subject_name': 'Английский язык',
-              'grade': 'зачтено',
-              'grade_type': '1 АТ',
-              'teacher_name': 'Ли О.В.',
-              'date': _ymd(d3),
-              'semester': sem,
+              'subject': 'Эксплуатация автоматизированных систем в защищенном исполнении',
+              'grade': '5',
+              'type': 'Ответ у доски 1 АТ',
+              'date': _ymd(d1),
             },
-            ..._mockAbsenceJournalRows(sem, absenceCount),
+            {
+              'subject': 'Техническая защита информации',
+              'grade': '5',
+              'type': 'Ответ у доски 1 АТ',
+              'date': _ymd(d2),
+            },
           ],
         },
       ],
@@ -252,12 +207,15 @@ abstract final class MockPayloads {
 
   static Map<String, dynamic> mobileHelp() {
     return {
-      'hotline_phone': '+7 (000) 000-00-00',
-      'email': 'support@dgu.mock',
-      'website_url': 'https://example.com',
+      // Под лог: hotline, email, website_url, faq[{question,answer}]
+      'hotline': '+7 (8722) 67-XX-XX',
+      'hotline_phone': '+7 (8722) 67-XX-XX',
+      'email': 'colledgedsu@dgu.ru',
+      'website_url': 'https://college.dgu.ru/',
       'faq': [
-        {'title': 'Что такое мок-режим?', 'answer': 'Данные генерируются локально, запросы к API не отправляются.'},
-        {'title': 'Как отключить?', 'answer': 'В main.dart установите useMockBackend = false.'},
+        {'question': 'Как восстановить пароль?', 'answer': 'На экране входа нажмите «Забыли пароль» или обратитесь в учебный отдел колледжа.'},
+        {'question': 'Где посмотреть расписание?', 'answer': 'В разделе «Расписание» мобильного приложения или на сайте колледжа в личном кабинете студента.'},
+        {'question': 'Не приходят уведомления', 'answer': 'Проверьте настройки уведомлений в приложении и разрешения ОС для push.'},
       ],
     };
   }
@@ -273,56 +231,66 @@ abstract final class MockPayloads {
   }
 
   static Map<String, dynamic> absences(int userId) {
-    final sem = '1 сем 2025-2026';
-    final n = MockAccounts.variantIndexForUserId(userId) == 1 ? 2 : 5;
+    // Под форму ответа в логах.
+    final sem = '2 сем 2025-2026';
+    const n = 20;
+    final start = DateTime(DateTime.now().year, 2, 1);
+    final end = DateTime(DateTime.now().year, 7, 31);
     return {
+      'student_id': 23385,
+      'status': 'success',
       'semesters': [
         {
           'semester': sem,
-          'data': {'total_absences': n, 'total_hours': 12.0},
+          'period': {'start': _ddMmYyyy(start), 'end': _ddMmYyyy(end)},
+          'data': {
+            'total_absences': n,
+            'excused_absences': 0,
+            'unexcused_absences': n,
+          },
         },
       ],
+      'timestamp': DateTime.now().toUtc().toIso8601String(),
     };
   }
 
   /// Учебный маршрут: часы как объект (см. [LearningRouteView]).
   static List<dynamic> curriculum(int userId) {
-    final v = MockAccounts.variantIndexForUserId(userId);
-    final s2 = v == 1 ? 'ООП' : 'СУБД';
+    // Под форму ответа в логах: {curriculum:[...]}
+    const s2 = 'Сети и системы передачи информации';
     return [
       {
-        'subject': 'Математика',
-        'discipline': 'Математика',
-        'control_form': 'Экзамен',
+        'subject': 'Биология',
+        'semester': '1 семестр',
+        'control_form': 'Дифференцированный зачет',
         'hours': {
-          'total': 120,
-          'theory_lectures': 48,
+          'total': 36,
+          'theory_lectures': 4,
+          'practical': 32,
           'lab': 0,
-          'practical': 48,
-          'independent': 24,
+          'seminar': 0,
+          'independent': 0,
+          'coursework': 0,
+          'consultation': 0,
+          'attestation': 4,
+          'individual_project': 0,
         },
       },
       {
         'subject': s2,
-        'discipline': s2,
-        'control_form': 'Зачёт с оценкой',
+        'semester': '2 семестр',
+        'control_form': 'Не задана',
         'hours': {
-          'total': 180,
-          'theory_lectures': 60,
-          'lab': 72,
-          'practical': 36,
-          'independent': 12,
-        },
-      },
-      {
-        'subject': 'Информатика',
-        'control_form': 'Дифференцированный зачёт',
-        'hours': {
-          'total': 64,
-          'theory_lectures': 32,
-          'lab': 32,
-          'practical': 0,
-          'independent': 0,
+          'total': 54,
+          'theory_lectures': 14,
+          'practical': 40,
+          'lab': 0,
+          'seminar': 0,
+          'independent': 14,
+          'coursework': 0,
+          'consultation': 0,
+          'attestation': 0,
+          'individual_project': 0,
         },
       },
     ];
@@ -347,78 +315,66 @@ abstract final class MockPayloads {
     return [];
   }
 
-  static const List<String> _dayShort = ['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс'];
-
   /// Расписание на один календарный день (`for_date` = yyyy-MM-dd): разные пары по дням недели.
   static Map<String, dynamic> scheduleForDate(String forDateYmd, int userId) {
-    final d = DateTime.tryParse(forDateYmd);
-    final ddMmYyyy = d == null
-        ? forDateYmd
-        : '${d.day.toString().padLeft(2, '0')}.${d.month.toString().padLeft(2, '0')}.${d.year}';
-    final weekday = d?.weekday ?? DateTime.monday;
-    // Только воскресенье без пар (как выходной); суббота — учебный день с парами.
-    if (weekday == DateTime.sunday) {
-      return {'schedule': <dynamic>[]};
+    // Под форму ответа в логах:
+    // {schedule:[{date,day,pair_number,time,subject,room,teacher,week_type,subgroup,semester}], week:null, is_cached:true, schedule_scope:'today', schedule_for_date:'yyyy-MM-dd'}
+    final d = DateTime.tryParse(forDateYmd) ?? DateTime.now();
+    final dd = _ddMmYyyy(d);
+    const days = {
+      DateTime.monday: 'Понедельник',
+      DateTime.tuesday: 'Вторник',
+      DateTime.wednesday: 'Среда',
+      DateTime.thursday: 'Четверг',
+      DateTime.friday: 'Пятница',
+      DateTime.saturday: 'Суббота',
+      DateTime.sunday: 'Воскресенье',
+    };
+    final day = days[d.weekday] ?? 'День';
+
+    if (d.weekday == DateTime.sunday) {
+      return {
+        'schedule': <dynamic>[],
+        'week': null,
+        'is_cached': true,
+        'schedule_scope': 'today',
+        'schedule_for_date': forDateYmd,
+      };
     }
-    final dayIdx = weekday - 1;
-    final dayShort = _dayShort[dayIdx.clamp(0, 6)];
-    final spec = MockAccounts.variantIndexForUserId(userId) == 1 ? 'ООП' : 'СУБД';
 
-    final pair1Subjects = [
-      'Математика',
-      'Физика',
-      'История',
-      'Английский язык',
-      'Информатика',
-      'Английский язык',
-    ];
-    final pair2Subjects = [
-      spec,
-      'Компьютерные сети',
-      'Физкультура',
-      'Экономика',
-      'Право',
-      'Компьютерные сети',
-    ];
-    final t1 = [
-      '09:00 - 10:30',
-      '09:00 - 10:30',
-      '10:45 - 12:15',
-      '09:00 - 10:30',
-      '08:30 - 10:00',
-      '08:30 - 10:00',
-    ];
-    final t2 = [
-      '10:45 - 12:15',
-      '10:45 - 12:15',
-      '12:30 - 14:00',
-      '10:45 - 12:15',
-      '10:15 - 11:45',
-      '10:30 - 12:00',
+    final schedule = <Map<String, dynamic>>[
+      {
+        'date': dd,
+        'day': day,
+        'pair_number': 1,
+        'time': '14:00 - 15:10',
+        'subject': 'Техническая защита информации',
+        'room': '215',
+        'teacher': 'Багирова София Динмагомедовна',
+        'week_type': 'Четная (2 неделя)',
+        'subgroup': 0,
+        'semester': '2 сем 2025-2026',
+      },
+      {
+        'date': dd,
+        'day': day,
+        'pair_number': 2,
+        'time': '15:20 - 16:30',
+        'subject': 'Сети и системы передачи информации',
+        'room': '216',
+        'teacher': 'Шахбанова Загидат Ибрагимбековна',
+        'week_type': 'Четная (2 неделя)',
+        'subgroup': 0,
+        'semester': '2 сем 2025-2026',
+      },
     ];
 
-    final i = dayIdx.clamp(0, pair1Subjects.length - 1);
     return {
-      'schedule': [
-        {
-          'pair_number': 1,
-          'day_short': dayShort,
-          'subject': pair1Subjects[i],
-          'time': t1[i],
-          'teacher': 'Иванов Иван Иванович',
-          'auditorium': '${101 + i}',
-          'date': ddMmYyyy,
-        },
-        {
-          'pair_number': 2,
-          'day_short': dayShort,
-          'subject': pair2Subjects[i],
-          'time': t2[i],
-          'teacher': 'Петрова Анна Сергеевна',
-          'auditorium': '${204 + i}',
-          'date': ddMmYyyy,
-        },
-      ],
+      'schedule': schedule,
+      'week': null,
+      'is_cached': true,
+      'schedule_scope': 'today',
+      'schedule_for_date': forDateYmd,
     };
   }
 
@@ -430,4 +386,13 @@ abstract final class MockPayloads {
 
   /// Успешные POST без тела.
   static Map<String, dynamic> emptyOk() => {};
+
+  static Map<String, dynamic> parentInviteOk() => {'success': true};
+
+  static Uint8List studentPhotoBytes(int userId) {
+    // 1x1 PNG (transparent). Валидная картинка, чтобы Image.file / decoder не падал.
+    const b64 =
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMB/0p7k0kAAAAASUVORK5CYII=';
+    return base64Decode(b64);
+  }
 }

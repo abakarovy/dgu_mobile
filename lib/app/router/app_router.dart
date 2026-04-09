@@ -26,6 +26,7 @@ import '../../features/tasks/presentation/pages/tasks_page.dart';
 import '../../features/shell/presentation/pages/app_shell_page.dart';
 import '../../features/account/presentation/pages/email_change_page.dart';
 import '../../features/account/presentation/pages/password_reset_page.dart';
+import '../../features/profile/presentation/pages/certificate_order_page.dart';
 
 /// Полноэкранные подмаршруты с кнопкой «назад»: [CupertinoPage] даёт свайп с края (iOS).
 Page<void> _cupertinoSubpage({
@@ -217,6 +218,15 @@ final GoRouter appRouter = GoRouter(
         key: state.pageKey,
         name: state.name,
         child: const PasswordResetPage(),
+      ),
+    ),
+    GoRoute(
+      path: '/account/certificate-order',
+      name: 'accountCertificateOrder',
+      pageBuilder: (context, state) => _cupertinoSubpage(
+        key: state.pageKey,
+        name: state.name,
+        child: const CertificateOrderPage(),
       ),
     ),
     GoRoute(

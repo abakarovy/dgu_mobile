@@ -1,19 +1,14 @@
 import 'dart:convert';
 
 abstract final class MockAccounts {
-  static const int ivanId = 1001;
-  static const int mariaId = 1002;
+  /// Единственный мок-пользователь: Али Ягияев (как в логах).
+  static const int aliId = 28;
 
-  static const String ivanEmail = 'test1@test.ru';
-  static const String ivanPassword = 'Test1234';
-
-  static const String mariaEmail = 'test2@test.ru';
-  static const String mariaPassword = 'Test1234';
+  static const String aliEmail = 'ali.yagiyaev@yandex.ru';
+  static const String aliPassword = 'Test1234';
 
   static Map<String, dynamic> userJsonById(int id) {
-    if (id == ivanId) return _ivanUser;
-    if (id == mariaId) return _mariaUser;
-    return _ivanUser;
+    return _aliUser;
   }
 
   /// `Bearer mock_token_<id>` → JSON пользователя для [GET /auth/me].
@@ -26,16 +21,11 @@ abstract final class MockAccounts {
     return userJsonById(id);
   }
 
-  static int variantIndexForUserId(int id) => id == mariaId ? 1 : 0;
-
   static MockLoginResult? tryLogin(String username, String password) {
     final u = username.trim().toLowerCase();
     final p = password;
-    if (u == ivanEmail.toLowerCase() && p == ivanPassword) {
-      return MockLoginResult(userJson: _ivanUser, userId: ivanId);
-    }
-    if (u == mariaEmail.toLowerCase() && p == mariaPassword) {
-      return MockLoginResult(userJson: _mariaUser, userId: mariaId);
+    if (u == aliEmail.toLowerCase() && p == aliPassword) {
+      return MockLoginResult(userJson: _aliUser, userId: aliId);
     }
     return null;
   }
@@ -47,36 +37,21 @@ abstract final class MockAccounts {
     return base64Encode(utf8.encode(json));
   }
 
-  static final Map<String, dynamic> _ivanUser = {
-    'id': ivanId,
-    'email': ivanEmail,
-    'full_name': 'Ягияев Али Тажутдинович',
+  static final Map<String, dynamic> _aliUser = {
+    'id': aliId,
+    'email': aliEmail,
+    'full_name': 'ЯГИЯЕВ АЛИ ТАЖУТДИНОВИЧ',
     'role': 'student',
-    'student_book_number': '23355',
-    'parent_email': 'parent.ivan@example.com',
-    'course': 3,
-    'direction': 'Информационные системы',
-    'group_id': 501,
-    'department': 'Информационные технологии',
-    'bio': null,
-    'is_active': true,
-    'created_at': '2024-09-01T10:00:00Z',
-  };
-
-  static final Map<String, dynamic> _mariaUser = {
-    'id': mariaId,
-    'email': mariaEmail,
-    'full_name': 'Сидорова Мария Александровна',
-    'role': 'student',
-    'student_book_number': 'УБ654321',
+    'student_book_number': '23385',
     'parent_email': null,
-    'course': 2,
-    'direction': 'Программирование',
-    'group_id': 502,
-    'department': 'Информационные технологии',
+    'course': 3,
+    'direction': '10.02.05 Обеспечение информационной безопасности автоматизированных систем',
+    'group_id': null,
+    'department': 'Обеспечение информационной безопасности автоматизированных систем',
     'bio': null,
     'is_active': true,
-    'created_at': '2024-09-01T10:00:00Z',
+    'force_password_change': false,
+    'created_at': '2026-03-30T15:37:15.799890',
   };
 }
 
