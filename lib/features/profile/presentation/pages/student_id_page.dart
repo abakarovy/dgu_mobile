@@ -91,9 +91,24 @@ class _StudentIdPageState extends State<StudentIdPage> {
     _oneC = _readCachedOneC();
     _group = _readCachedGroup();
     if (_me != null) _meLoading = false;
+    _avatarPath = _bestLocal1cPhotoPathSync();
     unawaited(_loadAvatarPath());
     _loadMeAsync();
     unawaited(_loadGroupAsync());
+  }
+
+  static String? _bestLocal1cPhotoPathSync() {
+    final dir = AppContainer.appDocumentsDirPath;
+    if (dir == null || dir.trim().isEmpty) return null;
+    final path = '$dir/${AppConstants.profile1cPhotoFileName}';
+    try {
+      final f = File(path);
+      if (!f.existsSync()) return null;
+      if (f.lengthSync() <= 0) return null;
+      return path;
+    } catch (_) {
+      return null;
+    }
   }
 
   UserModel? _readCachedMe() {
@@ -138,8 +153,10 @@ class _StudentIdPageState extends State<StudentIdPage> {
 
   Future<void> _loadAvatarPath() async {
     final prefs = await SharedPreferences.getInstance();
-    final path = prefs.getString(AppConstants.profileAvatarPathKey);
-    if (path != null && mounted) setState(() => _avatarPath = path);
+    final oneC = prefs.getString(AppConstants.profile1cPhotoPathKey);
+    // Если в prefs пути нет, но файл уже на диске — берём его.
+    final chosen = (oneC != null && oneC.trim().isNotEmpty) ? oneC : _bestLocal1cPhotoPathSync();
+    if (mounted) setState(() => _avatarPath = chosen);
   }
 
   Future<void> _loadGroupAsync() async {
@@ -216,37 +233,61 @@ class _StudentIdPageState extends State<StudentIdPage> {
   }
 
   Widget _avatar() {
-    return Container(
+    const r = 12.0;
+    final hasPath = _avatarPath != null && _avatarPath!.trim().isNotEmpty;
+    return SizedBox(
       width: _avatarWidth,
       height: _avatarHeight,
-      decoration: BoxDecoration(
-        color: const Color(0xFFF0F6FF),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _labelBlue.withValues(alpha: 0.35), width: 2.5),
-        boxShadow: [
-          BoxShadow(
-            color: _labelBlue.withValues(alpha: 0.12),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(r),
+            child: hasPath
+                ? Image.file(
+                    File(_avatarPath!),
+                    fit: BoxFit.cover,
+                    gaplessPlayback: true,
+                    errorBuilder: (_, _, _) => ColoredBox(
+                      color: const Color(0xFFF0F6FF),
+                      child: Icon(
+                        Icons.person_rounded,
+                        size: 48,
+                        color: _labelBlue.withValues(alpha: 0.45),
+                      ),
+                    ),
+                  )
+                : ColoredBox(
+                    color: const Color(0xFFF0F6FF),
+                    child: Icon(
+                      Icons.person_rounded,
+                      size: 48,
+                      color: _labelBlue.withValues(alpha: 0.45),
+                    ),
+                  ),
+          ),
+          Positioned.fill(
+            child: IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(r),
+                  border: Border.all(
+                    color: _labelBlue.withValues(alpha: 0.35),
+                    width: 2.5,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: _labelBlue.withValues(alpha: 0.12),
+                      blurRadius: 16,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
         ],
       ),
-      clipBehavior: Clip.antiAlias,
-      child: _avatarPath != null
-          ? Image.file(
-              File(_avatarPath!),
-              fit: BoxFit.cover,
-              errorBuilder: (_, _, _) => Icon(
-                Icons.person_rounded,
-                size: 48,
-                color: _labelBlue.withValues(alpha: 0.45),
-              ),
-            )
-          : Icon(
-              Icons.person_rounded,
-              size: 48,
-              color: _labelBlue.withValues(alpha: 0.45),
-            ),
     );
   }
 
@@ -336,11 +377,15 @@ class _StudentIdPageState extends State<StudentIdPage> {
                   final id = _studentId(me, _ticket, _oneC);
                   final birthDate = _birthDate(_ticket, _oneC);
                   final department = _department(me, _ticket, _oneC);
+                  final direction = _direction(me, _ticket, _oneC);
                   final studyGroup = _studyGroup(me, _ticket, _oneC, _group);
                   final course = _course(me, _ticket, _oneC);
                   final admissionYear = _admissionYear(_ticket, _oneC);
                   final studyForm = _studyForm(me, _ticket, _oneC);
                   final status = _status(me, _ticket, _oneC);
+                  final curator = _curator(_oneC);
+                  final fundingType = _fundingType(_oneC);
+                  final socialRole = _socialRole(_oneC);
 
                   return Container(
                     width: double.infinity,
@@ -373,7 +418,7 @@ class _StudentIdPageState extends State<StudentIdPage> {
                                   const SizedBox(height: 4),
                                   Text(fullName, style: _fieldValueStyle()),
                                   const SizedBox(height: 14),
-                                  _fieldLabel('ID'),
+                                  _fieldLabel('Зачётная книжка'),
                                   const SizedBox(height: 4),
                                   Row(
                                     children: [
@@ -423,10 +468,14 @@ class _StudentIdPageState extends State<StudentIdPage> {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 16),
-                        _fieldLabel('Отделение'),
-                        const SizedBox(height: 4),
-                        Text(department, style: _fieldValueStyle()),
+                        if (_hasValue(department)) ...[
+                          const SizedBox(height: 16),
+                          _fieldBlock('Отделение', department),
+                        ],
+                        if (_hasValue(direction)) ...[
+                          const SizedBox(height: 16),
+                          _fieldBlock('Направление', direction),
+                        ],
                         const SizedBox(height: 16),
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -435,7 +484,7 @@ class _StudentIdPageState extends State<StudentIdPage> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
-                                  _fieldLabel('Учебная группа'),
+                                  _fieldLabel('Группа'),
                                   const SizedBox(height: 4),
                                   Text(studyGroup, style: _fieldValueStyle()),
                                 ],
@@ -454,13 +503,25 @@ class _StudentIdPageState extends State<StudentIdPage> {
                             ),
                           ],
                         ),
+                        if (_hasValue(curator)) ...[
+                          const SizedBox(height: 16),
+                          _fieldBlock('Куратор', curator),
+                        ],
+                        if (_hasValue(fundingType)) ...[
+                          const SizedBox(height: 16),
+                          _fieldBlock('Тип финансирования', fundingType),
+                        ],
+                        if (_hasValue(socialRole)) ...[
+                          const SizedBox(height: 16),
+                          _fieldBlock('Общественное поручение', socialRole),
+                        ],
                         const SizedBox(height: 16),
                         Wrap(
                           spacing: 10,
                           runSpacing: 10,
                           crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
-                            _dataChip(studyForm),
+                            if (_hasValue(studyForm)) _dataChip(studyForm),
                             _dataChip(_formatCourseChip(course)),
                           ],
                         ),
@@ -519,6 +580,23 @@ class _StudentIdPageState extends State<StudentIdPage> {
 
   static String _safe(String? v) => (v == null || v.trim().isEmpty) ? '-' : v.trim();
 
+  static bool _hasValue(String v) {
+    final t = v.trim();
+    return t.isNotEmpty && t != '-';
+  }
+
+  Widget _fieldBlock(String label, String value) {
+    if (!_hasValue(value)) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _fieldLabel(label),
+        const SizedBox(height: 4),
+        Text(value, style: _fieldValueStyle()),
+      ],
+    );
+  }
+
   static String _displayFullName(UserModel me, StudentTicketModel? t, OneCMyProfile? c) {
     final st = t?.fullName?.trim();
     if (st != null && st.isNotEmpty) return st;
@@ -556,6 +634,14 @@ class _StudentIdPageState extends State<StudentIdPage> {
     if (d != null && d.isNotEmpty) return d;
     final dir = me.direction?.trim();
     if (dir != null && dir.isNotEmpty) return dir;
+    return '-';
+  }
+
+  static String _direction(UserModel me, StudentTicketModel? t, OneCMyProfile? c) {
+    final d1 = c?.direction?.trim();
+    if (d1 != null && d1.isNotEmpty) return d1;
+    final d = me.direction?.trim();
+    if (d != null && d.isNotEmpty) return d;
     return '-';
   }
 
@@ -597,5 +683,23 @@ class _StudentIdPageState extends State<StudentIdPage> {
     final s = c?.status?.trim();
     if (s != null && s.isNotEmpty) return s;
     return me.isActive ? 'Обучается' : 'Неактивен';
+  }
+
+  static String _curator(OneCMyProfile? c) {
+    final v = c?.curator?.trim();
+    if (v != null && v.isNotEmpty) return v;
+    return '-';
+  }
+
+  static String _fundingType(OneCMyProfile? c) {
+    final v = c?.fundingType?.trim();
+    if (v != null && v.isNotEmpty) return v;
+    return '-';
+  }
+
+  static String _socialRole(OneCMyProfile? c) {
+    final v = c?.socialRole?.trim();
+    if (v != null && v.isNotEmpty) return v;
+    return '-';
   }
 }

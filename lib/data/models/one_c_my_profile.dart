@@ -6,6 +6,9 @@ class OneCMyProfile {
     this.group,
     this.department,
     this.direction,
+    this.curator,
+    this.fundingType,
+    this.socialRole,
     this.admissionYear,
     this.studyForm,
     this.status,
@@ -18,6 +21,9 @@ class OneCMyProfile {
   final String? group;
   final String? department;
   final String? direction;
+  final String? curator;
+  final String? fundingType;
+  final String? socialRole;
   final String? admissionYear;
   final String? studyForm;
   final String? status;
@@ -140,6 +146,9 @@ class OneCMyProfile {
       group: groupStr,
       department: _str(j, ['department', 'faculty', 'отделение']),
       direction: _str(j, ['direction', 'specialty', 'специальность']),
+      curator: _str(j, ['curator', 'curator_name', 'куратор']),
+      fundingType: _str(j, ['funding_type', 'тип_финансирования', 'тип финансирования']),
+      socialRole: _str(j, ['social_role', 'общественное_поручение', 'общественное поручение']),
       admissionYear: admission,
       studyForm: _str(j, ['study_form', 'education_form', 'форма_обучения']),
       status: _str(j, ['status', 'student_status', 'статус']),
@@ -159,6 +168,9 @@ class OneCMyProfile {
         'group': group,
         'department': department,
         'direction': direction,
+        'curator': curator,
+        'funding_type': fundingType,
+        'social_role': socialRole,
         'admission_year': admissionYear,
         'study_form': studyForm,
         'status': status,

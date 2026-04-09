@@ -20,6 +20,7 @@ import '../../features/auth/data/repositories/auth_repository_impl.dart';
 import '../../features/schedule/domain/schedule_calendar_filter.dart';
 import '../auth/auth_session.dart';
 import '../../core/cache/json_cache.dart';
+import 'package:path_provider/path_provider.dart';
 
 /// Простой DI: инициализация один раз при старте, затем доступ к репозиториям.
 abstract final class AppContainer {
@@ -39,8 +40,15 @@ abstract final class AppContainer {
   static AccountApi? _accountApi;
   static StudentTicketApi? _studentTicketApi;
   static JsonCache? _jsonCache;
+  static String? _appDocumentsDirPath;
 
   static Future<void> init() async {
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      _appDocumentsDirPath = dir.path;
+    } catch (_) {
+      _appDocumentsDirPath = null;
+    }
     final tokenStorage = await TokenStorage.create();
     final jsonCache = await JsonCache.create();
     final apiClient = ApiClient(tokenStorage: tokenStorage);
@@ -65,6 +73,8 @@ abstract final class AppContainer {
     _studentTicketApi = StudentTicketApi(apiClient: apiClient);
     _jsonCache = jsonCache;
   }
+
+  static String? get appDocumentsDirPath => _appDocumentsDirPath;
 
   static AuthRepository get authRepository {
     final r = _authRepository;

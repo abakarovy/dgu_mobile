@@ -9,7 +9,6 @@ import 'package:dgu_mobile/core/theme/app_text_styles.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -45,8 +44,23 @@ class _ProfilePageState extends State<ProfilePage> {
     _oneC = _readCachedOneC();
     _absenceHoursText = _readCachedAbsencesLabel();
     _applyPerformanceFromCache();
+    _saved1cPhotoPath = _bestLocal1cPhotoPathSync();
     _loadAvatarPath();
     _refreshMeInBackground();
+  }
+
+  static String? _bestLocal1cPhotoPathSync() {
+    final dir = AppContainer.appDocumentsDirPath;
+    if (dir == null || dir.trim().isEmpty) return null;
+    final path = '$dir/${AppConstants.profile1cPhotoFileName}';
+    try {
+      final f = File(path);
+      if (!f.existsSync()) return null;
+      if (f.lengthSync() <= 0) return null;
+      return path;
+    } catch (_) {
+      return null;
+    }
   }
 
   @override
@@ -256,18 +270,31 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<void> _loadAvatarPath() async {
     final prefs = await SharedPreferences.getInstance();
-    final userAvatar = prefs.getString(AppConstants.profileAvatarPathKey);
     final oneCPhoto = prefs.getString(AppConstants.profile1cPhotoPathKey);
+    String? chosen = oneCPhoto;
+    try {
+      // Если prefs пустые/битые, но файл уже есть на диске — используем его сразу.
+      final dir = await getApplicationDocumentsDirectory();
+      final fallback = File('${dir.path}/${AppConstants.profile1cPhotoFileName}');
+      if ((chosen == null || chosen.trim().isEmpty) && await fallback.exists()) {
+        final len = await fallback.length();
+        if (len > 0) chosen = fallback.path;
+      } else if (chosen != null && chosen.trim().isNotEmpty) {
+        final f = File(chosen);
+        if (!await f.exists() || await f.length() == 0) {
+          chosen = null;
+        }
+      }
+    } catch (_) {}
     if (!mounted) return;
     setState(() {
-      _savedAvatarPath = userAvatar;
-      _saved1cPhotoPath = oneCPhoto;
+      // Пользовательскую аватарку не используем — берём фото с бэка (1С) + его кэш.
+      _savedAvatarPath = null;
+      _saved1cPhotoPath = chosen;
     });
 
     // Показываем кэш сразу, а обновление с бэка делаем в фоне.
-    if ((userAvatar ?? '').trim().isEmpty) {
-      unawaited(_ensure1cPhotoCached(refreshIfCached: true));
-    }
+    unawaited(_ensure1cPhotoCached(refreshIfCached: true));
   }
 
   Future<void> _ensure1cPhotoCached({required bool refreshIfCached}) async {
@@ -293,44 +320,17 @@ class _ProfilePageState extends State<ProfilePage> {
         .getStudentPhotoBytes()
         .timeout(ApiConstants.prefetchRequestTimeout);
     if (bytes == null || bytes.isEmpty) return;
-    final dir = await getApplicationDocumentsDirectory();
-    final file = File('${dir.path}/${AppConstants.profile1cPhotoFileName}');
+    final dirPath = AppContainer.appDocumentsDirPath ??
+        (await getApplicationDocumentsDirectory()).path;
+    final file = File('$dirPath/${AppConstants.profile1cPhotoFileName}');
     await file.writeAsBytes(bytes, flush: true);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(AppConstants.profile1cPhotoPathKey, file.path);
     if (mounted) setState(() => _saved1cPhotoPath = file.path);
   }
 
-  Future<void> _pickAndSaveAvatar() async {
-    final picker = ImagePicker();
-    final xFile = await picker.pickImage(
-      source: ImageSource.gallery,
-      maxWidth: 512,
-      maxHeight: 512,
-      imageQuality: 85,
-    );
-    if (xFile == null || !mounted) return;
-
-    try {
-      final appDir = await getApplicationDocumentsDirectory();
-      final file = File('${appDir.path}/${AppConstants.profileAvatarFileName}');
-      await file.writeAsBytes(await xFile.readAsBytes());
-
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(AppConstants.profileAvatarPathKey, file.path);
-      if (mounted) {
-        setState(() {
-          _savedAvatarPath = file.path;
-        });
-      }
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Не удалось сохранить фото')),
-        );
-      }
-    }
-  }
+  // Пользовательскую замену аватарки отключили по требованию:
+  // аватар всегда берётся с бэка (1С) + локальный кэш.
 
   /// Как на студенческом билете: «Очная форма обучения» и т.п.
   String _educationFormFull(UserModel? me) {
@@ -379,7 +379,7 @@ class _ProfilePageState extends State<ProfilePage> {
     final size = MediaQuery.sizeOf(context);
     const figmaW = 402.0;
     const figmaH = 874.0;
-    final layoutScale = min(size.width / figmaW, size.height / figmaH) * 1.2;
+    final layoutScale = min(size.width / figmaW, size.height / figmaH);
     final minProfileCardHeight = 100 * layoutScale;
     final hPad = 12 * layoutScale;
     final gapM = 16 * layoutScale;
@@ -395,7 +395,6 @@ class _ProfilePageState extends State<ProfilePage> {
             _topHero(
               layoutScale: layoutScale,
               fullName: fullName.isEmpty ? '—' : fullName,
-              onAvatarTap: _pickAndSaveAvatar,
             ),
             SizedBox(height: gapM),
             Padding(
@@ -758,7 +757,6 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget _topHero({
     required double layoutScale,
     required String fullName,
-    required VoidCallback onAvatarTap,
   }) {
     // Ниже, чем в макете 309 — компактнее шапка профиля.
     final heroH = 248 * layoutScale;
@@ -801,26 +799,23 @@ class _ProfilePageState extends State<ProfilePage> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                GestureDetector(
-                  onTap: onAvatarTap,
-                  child: Container(
-                    width: avatar,
-                    height: avatar,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(radius),
-                      border: Border.all(color: Colors.white, width: borderW),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0x1A000000),
-                          offset: Offset(0, 8.35 * layoutScale),
-                          blurRadius: 20.86 * layoutScale,
-                        ),
-                      ],
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(radius),
-                      child: _avatarImage(layoutScale),
-                    ),
+                Container(
+                  width: avatar,
+                  height: avatar,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(radius),
+                    border: Border.all(color: Colors.white, width: borderW),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0x1A000000),
+                        offset: Offset(0, 8.35 * layoutScale),
+                        blurRadius: 20.86 * layoutScale,
+                      ),
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(radius),
+                    child: _avatarImage(layoutScale),
                   ),
                 ),
                 SizedBox(height: 8 * layoutScale),

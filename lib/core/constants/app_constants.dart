@@ -11,4 +11,7 @@ abstract final class AppConstants {
   /// Используется, если пользователь не выбрал собственную аватарку.
   static const String profile1cPhotoPathKey = 'profile_1c_photo_path';
   static const String profile1cPhotoFileName = 'avatar_1c.jpg';
+
+  /// Время (epoch ms), до которого кнопка "Сбросить" заблокирована (anti-spam).
+  static const String passwordResetCooldownUntilMsKey = 'password_reset_cooldown_until_ms';
 }

@@ -1,13 +1,15 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/constants/app_colors.dart';
-import '../../../../core/constants/app_ui.dart';
 import '../../../../core/di/app_container.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../data/api/api_exception.dart';
+import '../../../../data/models/user_model.dart';
+import '../../../../shared/widgets/app_header.dart';
 
 class EmailChangePage extends StatefulWidget {
   const EmailChangePage({super.key});
@@ -18,15 +20,47 @@ class EmailChangePage extends StatefulWidget {
 
 class _EmailChangePageState extends State<EmailChangePage> {
   final _emailCtrl = TextEditingController();
-  final _codeCtrl = TextEditingController();
+
+  final List<TextEditingController> _codeCtrls =
+      List.generate(6, (_) => TextEditingController());
+  final List<FocusNode> _codeFocus =
+      List.generate(6, (_) => FocusNode());
+
   bool _requested = false;
   bool _busy = false;
+  String? _oldEmail;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_loadOldEmail());
+  }
 
   @override
   void dispose() {
     _emailCtrl.dispose();
-    _codeCtrl.dispose();
+    for (final c in _codeCtrls) {
+      c.dispose();
+    }
+    for (final f in _codeFocus) {
+      f.dispose();
+    }
     super.dispose();
+  }
+
+  Future<void> _loadOldEmail() async {
+    try {
+      final c = AppContainer.jsonCache.getJsonMap('auth:me');
+      if (c != null) {
+        final e = UserModel.fromJson(c).email.trim();
+        if (e.isNotEmpty && mounted) setState(() => _oldEmail = e);
+      }
+      final fresh = await AppContainer.authApi.getMe();
+      await AppContainer.jsonCache.setJson('auth:me', fresh.toJson());
+      if (!mounted) return;
+      final e = fresh.email.trim();
+      if (e.isNotEmpty) setState(() => _oldEmail = e);
+    } catch (_) {}
   }
 
   Future<void> _request() async {
@@ -38,9 +72,10 @@ class _EmailChangePageState extends State<EmailChangePage> {
       await AppContainer.accountApi.requestEmailChange(newEmail: email);
       if (!mounted) return;
       setState(() => _requested = true);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Мы отправили код на новый адрес')),
-      );
+      // Focus first code box.
+      unawaited(Future<void>.delayed(const Duration(milliseconds: 50), () {
+        if (mounted) _codeFocus.first.requestFocus();
+      }));
     } catch (e) {
       if (!mounted) return;
       final msg = (e is ApiException) ? e.message : 'Ошибка';
@@ -55,7 +90,7 @@ class _EmailChangePageState extends State<EmailChangePage> {
   Future<void> _confirm() async {
     if (_busy) return;
     final email = _emailCtrl.text.trim();
-    final code = _codeCtrl.text.trim();
+    final code = _codeCtrls.map((c) => c.text.trim()).join();
     if (email.isEmpty || code.isEmpty) return;
     setState(() => _busy = true);
     try {
@@ -81,95 +116,219 @@ class _EmailChangePageState extends State<EmailChangePage> {
     }
   }
 
+  Widget _emailField() {
+    return SizedBox(
+      height: 44,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: const Color(0xFF000000), width: 1.5),
+        ),
+        alignment: Alignment.centerLeft,
+        child: TextField(
+          controller: _emailCtrl,
+          keyboardType: TextInputType.emailAddress,
+          maxLines: 1,
+          textAlignVertical: TextAlignVertical.center,
+          decoration: const InputDecoration(
+            isDense: true,
+            contentPadding: EdgeInsets.symmetric(vertical: 14),
+            border: InputBorder.none,
+            hintText: 'new@email.ru',
+          ),
+          style: AppTextStyle.inter(
+            fontWeight: FontWeight.w600,
+            fontSize: 12,
+            height: 1.0,
+            color: Color(0xFF000000),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _primaryButton({required String label, required VoidCallback? onTap}) {
+    final enabled = onTap != null && !_busy;
+    return SizedBox(
+      height: 35,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: enabled ? onTap : null,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          decoration: BoxDecoration(
+            color: enabled ? const Color(0xFF2E63D5) : const Color(0xFF2E63D5).withValues(alpha: 0.4),
+            borderRadius: BorderRadius.circular(15),
+          ),
+          alignment: Alignment.center,
+          child: _busy
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                )
+              : Text(
+                  label,
+                  style: AppTextStyle.inter(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                    height: 1.0,
+                    color: Colors.white,
+                  ),
+                ),
+        ),
+      ),
+    );
+  }
+
+  void _onCodeChanged(int idx, String v) {
+    final t = v.trim();
+    if (t.length > 1) {
+      _codeCtrls[idx].text = t.substring(t.length - 1);
+      _codeCtrls[idx].selection = const TextSelection.collapsed(offset: 1);
+    }
+    if (t.isNotEmpty && idx < _codeFocus.length - 1) {
+      _codeFocus[idx + 1].requestFocus();
+    }
+    if (_codeCtrls.every((c) => c.text.trim().isNotEmpty)) {
+      unawaited(_confirm());
+    }
+  }
+
+  Widget _codeBox(int idx) {
+    final focused = _codeFocus[idx].hasFocus;
+    return Focus(
+      onFocusChange: (_) {
+        if (mounted) setState(() {});
+      },
+      child: SizedBox(
+        width: 50,
+        height: 64,
+        child: TextField(
+          controller: _codeCtrls[idx],
+          focusNode: _codeFocus[idx],
+          keyboardType: TextInputType.number,
+          textAlign: TextAlign.center,
+          maxLength: 1,
+          decoration: InputDecoration(
+            counterText: '',
+            filled: true,
+            fillColor: focused ? const Color(0x0F2563EB) : Colors.transparent,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(
+                color: focused ? const Color(0xFF2563EB) : const Color(0xFF000000),
+                width: focused ? 1 : 1.5,
+              ),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Color(0xFF000000), width: 1.5),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Color(0xFF2563EB), width: 1),
+            ),
+            contentPadding: EdgeInsets.zero,
+          ),
+          style: AppTextStyle.inter(
+            fontWeight: FontWeight.w700,
+            fontSize: 20,
+            height: 1.0,
+            color: const Color(0xFF000000),
+          ),
+          onChanged: (v) => _onCodeChanged(idx, v),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        surfaceTintColor: Colors.transparent,
-        centerTitle: false,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 20),
-          onPressed: () => context.pop(),
-          color: AppColors.textPrimary,
-        ),
-        titleSpacing: 0,
-        title: Padding(
-          padding: const EdgeInsets.only(right: 10),
-          child: Text(
-            'Смена E-mail',
-            style: AppTextStyle.inter(
-              fontWeight: FontWeight.w700,
-              fontSize: 18,
-              height: 24 / 18,
+      backgroundColor: Colors.white,
+      appBar: AppHeader(
+        leadingLeftPadding: 6,
+        leading: GestureDetector(
+          onTap: () => context.pop(),
+          behavior: HitTestBehavior.opaque,
+          child: const Center(
+            child: Icon(
+              Icons.arrow_back_ios_new,
+              size: 20,
               color: AppColors.textPrimary,
             ),
           ),
         ),
+        headerTitle: Text(
+          'Смена E-mail',
+          style: AppTextStyle.inter(
+            fontWeight: FontWeight.w700,
+            fontSize: 18,
+            height: 24 / 18,
+            color: AppColors.textPrimary,
+          ),
+        ),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(10, 20, 10, 24),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              'Введите новый E-mail. Для подтверждения введите код из письма, отправленный на старый E-mail.',
-              style: AppTextStyle.inter(
-                fontWeight: FontWeight.w400,
-                fontSize: 13,
-                height: 18 / 13,
-                color: AppColors.notificationSubtitle,
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _emailCtrl,
-              keyboardType: TextInputType.emailAddress,
-              decoration: InputDecoration(
-                filled: true,
-                fillColor: AppColors.backgroundSecondary,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppUi.radiusM),
-                  borderSide: BorderSide.none,
-                ),
-                hintText: 'new@email.ru',
-              ),
-            ),
-            const SizedBox(height: 12),
-            FilledButton(
-              onPressed: _busy ? null : _request,
-              child: Text(_requested ? 'Отправить код ещё раз' : 'Отправить код'),
-            ),
-            const SizedBox(height: 18),
-            if (_requested) ...[
+            if (!_requested) ...[
+              _emailField(),
+              const SizedBox(height: 12),
+              _primaryButton(label: 'Отправить код', onTap: _request),
+              const SizedBox(height: 10),
               Text(
-                'Код подтверждения',
+                'Введите новый e-mail. Для подтверждения введите код из письма, отправленный на старый e-mail.',
                 style: AppTextStyle.inter(
                   fontWeight: FontWeight.w700,
-                  fontSize: 12,
-                  color: AppColors.caption,
+                  fontSize: 13,
+                  height: 1.2,
+                  color: const Color(0xFF000000),
                 ),
               ),
-              const SizedBox(height: 6),
-              TextField(
-                controller: _codeCtrl,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(
-                  filled: true,
-                  fillColor: AppColors.backgroundSecondary,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(AppUi.radiusM),
-                    borderSide: BorderSide.none,
-                  ),
-                  hintText: 'Например, 123456',
-                ),
+            ] else ...[
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  for (int i = 0; i < 6; i++) ...[
+                    _codeBox(i),
+                    if (i != 5) const SizedBox(width: 10),
+                  ],
+                ],
               ),
               const SizedBox(height: 12),
-              FilledButton(
-                onPressed: _busy ? null : _confirm,
-                child: const Text('Подтвердить'),
+              Text.rich(
+                TextSpan(
+                  text: 'Введите код отправленный на почту',
+                  style: AppTextStyle.inter(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                    height: 1.2,
+                    color: const Color(0xFF000000),
+                  ),
+                  children: [
+                    if (_oldEmail != null && _oldEmail!.trim().isNotEmpty)
+                      TextSpan(
+                        text: ' ${_oldEmail!.trim()}',
+                        style: AppTextStyle.inter(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                          height: 1.2,
+                          color: const Color(0xFF2563EB),
+                        ),
+                      ),
+                  ],
+                ),
+                textAlign: TextAlign.center,
               ),
             ],
           ],
