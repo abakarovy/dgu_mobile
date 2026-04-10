@@ -142,6 +142,6 @@ SPEC CHECKSUMS:
   shared_preferences_foundation: 7036424c3d8ec98dfe75ff1667cb0cd531ec82bb
   url_launcher_ios: 7a95fa5b60cc718a708b8f2966718e93db0cef1b
 
-PODFILE CHECKSUM: 201d2033f3aeba88bc8c308bb61716e9766fbb47
+PODFILE CHECKSUM: cfbdd795bb5c77b394fbdd6ceff29eaecccc36f4
 
 COCOAPODS: 1.16.2
