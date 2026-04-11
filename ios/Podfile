@@ -37,6 +37,13 @@ target 'Runner' do
 end
 
 post_install do |installer|
+  # После «Update to recommended settings» у Pods.xcodeproj Xcode может включить Module Verifier
+  # и сбросить наследование путей — снова ломается поиск Flutter/Flutter.h у плагинов.
+  installer.pods_project.build_configurations.each do |config|
+    config.build_settings['ENABLE_MODULE_VERIFIER'] = 'NO'
+    config.build_settings['CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER'] = 'NO'
+  end
+
   # Предупреждения из исходников плагинов (pub-cache): deprecated API, pointer cast и т.д.
   # Их нельзя править в проекте — только ждать апдейта пакета; для чистой сборки отключаем warn в этих pod-таргетах.
   noisy_plugin_targets = %w[
@@ -53,6 +60,10 @@ post_install do |installer|
       # Принудительно выравниваем deployment target с проектом, иначе Xcode ругается.
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
 
+      # Xcode 14.3+: проверка модулей для pod-фреймворков даёт лишний шум (в т.ч. dummy.o / VerifyModule).
+      config.build_settings['ENABLE_MODULE_VERIFIER'] = 'NO'
+      config.build_settings['CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER'] = 'NO'
+
       if noisy_plugin_targets.include?(target.name)
         config.build_settings['GCC_WARN_INHIBIT_ALL_WARNINGS'] = 'YES'
       end
@@ -61,5 +72,7 @@ post_install do |installer|
       # Match App Store / crash symbolication expectations for pod frameworks
       config.build_settings['DEBUG_INFORMATION_FORMAT'] = 'dwarf-with-dsym'
     end
+    # Повторно: наши флаги не должны перетирать FRAMEWORK_SEARCH_PATHS к Flutter из podhelper.
+    flutter_additional_ios_build_settings(target)
   end
 end
