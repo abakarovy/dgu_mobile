@@ -1427,32 +1427,35 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
               ),
             ),
-            Padding(
-              padding: EdgeInsets.all(pad),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'Пропуски',
-                    style: AppTextStyle.inter(
-                      fontWeight: FontWeight.w800,
-                      fontSize: titleFs,
-                      height: 1.1,
-                      color: Colors.white,
+            Positioned.fill(
+              child: Padding(
+                padding: EdgeInsets.all(pad),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'Пропуски',
+                      style: AppTextStyle.inter(
+                        fontWeight: FontWeight.w800,
+                        fontSize: titleFs,
+                        height: 1.1,
+                        color: Colors.white,
+                      ),
                     ),
-                  ),
-                  SizedBox(height: 8 * layoutScale),
-                  Text(
-                    hoursLabel,
-                    style: AppTextStyle.inter(
-                      fontWeight: FontWeight.w600,
-                      fontSize: valueFs,
-                      height: 1.2,
-                      color: Colors.white,
+                    SizedBox(height: 8 * layoutScale),
+                    const Spacer(),
+                    Text(
+                      hoursLabel,
+                      textAlign: TextAlign.right,
+                      style: AppTextStyle.inter(
+                        fontWeight: FontWeight.w600,
+                        fontSize: valueFs,
+                        height: 1.2,
+                        color: Colors.white,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ],

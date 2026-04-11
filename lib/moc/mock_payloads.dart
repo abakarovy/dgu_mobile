@@ -150,14 +150,23 @@ abstract final class MockPayloads {
 
   /// Текущие + зачёт/экзамен для вкладки «Сессия»; даты в пределах последних 14 дней.
   /// Плюс записи «Пропуск» — столько же, сколько [absences] `total_absences`, для списка на экране пропусков.
+  /// Несколько оценок по одному предмету — для шита «средний балл и все оценки».
   static Map<String, dynamic> syncGrades(int userId) {
     // Под форму ответа в логах:
-    // {grades:[{semester, records:[{subject, grade, type, date}]}]}
+    // {grades:[{semester, records:[{subject, grade, type, date, teacher_name}]}]}
     final sem = '2 сем 2025-2026';
     final now = DateTime.now();
+    final d0 = DateTime(now.year, now.month, now.day);
     final d1 = DateTime(now.year, now.month, now.day).subtract(const Duration(days: 1));
     final d2 = DateTime(now.year, now.month, now.day).subtract(const Duration(days: 4));
     final d3 = DateTime(now.year, now.month, now.day).subtract(const Duration(days: 9));
+    final d12 = DateTime(now.year, now.month, now.day).subtract(const Duration(days: 12));
+    const tNet = 'Петров Пётр Сергеевич';
+    const tSec = 'Сидорова Анна Викторовна';
+    const tExpl = 'Козлов Денис Олегович';
+    final sNetworks = 'Сети и системы передачи информации';
+    final sExpl = 'Эксплуатация автоматизированных систем в защищенном исполнении';
+    final sTzi = 'Техническая защита информации';
     return {
       'grades': [
         {
@@ -170,22 +179,96 @@ abstract final class MockPayloads {
               'date': _ymd(d3),
             },
             {
-              'subject': 'Сети и системы передачи информации',
+              'subject': sNetworks,
               'grade': 'Н',
               'type': 'Пропуск',
               'date': _ymd(d2),
             },
+            // «Текущие»: несколько оценок по одному предмету (шит по тапу).
             {
-              'subject': 'Эксплуатация автоматизированных систем в защищенном исполнении',
+              'subject': sNetworks,
               'grade': '5',
               'type': 'Ответ у доски 1 АТ',
               'date': _ymd(d1),
+              'teacher_name': tNet,
             },
             {
-              'subject': 'Техническая защита информации',
+              'subject': sNetworks,
+              'grade': '4',
+              'type': 'Ответ у доски 2 АТ',
+              'date': _ymd(d2),
+              'teacher_name': tNet,
+            },
+            {
+              'subject': sNetworks,
+              'grade': '5',
+              'type': 'Контрольная работа',
+              'date': _ymd(d3),
+              'teacher_name': tNet,
+            },
+            {
+              'subject': sNetworks,
+              'grade': '5',
+              'type': 'Практическое занятие',
+              'date': _ymd(d12),
+              'teacher_name': tNet,
+            },
+            {
+              'subject': sExpl,
+              'grade': '5',
+              'type': 'Ответ у доски 1 АТ',
+              'date': _ymd(d1),
+              'teacher_name': tExpl,
+            },
+            {
+              'subject': sExpl,
+              'grade': '4',
+              'type': 'Опрос терминов',
+              'date': _ymd(d2),
+              'teacher_name': tExpl,
+            },
+            {
+              'subject': sTzi,
               'grade': '5',
               'type': 'Ответ у доски 1 АТ',
               'date': _ymd(d2),
+              'teacher_name': tSec,
+            },
+            {
+              'subject': sTzi,
+              'grade': '5',
+              'type': 'Юрайт',
+              'date': _ymd(d3),
+              'teacher_name': tSec,
+            },
+            // «Сессия»: итоговые типы (вкладка + шит по предмету).
+            {
+              'subject': sNetworks,
+              'grade': '5',
+              'type': 'Экзамен',
+              'date': _ymd(d0),
+              'teacher_name': tNet,
+            },
+            {
+              'subject': sNetworks,
+              'grade': '5',
+              'type': 'Дифференцированный зачёт',
+              'date': _ymd(d1),
+              'teacher_name': tNet,
+            },
+            {
+              'subject': sTzi,
+              'grade': 'зачёт',
+              'type': 'Зачёт',
+              'date': _ymd(d1),
+              'teacher_name': tSec,
+            },
+            {
+              'subject': sExpl,
+              'grade': '4',
+              'type': 'Курсовая работа',
+              'date': _ymd(d2),
+              'teacher_name': tExpl,
             },
           ],
         },

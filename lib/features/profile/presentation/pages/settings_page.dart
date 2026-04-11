@@ -160,6 +160,7 @@ class _SettingsPageState extends State<SettingsPage> {
     final sectionLabelFs = 8.56 * layoutScale * 1.5;
     final sectionIconW = size.width * (7 / figmaW) * 1.5;
     final sectionIconH = size.width * (7.78 / figmaW) * 1.5;
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -168,7 +169,7 @@ class _SettingsPageState extends State<SettingsPage> {
         headerTitle: Text('Настройки', style: appHeaderNestedTitleStyle),
       ),
       body: SingleChildScrollView(
-        padding: EdgeInsets.only(bottom: 32 * layoutScale),
+        padding: EdgeInsets.only(bottom: bottomInset + 32 * layoutScale),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [

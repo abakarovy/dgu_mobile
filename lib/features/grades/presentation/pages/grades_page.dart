@@ -67,15 +67,6 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
   /// иначе справа остаётся пустой цветной квадрат.
   static bool _hasGradeValue(GradeEntity g) => g.grade.trim().isNotEmpty;
 
-  /// Все оценки по предметам для детализации при нажатии.
-  static Map<String, List<GradeListItem>> _groupBySubject(List<GradeListItem> items) {
-    final map = <String, List<GradeListItem>>{};
-    for (final e in items) {
-      map.putIfAbsent(e.subjectName, () => []).add(e);
-    }
-    return map;
-  }
-
   List<GradeListItem> _filtered(List<GradeListItem> items) {
     final start = DateTime(_rangeStart.year, _rangeStart.month, _rangeStart.day);
     final end = DateTime(_rangeEnd.year, _rangeEnd.month, _rangeEnd.day).add(const Duration(days: 1));
@@ -139,16 +130,41 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
     await _pickDateRange(context);
   }
 
-  void _showSubjectGrades(BuildContext context, String subjectName) {
-    // В новой схеме sheet строим из уже загруженных данных (snap.data).
-    // Если данных нет — будет пусто.
-    final grades = _lastBySubject[subjectName] ?? [];
+  void _showSubjectGrades(
+    BuildContext context,
+    String subjectName, {
+    required bool sessionTab,
+  }) {
+    final grades =
+        sessionTab ? _itemsForSessionSubject(subjectName) : _itemsForCurrentSubject(subjectName);
     if (context.mounted) {
       showSubjectGradesSheet(context, subjectName: subjectName, grades: grades);
     }
   }
 
-  Map<String, List<GradeListItem>> _lastBySubject = const {};
+  /// Оценки предмета для шита: только «Текущие» (не итоги сессии), все загруженные строки.
+  List<GradeListItem> _itemsForCurrentSubject(String name) {
+    return _grades
+        .where((g) => g.subjectName == name)
+        .where((g) => !_isSessionType(g.gradeType))
+        .where(_hasGradeValue)
+        .map(_toListItem)
+        .toList();
+  }
+
+  /// Оценки предмета для шита на вкладке «Сессия» (итоги за выбранный семестр).
+  List<GradeListItem> _itemsForSessionSubject(String name) {
+    final semesters = _effectiveSemesters();
+    if (semesters.isEmpty) return [];
+    final idx = _sessionSemesterIndex.clamp(0, semesters.length - 1);
+    final selected = semesters[idx];
+    return _grades
+        .where((g) => (g.semester ?? '').trim() == selected)
+        .where((g) => g.subjectName == name)
+        .where((g) => _isSessionType(g.gradeType))
+        .map(_toListItem)
+        .toList();
+  }
 
   @override
   void initState() {
@@ -276,7 +292,6 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
         .toList();
     final list = currentEntities.map(_toListItem).toList();
     final filtered = _filtered(list);
-    _lastBySubject = _groupBySubject(list);
 
     if (_grades.isEmpty && _refreshing) {
       return const Center(child: CircularProgressIndicator());
@@ -295,7 +310,7 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
     return GradesListView(
       items: filtered,
       groupByDate: true,
-      onSubjectTap: (name) => _showSubjectGrades(context, name),
+      onSubjectTap: (name) => _showSubjectGrades(context, name, sessionTab: false),
     );
   }
 
@@ -348,9 +363,6 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
         .where((g) => (g.semester ?? '').trim() == selected)
         .where((g) => _isSessionType(g.gradeType))
         .toList();
-    final allItems = semesterEntities.map(_toListItem).toList();
-    _lastBySubject = _groupBySubject(allItems);
-
     if (semesterEntities.isEmpty) {
       return Center(
         child: Text(
@@ -382,7 +394,7 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
           subjectName: name,
           teacherName: teacher,
           breakdown: breakdown,
-          onTap: () => _showSubjectGrades(context, name),
+          onTap: () => _showSubjectGrades(context, name, sessionTab: true),
         );
       },
     );
