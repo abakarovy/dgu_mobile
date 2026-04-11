@@ -50,6 +50,18 @@ class _AbsencesPageState extends State<AbsencesPage> with SingleTickerProviderSt
     ),
   ];
 
+  /// Тень для белой карточки «По уважительной причине».
+  static const _shadowExcusedCard = [
+    BoxShadow(
+      color: Color(0x26000000),
+      offset: Offset(4.27, 8.54),
+      blurRadius: 27.53,
+      spreadRadius: 0,
+    ),
+  ];
+
+  static const Color _excusedCardText = Color(0xFF1A1A1A);
+
   @override
   void initState() {
     super.initState();
@@ -391,6 +403,23 @@ class _AbsencesPageState extends State<AbsencesPage> with SingleTickerProviderSt
     return '—';
   }
 
+  /// Сумма пропусков по уважительной причине за выбранный учебный год.
+  String _yearExcusedDisplay(int yearKey) {
+    final list = _rowsInYear(yearKey);
+    if (list.isEmpty) return '—';
+    var sum = 0;
+    var any = false;
+    for (final r in list) {
+      final e = r.excusedAbsences;
+      if (e != null) {
+        sum += e;
+        any = true;
+      }
+    }
+    if (!any) return '—';
+    return _formatAbsencesRu(sum);
+  }
+
   void _prevYear() {
     final years = _distinctYears();
     if (years.isEmpty) return;
@@ -605,6 +634,7 @@ class _AbsencesPageState extends State<AbsencesPage> with SingleTickerProviderSt
 
     final yearKey = _selectedYearKey();
     final yearTotalStr = _yearTotalDisplay(yearKey);
+    final yearExcusedStr = _yearExcusedDisplay(yearKey);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.only(bottom: 32),
@@ -622,75 +652,153 @@ class _AbsencesPageState extends State<AbsencesPage> with SingleTickerProviderSt
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
+            // Фиксированная высота: IntrinsicHeight + Expanded в Row даёт неверные ограничения.
             child: SizedBox(
               height: 136,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: const Color(0xFF0267FB),
-                  borderRadius: BorderRadius.circular(26.4),
-                  boxShadow: _shadowProfile,
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    Positioned(
-                      right: -8,
-                      top: 0,
-                      bottom: 0,
-                      child: SvgPicture.asset(
-                        'assets/icons/uspex.svg',
-                        fit: BoxFit.contain,
-                        alignment: Alignment.centerRight,
-                        width: 120,
-                        colorFilter: const ColorFilter.mode(
-                          Color(0x1AFFFFFF),
-                          BlendMode.srcIn,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0267FB),
+                        borderRadius: BorderRadius.circular(26.4),
+                        boxShadow: _shadowProfile,
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(26.4),
+                        // Декоративный SVG — слой под текстом, не участвует в ширине текста (не Row).
+                        child: Stack(
+                          fit: StackFit.expand,
+                          clipBehavior: Clip.hardEdge,
+                          children: [
+                            Positioned(
+                              right: -6,
+                              top: 0,
+                              bottom: 0,
+                              width: 96,
+                              child: IgnorePointer(
+                                child: LayoutBuilder(
+                                  builder: (context, constraints) {
+                                    return SvgPicture.asset(
+                                      'assets/icons/uspex.svg',
+                                      width: constraints.maxWidth,
+                                      height: constraints.maxHeight,
+                                      fit: BoxFit.contain,
+                                      alignment: Alignment.centerRight,
+                                      colorFilter: const ColorFilter.mode(
+                                        Color(0x1AFFFFFF),
+                                        BlendMode.srcIn,
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Пропуски',
+                                    style: AppTextStyle.inter(
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 17,
+                                      height: 1.0,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Общее количество пропущенных часов за год',
+                                    style: AppTextStyle.inter(
+                                      fontWeight: FontWeight.w400,
+                                      fontSize: 8.6,
+                                      height: 1.15,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: Text(
+                                      yearTotalStr,
+                                      textAlign: TextAlign.right,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: AppTextStyle.inter(
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 19,
+                                        height: 1.0,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Пропуски',
-                            style: AppTextStyle.inter(
-                              fontWeight: FontWeight.w800,
-                              fontSize: 25,
-                              height: 1.0,
-                              color: Colors.white,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            'Общее количество пропущенных часов за год',
-                            style: AppTextStyle.inter(
-                              fontWeight: FontWeight.w400,
-                              fontSize: 9.74,
-                              height: 1.2,
-                              color: Colors.white,
-                            ),
-                          ),
-                          const Spacer(),
-                          Align(
-                            alignment: Alignment.bottomRight,
-                            child: Text(
-                              yearTotalStr,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFFFFF),
+                        borderRadius: BorderRadius.circular(26.4),
+                        boxShadow: _shadowExcusedCard,
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Пропуски',
                               style: AppTextStyle.inter(
-                                fontWeight: FontWeight.w700,
-                                fontSize: 26,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 17,
                                 height: 1.0,
-                                color: Colors.white,
+                                color: _excusedCardText,
                               ),
                             ),
-                          ),
-                        ],
+                            const SizedBox(height: 4),
+                            Text(
+                              'По уважительной причине',
+                              style: AppTextStyle.inter(
+                                fontWeight: FontWeight.w400,
+                                fontSize: 8.6,
+                                height: 1.15,
+                                color: _excusedCardText,
+                              ),
+                            ),
+                            const Spacer(),
+                            SizedBox(
+                              width: double.infinity,
+                              child: Text(
+                                yearExcusedStr,
+                                textAlign: TextAlign.right,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: AppTextStyle.inter(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 19,
+                                  height: 1.0,
+                                  color: _excusedCardText,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),

@@ -112,7 +112,7 @@ class _TasksPageState extends State<TasksPage> {
                       builder: (context) {
                         final controller = DefaultTabController.of(context);
                         return Padding(
-                          padding: const EdgeInsets.fromLTRB(8, 8, 8, 6),
+                          padding: const EdgeInsets.fromLTRB(8, 8, 8, 14),
                           child: ListenableBuilder(
                             listenable: controller,
                             builder: (context, _) {

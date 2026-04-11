@@ -31,8 +31,16 @@ class SchedulePage extends StatefulWidget {
 }
 
 class _SchedulePageState extends State<SchedulePage> {
-  /// Визуальный масштаб боковых стрелок относительно базового (0.75 ≈ −25% к полному размеру).
-  static const double _weekNavArrowVisualScale = 0.75;
+  /// Масштаб иконок боковых стрелок (к базовому `28 * layoutScale`).
+  static const double _weekNavArrowVisualScale = 0.9;
+
+  /// Отступ контейнера с днями недели от **левого и правого края окна** (в логических px).
+  /// Считается как `hPad * [_weekStripOuterPadFactor]`, затем clamp `min`…`max`.
+  /// Чтобы задать фиксированные поля, в [build] подставьте своё число вместо формулы, например:
+  /// `final weekStripRowHPad = 8.0;`
+  static const double _weekStripOuterPadFactor = 0.52;
+  static const double _weekStripOuterPadMin = 6.0;
+  static const double _weekStripOuterPadMax = 16.0;
 
   static const Color _stripDayText = Color(0xFFFFFFFF);
   static const Color _stripNumMuted = Color(0x80FFFFFF);
@@ -80,8 +88,8 @@ class _SchedulePageState extends State<SchedulePage> {
     final screenW = MediaQuery.sizeOf(context).width;
     // Боковые отступы экрана: от ширины окна (узкие телефоны — меньше, шире — больше, с потолком).
     final hPad = (screenW * 0.038).clamp(12.0, 28.0);
-    // У строки недели со стрелками — меньше отступ к краям окна, чем у списка пар.
-    final weekStripRowHPad = (hPad * 0.52).clamp(6.0, 16.0);
+    final weekStripRowHPad = (hPad * _weekStripOuterPadFactor)
+        .clamp(_weekStripOuterPadMin, _weekStripOuterPadMax);
     final stripBlockGap = 32.0 * layoutScale;
 
     return Column(
@@ -132,14 +140,10 @@ class _SchedulePageState extends State<SchedulePage> {
                           child: LayoutBuilder(
                             builder: (context, constraints) {
                               final s = layoutScale;
-                              final cellW = 37.5 * s;
                               final gap = 14.0 * s;
-                              final stripTotalW = 7 * cellW + 6 * gap;
                               final padV = 7.5 * s;
                               final padSide = (constraints.maxWidth * 0.028)
                                   .clamp(6.0 * s, 14.0 * s);
-                              final innerPadH = padSide * 2;
-                              final rowMaxW = constraints.maxWidth - innerPadH;
 
                               final row = Row(
                                 mainAxisSize: MainAxisSize.min,
@@ -170,18 +174,15 @@ class _SchedulePageState extends State<SchedulePage> {
                                   horizontal: padSide,
                                   vertical: padV,
                                 ),
-                                child: rowMaxW < stripTotalW
-                                    ? SingleChildScrollView(
-                                        scrollDirection: Axis.horizontal,
-                                        child: row,
-                                      )
-                                    : Center(
-                                        child: FittedBox(
-                                          fit: BoxFit.scaleDown,
-                                          alignment: Alignment.center,
-                                          child: row,
-                                        ),
-                                      ),
+                                // Без горизонтального скролла: при узком экране строка
+                                // целиком уменьшается (шрифты и ячейки масштабируются вместе).
+                                child: Center(
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    alignment: Alignment.center,
+                                    child: row,
+                                  ),
+                                ),
                               );
                             },
                           ),

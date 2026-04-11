@@ -529,7 +529,10 @@ class _HomePageState extends State<HomePage> {
 
     final groupParsed = _parseGroupForHome(_banner.groupLabel);
 
-    return Container(
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => context.push('/app/profile'),
+      child: Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(radius),
         gradient: const LinearGradient(
@@ -627,6 +630,7 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
       ),
+    ),
     );
   }
 

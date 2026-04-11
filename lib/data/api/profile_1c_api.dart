@@ -194,9 +194,13 @@ class Profile1cApi {
         }
         int? abs;
         double? hrs;
+        int? exc;
+        int? unexc;
         if (d != null) {
           abs = _asInt(d['total_absences']);
           hrs = _asDouble(d['total_hours'] ?? d['hours'] ?? d['sum_hours'] ?? d['hours_total']);
+          exc = _asInt(d['excused_absences']);
+          unexc = _asInt(d['unexcused_absences']);
         }
         int? y = _asInt(m['year'] ?? m['study_year']);
         semesters.add(
@@ -205,6 +209,8 @@ class Profile1cApi {
             year: y,
             totalAbsences: abs,
             totalHours: hrs,
+            excusedAbsences: exc,
+            unexcusedAbsences: unexc,
           ),
         );
       }

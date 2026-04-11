@@ -5,12 +5,18 @@ class AbsenceSemesterRow {
     this.year,
     this.totalAbsences,
     this.totalHours,
+    this.excusedAbsences,
+    this.unexcusedAbsences,
   });
 
   final String semester;
   final int? year;
   final int? totalAbsences;
   final double? totalHours;
+  /// `data.excused_absences` из `GET /api/1c/absences`.
+  final int? excusedAbsences;
+  /// `data.unexcused_absences` из `GET /api/1c/absences`.
+  final int? unexcusedAbsences;
 }
 
 /// Ответ пропусков: семестры и опционально строки «журнала».

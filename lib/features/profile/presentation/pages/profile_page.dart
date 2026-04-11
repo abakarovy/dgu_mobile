@@ -37,8 +37,6 @@ class _ProfilePageState extends State<ProfilePage> {
   OneCMyProfile? _oneC;
   /// Подпись пропусков с `GET /api/1c/absences` (после загрузки).
   String? _absenceHoursText;
-  /// Средний балл по кэшу оценок (текущий семестр), как на главной.
-  String? _performanceAvgText;
   @override
   void initState() {
     super.initState();
@@ -46,7 +44,6 @@ class _ProfilePageState extends State<ProfilePage> {
     _ticket = _readCachedTicket();
     _oneC = _readCachedOneC();
     _absenceHoursText = _readCachedAbsencesLabel();
-    _applyPerformanceFromCache();
     _saved1cPhotoPath = _bestLocal1cPhotoPathSync();
     _maybeHydrateParentTicketFromOneC();
     _loadAvatarPath();
@@ -265,9 +262,6 @@ class _ProfilePageState extends State<ProfilePage> {
         ],
       );
       await AppContainer.jsonCache.setJson('grades:semesters', bundle.semesters);
-      if (mounted) {
-        setState(_applyPerformanceFromCache);
-      }
       }
     } catch (_) {}
 
@@ -293,18 +287,6 @@ class _ProfilePageState extends State<ProfilePage> {
     } catch (_) {}
   }
 
-  void _applyPerformanceFromCache() {
-    final grades = _loadGradesFromCache();
-    if (grades.isEmpty) {
-      _performanceAvgText = null;
-      return;
-    }
-    final currentSem = _currentSemesterLabel(grades);
-    final avg = _calcAverage(grades, semester: currentSem) ??
-        _calcAverage(grades, semester: null);
-    _performanceAvgText = avg?.toStringAsFixed(2);
-  }
-
   List<GradeEntity> _loadGradesFromCache() {
     const cacheKey = 'grades:my';
     final cached = AppContainer.jsonCache.getJsonList(cacheKey);
@@ -324,19 +306,6 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
         )
         .toList();
-  }
-
-  double? _calcAverage(List<GradeEntity> grades, {required String? semester}) {
-    final nums = <double>[];
-    for (final g in grades) {
-      if (semester != null && g.semester?.trim() != semester) continue;
-      final raw = g.grade.trim().replaceAll(',', '.');
-      final v = double.tryParse(raw);
-      if (v != null) nums.add(v);
-    }
-    if (nums.isEmpty) return null;
-    final sum = nums.fold<double>(0, (a, b) => a + b);
-    return sum / nums.length;
   }
 
   String? _currentSemesterLabel(List<GradeEntity> grades) {
@@ -439,28 +408,6 @@ class _ProfilePageState extends State<ProfilePage> {
   // Пользовательскую замену аватарки отключили по требованию:
   // аватар всегда берётся с бэка (1С) + локальный кэш.
 
-  /// Как на студенческом билете: «Очная форма обучения» и т.п.
-  String _educationFormFull(UserModel? me) {
-    final t = _ticket;
-    final c = _oneC;
-    final raw = (t?.studyForm?.trim().isNotEmpty == true)
-        ? t!.studyForm!.trim()
-        : (c?.studyForm?.trim().isNotEmpty == true)
-            ? c!.studyForm!.trim()
-            : '';
-    if (raw.isEmpty) {
-      if (me?.role == 'student') {
-        return 'Очная форма обучения';
-      }
-      return '—';
-    }
-    final lower = raw.toLowerCase();
-    if (lower.contains('форма')) {
-      return raw;
-    }
-    return '$raw форма обучения';
-  }
-
   String _displayTicketNumber(UserModel? me) {
     final t = _ticket?.studentBookNumber?.trim();
     if (t != null && t.isNotEmpty) return t;
@@ -492,10 +439,11 @@ class _ProfilePageState extends State<ProfilePage> {
     final direction = isParentProfile
         ? (_oneC?.direction ?? '').trim()
         : (me?.direction ?? '').trim();
-    final formFull = _educationFormFull(me);
+    final groupLine = isParentProfile
+        ? (_oneC?.group ?? '').trim()
+        : (_ticket?.studyGroup ?? '').trim();
     final ticketNo = _displayTicketNumber(me);
     final absenceLabel = _absenceHoursText ?? '—';
-    final performanceLabel = _performanceAvgText ?? '—';
 
     // Макет 402×874 — все размеры относительно `layoutScale` (как на главной).
     final size = MediaQuery.sizeOf(context);
@@ -521,36 +469,13 @@ class _ProfilePageState extends State<ProfilePage> {
             SizedBox(height: gapM),
             Padding(
               padding: EdgeInsets.symmetric(horizontal: hPad),
-              child: IntrinsicHeight(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Expanded(
-                      child: ConstrainedBox(
-                        constraints: BoxConstraints(minHeight: minProfileCardHeight),
-                        child: _courseCard(
-                          layoutScale: layoutScale,
-                          courseText: course.isEmpty ? '—' : '$course курс',
-                          directionText: direction.isEmpty ? '—' : direction,
-                          formText: formFull,
-                        ),
-                      ),
-                    ),
-                    SizedBox(width: gapM),
-                    Expanded(
-                      child: ConstrainedBox(
-                        constraints: BoxConstraints(minHeight: minProfileCardHeight),
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: () => context.go('/app/grades?tab=0'),
-                          child: _performanceCard(
-                            layoutScale: layoutScale,
-                            valueText: performanceLabel,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: minProfileCardHeight),
+                child: _courseCard(
+                  layoutScale: layoutScale,
+                  courseText: course.isEmpty ? '—' : '$course курс',
+                  directionText: direction.isEmpty ? '—' : direction,
+                  groupText: groupLine.isEmpty ? null : groupLine,
                 ),
               ),
             ),
@@ -1058,14 +983,14 @@ class _ProfilePageState extends State<ProfilePage> {
     VoidCallback? onChangeEmail,
   }) {
     final r = 26.4 * layoutScale;
-    final titleFs = 11.53 * layoutScale;
-    final valueFs = 8.56 * layoutScale;
+    final titleFs = 14.4 * layoutScale;
+    final valueFs = 10.8 * layoutScale;
     final iconW = 120 * layoutScale;
-    final h = 100 * layoutScale;
+    final h = 118 * layoutScale;
 
-    final miniR = 13.5 * layoutScale;
-    final miniPad = 8 * layoutScale;
-    final miniFs = 8.66 * layoutScale;
+    final miniR = 14 * layoutScale;
+    final miniPad = 10 * layoutScale;
+    final miniFs = 10.8 * layoutScale;
 
     return SizedBox(
       height: h,
@@ -1116,15 +1041,15 @@ class _ProfilePageState extends State<ProfilePage> {
                         color: const Color(0xFF000000),
                       ),
                     ),
-                    SizedBox(height: 6 * layoutScale),
+                    SizedBox(height: 8 * layoutScale),
                     Text(
                       email,
-                      maxLines: 1,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: AppTextStyle.inter(
                         fontWeight: FontWeight.w600,
                         fontSize: valueFs,
-                        height: 1.0,
+                        height: 1.15,
                         color: const Color(0x4D000000),
                       ),
                     ),
@@ -1314,14 +1239,14 @@ class _ProfilePageState extends State<ProfilePage> {
     required double layoutScale,
     required String courseText,
     required String directionText,
-    required String formText,
+    String? groupText,
   }) {
     final r = 22 * layoutScale;
     final padL = 16 * layoutScale;
-    final padV = 12 * layoutScale;
-    final chipR = 10.2 * layoutScale;
-    final chipPadH = 7.2 * layoutScale;
-    final chipPadV = 3.6 * layoutScale;
+    final padV = 14 * layoutScale;
+    final courseFs = 17.2 * layoutScale;
+    final subFs = 13.0 * layoutScale;
+    final decoW = 96 * layoutScale;
     return Container(
       decoration: BoxDecoration(
         color: Colors.black,
@@ -1337,167 +1262,73 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(r),
+        // StackFit.loose: карточка курса в прокрутке с неограниченной высотой.
+        // Без LayoutBuilder — иначе ломается IntrinsicHeight у ряда студбилет/пропуски.
         child: Stack(
-          fit: StackFit.expand,
+          clipBehavior: Clip.hardEdge,
+          fit: StackFit.loose,
           children: [
             Positioned(
-              right: -8 * layoutScale,
+              right: -6 * layoutScale,
               top: 0,
               bottom: 0,
-              child: SvgPicture.asset(
-                'assets/icons/uspex.svg',
-                fit: BoxFit.contain,
-                alignment: Alignment.centerRight,
-                width: 120 * layoutScale,
-                colorFilter: const ColorFilter.mode(
-                  Color(0x1AFFFFFF),
-                  BlendMode.srcIn,
-                ),
-              ),
-            ),
-            Padding(
-              padding: EdgeInsets.only(left: padL, top: padV, right: padL, bottom: padV),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    courseText,
-                    style: AppTextStyle.inter(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 13.95 * layoutScale,
-                      height: 1.0,
-                      color: Colors.white,
-                    ),
-                  ),
-                  SizedBox(height: 2 * layoutScale),
-                  Text(
-                    directionText,
-                    style: AppTextStyle.inter(
-                      fontWeight: FontWeight.w600,
-                      // В 1.2 раза меньше, чем было (10.0224).
-                      fontSize: (10.0224 / 1.2) * layoutScale,
-                      height: 1.25,
-                      color: const Color(0xFF94A3B8),
-                    ),
-                  ),
-                  const Spacer(),
-                  Align(
-                    alignment: Alignment.bottomRight,
-                    child: Container(
-                      constraints: const BoxConstraints(maxWidth: double.infinity),
-                      padding: EdgeInsets.symmetric(horizontal: chipPadH, vertical: chipPadV),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(chipR),
-                      ),
-                      child: Text(
-                        formText,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.center,
-                        style: AppTextStyle.inter(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 7.8 * layoutScale,
-                          height: 1.15,
-                          color: const Color(0xFF1E293B),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _performanceCard({
-    required double layoutScale,
-    required String valueText,
-  }) {
-    final r = 26.4 * layoutScale;
-    final pad = 14.4 * layoutScale;
-    final iconBox = 42 * layoutScale;
-    final iconInner = 14.4 * layoutScale;
-    final gap = (14.4 * layoutScale) / 2;
-    // Чуть меньше, чем в макете — компактнее заголовок карточки.
-    final titleFs = 12.0 * layoutScale;
-    final valueFs = 22.224 * layoutScale;
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(r),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0x1A000000),
-            offset: Offset(4 * layoutScale, 5 * layoutScale),
-            blurRadius: 4 * layoutScale,
-            spreadRadius: 0,
-          ),
-        ],
-      ),
-      padding: EdgeInsets.all(pad),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: iconBox,
-                height: iconBox,
-                decoration: BoxDecoration(
-                  color: const Color(0x1A2E63D5),
-                  borderRadius: BorderRadius.circular(10.62 * layoutScale),
-                ),
-                child: Center(
+              width: decoW,
+              child: IgnorePointer(
+                child: SizedBox.expand(
                   child: SvgPicture.asset(
                     'assets/icons/uspex.svg',
-                    width: iconInner,
-                    height: iconInner,
+                    fit: BoxFit.contain,
+                    alignment: Alignment.centerRight,
                     colorFilter: const ColorFilter.mode(
-                      Color(0xFF2563EB),
+                      Color(0x1AFFFFFF),
                       BlendMode.srcIn,
                     ),
                   ),
                 ),
               ),
-              SizedBox(width: gap),
-              Expanded(
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    'Успеваемость',
-                    maxLines: 1,
-                    softWrap: false,
+            ),
+            Padding(
+              padding: EdgeInsets.fromLTRB(padL, padV, padL, padV),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    courseText,
                     style: AppTextStyle.inter(
-                      fontWeight: FontWeight.w700,
-                      fontSize: titleFs,
-                      height: 1.2,
-                      color: const Color(0xFF2563EB),
+                      fontWeight: FontWeight.w800,
+                      fontSize: courseFs,
+                      height: 1.15,
+                      color: Colors.white,
                     ),
                   ),
-                ),
-              ),
-            ],
-          ),
-          const Spacer(),
-          Align(
-            alignment: Alignment.centerRight,
-            child: Text(
-              valueText,
-              style: AppTextStyle.inter(
-                fontWeight: FontWeight.w700,
-                fontSize: valueFs,
-                height: 1.0,
-                color: const Color(0xFF000000),
+                  SizedBox(height: 8 * layoutScale),
+                  Text(
+                    directionText,
+                    style: AppTextStyle.inter(
+                      fontWeight: FontWeight.w600,
+                      fontSize: subFs,
+                      height: 1.25,
+                      color: const Color(0xFF94A3B8),
+                    ),
+                  ),
+                  if (groupText != null && groupText.trim().isNotEmpty) ...[
+                    SizedBox(height: 6 * layoutScale),
+                    Text(
+                      groupText.trim(),
+                      style: AppTextStyle.inter(
+                        fontWeight: FontWeight.w600,
+                        fontSize: subFs,
+                        height: 1.25,
+                        color: const Color(0xFF94A3B8),
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -1516,34 +1347,36 @@ class _ProfilePageState extends State<ProfilePage> {
     required String ticketNumber,
   }) {
     final r = 26.4 * layoutScale;
+    final titleFs = 14.5 * layoutScale;
+    final valueFs = 14.0 * layoutScale;
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(r),
         boxShadow: _shadowProfile(layoutScale),
       ),
-      padding: EdgeInsets.all(14.4 * layoutScale),
+      padding: EdgeInsets.all(16 * layoutScale),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(
             'Студенческий билет',
             style: AppTextStyle.inter(
               fontWeight: FontWeight.w800,
-              fontSize: 11.53 * layoutScale,
-              height: 1.0,
+              fontSize: titleFs,
+              height: 1.1,
               color: const Color(0xFF000000),
             ),
           ),
-          const Spacer(),
           Align(
             alignment: Alignment.bottomRight,
             child: Text(
               ticketNumber,
               style: AppTextStyle.inter(
                 fontWeight: FontWeight.w600,
-                fontSize: 11.13 * layoutScale,
-                height: 1.0,
+                fontSize: valueFs,
+                height: 1.1,
                 color: const Color(0xFF999999),
               ),
             ),
@@ -1557,8 +1390,11 @@ class _ProfilePageState extends State<ProfilePage> {
     required double layoutScale,
     required String hoursLabel,
   }) {
-    final pad = 14.4 * layoutScale;
+    final pad = 16 * layoutScale;
     final r = 26.4 * layoutScale;
+    final titleFs = 14.5 * layoutScale;
+    final valueFs = 11.5 * layoutScale;
+    final decoW = 88 * layoutScale;
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFF0267FB),
@@ -1567,45 +1403,52 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(r),
+        // expand: в ряду со студбилетом высота задана растягиванием; без LayoutBuilder — см. IntrinsicHeight выше.
         child: Stack(
+          clipBehavior: Clip.hardEdge,
           fit: StackFit.expand,
           children: [
             Positioned(
-              right: -8 * layoutScale,
+              right: -6 * layoutScale,
               top: 0,
               bottom: 0,
-              child: SvgPicture.asset(
-                'assets/icons/uspex.svg',
-                fit: BoxFit.contain,
-                alignment: Alignment.centerRight,
-                width: 120 * layoutScale,
-                colorFilter: const ColorFilter.mode(
-                  Color(0x1AFFFFFF),
-                  BlendMode.srcIn,
+              width: decoW,
+              child: IgnorePointer(
+                child: SizedBox.expand(
+                  child: SvgPicture.asset(
+                    'assets/icons/uspex.svg',
+                    fit: BoxFit.contain,
+                    alignment: Alignment.centerRight,
+                    colorFilter: const ColorFilter.mode(
+                      Color(0x1AFFFFFF),
+                      BlendMode.srcIn,
+                    ),
+                  ),
                 ),
               ),
             ),
             Padding(
-              padding: EdgeInsets.fromLTRB(pad, pad, pad, pad),
+              padding: EdgeInsets.all(pad),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     'Пропуски',
                     style: AppTextStyle.inter(
                       fontWeight: FontWeight.w800,
-                      fontSize: 11.53 * layoutScale,
-                      height: 1.0,
+                      fontSize: titleFs,
+                      height: 1.1,
                       color: Colors.white,
                     ),
                   ),
-                  SizedBox(height: 3 * layoutScale),
+                  SizedBox(height: 8 * layoutScale),
                   Text(
                     hoursLabel,
                     style: AppTextStyle.inter(
                       fontWeight: FontWeight.w600,
-                      fontSize: 8.56 * layoutScale,
-                      height: 1.0,
+                      fontSize: valueFs,
+                      height: 1.2,
                       color: Colors.white,
                     ),
                   ),

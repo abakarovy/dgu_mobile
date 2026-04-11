@@ -68,7 +68,8 @@ abstract final class MockPayloads {
         'title': 'День открытых дверей (мок)',
         'content': 'Приходите смотреть (мок).',
         'excerpt': 'День открытых дверей',
-        'image_url': '/uploads/news/mock_1.png',
+        // Локальный ассет — [NewsModel.bundleAssetPath] / карточка новости.
+        'image_url': 'assets/images/img1.png',
         'id': 11,
         'author_id': 7,
         'is_published': true,
@@ -79,7 +80,7 @@ abstract final class MockPayloads {
         'title': 'Студвесна (мок)',
         'content': 'Приходите смотреть, Али.',
         'excerpt': 'Студвесна в колледже ДГУ',
-        'image_url': null,
+        'image_url': 'assets/images/img2.png',
         'id': 10,
         'author_id': 7,
         'is_published': true,
