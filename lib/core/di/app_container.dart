@@ -235,7 +235,7 @@ abstract final class AppContainer {
       _timedPrefetch(t, _prefetchAssignments),
       _timedPrefetch(t, _prefetchStudentTicket),
     ]);
-    // Профиль 1С нужен до расписания (student_id = номер зачётки в query).
+    // Профиль 1С для UI; расписание запрашиваем с `student_id` = id пользователя (как curriculum).
     await _timedPrefetch(ApiConstants.scheduleReceiveTimeout, _prefetchOneCProfile);
     await _timedPrefetch(ApiConstants.prefetchScheduleTimeout, _prefetchScheduleCaches);
     // После `grades:my` в кэше — подпись пропусков с учётом текущего семестра.
@@ -419,15 +419,18 @@ abstract final class AppContainer {
     await jsonCache.setJson('1c:my-profile', p.toJsonMap());
   }
 
-  static int? _studentBookIdFrom1cCache() {
-    final m = jsonCache.getJsonMap('1c:my-profile');
+  static int? _studentIdFromAuthCache() {
+    final m = jsonCache.getJsonMap('auth:me');
     if (m == null) return null;
-    return int.tryParse(m['student_book_number']?.toString().trim() ?? '');
+    final id = m['id'];
+    if (id is int) return id;
+    if (id is num) return id.toInt();
+    return null;
   }
 
   /// Неделя (7 запросов по дням) + срез «сегодня» для главной.
   static Future<void> _prefetchScheduleCaches() async {
-    final sid = _studentBookIdFrom1cCache();
+    final sid = _studentIdFromAuthCache();
     final week = await scheduleApi.getWeekForCalendar(
       DateTime.now(),
       studentId: sid,

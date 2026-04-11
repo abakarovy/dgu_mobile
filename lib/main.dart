@@ -48,9 +48,11 @@ void main() async {
 
   /// `true` — мок из `lib/moc` (JSON в коде + фото из assets), HTTP к бэкенду не выполняется ([MockDioInterceptor]).
   /// `false` — реальный API ([ApiConstants.baseUrl]).
-  // Переключатель моков (можно вручную менять на true/false).
-  // Если хочешь включать через команду запуска, верни вариант с `--dart-define=USE_MOCK_BACKEND=true`.
-  const kUseMockBackend = true;
+  /// Включение: `--dart-define=USE_MOCK_BACKEND=true` (или вручную `defaultValue: true` ниже при отладке).
+  const kUseMockBackend = bool.fromEnvironment(
+    'USE_MOCK_BACKEND',
+    defaultValue: false,
+  );
   if (kUseMockBackend) {
     await MockDataLoader.load();
   }

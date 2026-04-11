@@ -654,7 +654,7 @@ class _AbsencesPageState extends State<AbsencesPage> with SingleTickerProviderSt
             padding: const EdgeInsets.symmetric(horizontal: 8),
             // Фиксированная высота: IntrinsicHeight + Expanded в Row даёт неверные ограничения.
             child: SizedBox(
-              height: 136,
+              height: 152,
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -679,20 +679,16 @@ class _AbsencesPageState extends State<AbsencesPage> with SingleTickerProviderSt
                               bottom: 0,
                               width: 96,
                               child: IgnorePointer(
-                                child: LayoutBuilder(
-                                  builder: (context, constraints) {
-                                    return SvgPicture.asset(
-                                      'assets/icons/uspex.svg',
-                                      width: constraints.maxWidth,
-                                      height: constraints.maxHeight,
-                                      fit: BoxFit.contain,
-                                      alignment: Alignment.centerRight,
-                                      colorFilter: const ColorFilter.mode(
-                                        Color(0x1AFFFFFF),
-                                        BlendMode.srcIn,
-                                      ),
-                                    );
-                                  },
+                                child: SizedBox.expand(
+                                  child: SvgPicture.asset(
+                                    'assets/icons/uspex.svg',
+                                    fit: BoxFit.contain,
+                                    alignment: Alignment.centerRight,
+                                    colorFilter: const ColorFilter.mode(
+                                      Color(0x1AFFFFFF),
+                                      BlendMode.srcIn,
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
@@ -713,6 +709,8 @@ class _AbsencesPageState extends State<AbsencesPage> with SingleTickerProviderSt
                                   const SizedBox(height: 4),
                                   Text(
                                     'Общее количество пропущенных часов за год',
+                                    maxLines: 3,
+                                    overflow: TextOverflow.ellipsis,
                                     style: AppTextStyle.inter(
                                       fontWeight: FontWeight.w400,
                                       fontSize: 8.6,

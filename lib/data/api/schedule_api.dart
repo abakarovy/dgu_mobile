@@ -52,7 +52,7 @@ class ScheduleApi {
   /// Если [week] — дата `yyyy-MM-dd`, трактуем как `for_date` на этот день.
   /// Иначе без [week] — `for_date` на понедельник недели, содержащей [weekStart].
   ///
-  /// [studentId] — для роли `parent`: ID ребёнка (`student_id` в query).
+  /// [studentId] — `student_id` в query: для студента — id пользователя (как curriculum), для родителя — id ребёнка.
   Future<List<ScheduleLesson>> getWeek({
     DateTime? weekStart,
     String? week,
@@ -73,7 +73,7 @@ class ScheduleApi {
   /// Запросы **последовательно**, чтобы не упираться в таймауты и лимиты сервера.
   /// [forceRefresh] — игнорировать последний успешный ответ по этой неделе (например, pull-to-refresh).
   ///
-  /// [studentId] — для роли `parent`: ID ребёнка.
+  /// [studentId] — для студента — свой id в БД; для родителя — id ребёнка.
   Future<List<ScheduleLesson>> getWeekForCalendar(
     DateTime anyInWeek, {
     bool forceRefresh = false,

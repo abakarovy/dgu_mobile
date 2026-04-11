@@ -45,26 +45,10 @@ class Profile1cApi {
     return _idFromUserMap(cached);
   }
 
-  /// Запросы 1С часто ждут **номер зачётной книжки** как `student_id`, а не id пользователя в приложении.
+  /// Как [getCurriculum]: для студента — **id пользователя в БД** (`/auth/me` / JWT), не номер зачётки.
+  /// Для родителя передаётся явный [studentId] ребёнка.
   Future<int?> _studentIdFor1CEndpoints({int? studentId}) async {
     if (studentId != null) return studentId;
-    final cached = _jsonCache?.getJsonMap('1c:my-profile');
-    if (cached != null) {
-      final sb = cached['student_book_number']?.toString().trim();
-      if (sb != null && sb.isNotEmpty) {
-        final p = int.tryParse(sb);
-        if (p != null) return p;
-      }
-      for (final k in ['student_id', 'onec_student_id', 'id_1c']) {
-        final v = cached[k];
-        if (v is int) return v;
-        if (v is num) return v.toInt();
-        if (v is String) {
-          final n = int.tryParse(v.trim());
-          if (n != null) return n;
-        }
-      }
-    }
     return _studentIdFromToken();
   }
 

@@ -165,17 +165,18 @@ class _HomePageState extends State<HomePage> {
       }
     }
     try {
-      final bookId = int.tryParse(
-        AppContainer.jsonCache
-                .getJsonMap('1c:my-profile')?['student_book_number']
-                ?.toString()
-                .trim() ??
-            '',
-      );
+      final me = AppContainer.jsonCache.getJsonMap('auth:me');
+      final uid = me?['id'];
+      int? studentId;
+      if (uid is int) {
+        studentId = uid;
+      } else if (uid is num) {
+        studentId = uid.toInt();
+      }
       final fresh = await AppContainer.scheduleApi.getWeekForCalendar(
         DateTime.now(),
         forceRefresh: force,
-        studentId: bookId,
+        studentId: studentId,
       );
       await AppContainer.jsonCache.setJson(
         ScheduleApi.weekCalendarCacheKey(DateTime.now()),
