@@ -12,6 +12,7 @@ import 'app/router/app_router.dart';
 import 'core/auth/unauthorized_handler.dart';
 import 'core/di/app_container.dart';
 import 'moc/mock_data_loader.dart';
+import 'moc/mock_logger.dart';
 import 'moc/mock_mode.dart';
 import 'core/logging/app_log_file.dart';
 import 'core/push/push_registrar.dart';
@@ -46,17 +47,18 @@ void main() async {
     isOptional: true,
   );
 
-  /// `true` — мок из `lib/moc` (JSON в коде + фото из assets), HTTP к бэкенду не выполняется ([MockDioInterceptor]).
-  /// `false` — реальный API ([ApiConstants.baseUrl]).
-  /// Включение: `--dart-define=USE_MOCK_BACKEND=true` (или вручную `defaultValue: true` ниже при отладке).
-  const kUseMockBackend = bool.fromEnvironment(
-    'USE_MOCK_BACKEND',
-    defaultValue: false,
+  /// Мок: 1) `USE_MOCK_BACKEND` в `assets/env/.env` 2) `--dart-define=USE_MOCK_BACKEND=` 3) по умолчанию `true`.
+  /// Без этого при `dart-define=false` в сборке мок отключён — пустые ответы к реальному `API_BASE_URL`.
+  useMockBackend = _resolveUseMockBackend();
+  MockLogger.log(
+    'старт: useMockBackend=$useMockBackend '
+    'dotenv USE_MOCK_BACKEND=${dotenv.env['USE_MOCK_BACKEND'] ?? '(нет)'} '
+    'API_BASE_URL=${dotenv.env['API_BASE_URL'] ?? '(default)'}',
   );
-  if (kUseMockBackend) {
+  if (useMockBackend) {
     await MockDataLoader.load();
+    MockLogger.log('MockDataLoader.load завершён isLoaded=${MockDataLoader.isLoaded}');
   }
-  useMockBackend = kUseMockBackend;
 
   // Firebase is optional for backend API, but enable when configured.
   try {
@@ -95,6 +97,13 @@ void main() async {
   );
 
   runApp(const App());
+}
+
+bool _resolveUseMockBackend() {
+  final e = dotenv.env['USE_MOCK_BACKEND']?.trim().toLowerCase();
+  if (e == 'false' || e == '0' || e == 'no') return false;
+  if (e == 'true' || e == '1' || e == 'yes') return true;
+  return const bool.fromEnvironment('USE_MOCK_BACKEND', defaultValue: true);
 }
 
 Future<void> _requestNotificationsPermissionIfNeeded() async {

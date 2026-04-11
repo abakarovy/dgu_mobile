@@ -1124,7 +1124,7 @@ class _ProfilePageState extends State<ProfilePage> {
     // Ниже, чем в макете 309 — компактнее шапка профиля.
     final heroH = 248 * layoutScale;
     final avatar = 96 * layoutScale;
-    final radius = 30 * layoutScale;
+    final radius = 33 * layoutScale;
     final borderW = 3.34 * layoutScale;
     final nameSize = 20.03 * layoutScale;
     final subtitleSize = 16.5 * layoutScale;
@@ -1167,7 +1167,6 @@ class _ProfilePageState extends State<ProfilePage> {
                   height: avatar,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(radius),
-                    border: Border.all(color: Colors.white, width: borderW),
                     boxShadow: [
                       BoxShadow(
                         color: const Color(0x1A000000),
@@ -1178,7 +1177,25 @@ class _ProfilePageState extends State<ProfilePage> {
                   ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(radius),
-                    child: _avatarImage(layoutScale),
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        Positioned.fill(child: _avatarImage(layoutScale)),
+                        Positioned.fill(
+                          child: IgnorePointer(
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(radius),
+                                border: Border.all(
+                                  color: Colors.white,
+                                  width: borderW,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
                 SizedBox(height: 8 * layoutScale),

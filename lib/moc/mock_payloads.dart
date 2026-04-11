@@ -143,8 +143,25 @@ abstract final class MockPayloads {
   static Map<String, dynamic> notificationPreferences() =>
       Map<String, dynamic>.from(_p['notificationPreferences'] as Map);
 
+  static Map<String, dynamic> _fallbackAbsencesConfig() => {
+        'semester': '2 сем 2025-2026',
+        'periodStartMonth': 2,
+        'periodStartDay': 1,
+        'periodEndMonth': 7,
+        'periodEndDay': 31,
+        'total_absences': 20,
+        'excused_absences': 0,
+        'unexcused_absences': 20,
+        'total_hours': 120,
+      };
+
   static Map<String, dynamic> absences(int userId) {
-    final a = _p['absences'] as Map<String, dynamic>;
+    Map<String, dynamic> a;
+    try {
+      a = Map<String, dynamic>.from(_p['absences'] as Map);
+    } catch (_) {
+      a = _fallbackAbsencesConfig();
+    }
     final sem = a['semester'] as String;
     final y = DateTime.now().year;
     final start = DateTime(y, a['periodStartMonth'] as int, a['periodStartDay'] as int);
@@ -201,6 +218,33 @@ abstract final class MockPayloads {
 
   static List<dynamic> oneCCuratorEvents(int userId) => [];
 
+  static Map<String, dynamic> _fallbackScheduleRow() => {
+        'pair_number': 1,
+        'time': '09:00 - 10:10',
+        'subject': 'Пара (мок)',
+        'room': '101',
+        'teacher': 'Преподаватель (мок)',
+        'week_type': '',
+        'subgroup': 0,
+        'semester': '2 сем 2025-2026',
+      };
+
+  static List<Map<String, dynamic>> _scheduleTemplates() {
+    try {
+      final raw = _p['schedule_pair_templates'];
+      if (raw is! List || raw.isEmpty) {
+        return [_fallbackScheduleRow()];
+      }
+      final out = <Map<String, dynamic>>[];
+      for (final e in raw) {
+        if (e is Map) out.add(Map<String, dynamic>.from(e));
+      }
+      return out.isEmpty ? [_fallbackScheduleRow()] : out;
+    } catch (_) {
+      return [_fallbackScheduleRow()];
+    }
+  }
+
   static Map<String, dynamic> scheduleForDate(String forDateYmd, int userId) {
     final d = DateTime.tryParse(forDateYmd) ?? DateTime.now();
     final dd = _ddMmYyyy(d);
@@ -216,16 +260,24 @@ abstract final class MockPayloads {
     final day = days[d.weekday] ?? 'День';
     const dayShortRu = ['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс'];
 
-    final templates = List<Map<String, dynamic>>.from(
-      (_p['schedule_pair_templates'] as List).map((e) => Map<String, dynamic>.from(e as Map)),
-    );
+    final templates = _scheduleTemplates();
+    final n = templates.length;
     final schedule = <Map<String, dynamic>>[];
-    for (final t in templates) {
-      final row = Map<String, dynamic>.from(t);
-      row['date'] = dd;
-      row['day'] = day;
-      row['day_short'] = dayShortRu[d.weekday - 1];
-      schedule.add(row);
+    // Воскресенье — выходной, пар в моке нет.
+    if (n > 0 && d.weekday != DateTime.sunday) {
+      // Сдвиг предметов по дню недели; время и номер пары — всегда из слота i (1-я пара с утра и т.д.).
+      final shift = (d.weekday - DateTime.monday) % n;
+      for (var i = 0; i < n; i++) {
+        final slot = Map<String, dynamic>.from(templates[i]);
+        final content = templates[(i + shift) % n];
+        final row = Map<String, dynamic>.from(content);
+        row['pair_number'] = slot['pair_number'] ?? (i + 1);
+        row['time'] = slot['time'];
+        row['date'] = dd;
+        row['day'] = day;
+        row['day_short'] = dayShortRu[d.weekday - 1];
+        schedule.add(row);
+      }
     }
 
     return {

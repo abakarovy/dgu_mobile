@@ -344,7 +344,9 @@ class Profile1cApi {
   static double? _parseTotalHours(dynamic raw) {
     if (raw == null) return null;
     if (raw is num) return raw.toDouble();
-    if (raw is Map<String, dynamic>) {
+    // JSON/Dio часто дают `Map<dynamic, dynamic>`, не `Map<String, dynamic>`.
+    if (raw is Map) {
+      final map = Map<String, dynamic>.from(raw);
       for (final k in [
         'total_hours',
         'hours_total',
@@ -352,22 +354,23 @@ class Profile1cApi {
         'hours',
         'total',
       ]) {
-        final v = raw[k];
+        final v = map[k];
         if (v is num) return v.toDouble();
         if (v is String) return double.tryParse(v.replaceAll(',', '.'));
       }
-      final nested = raw['summary'];
-      if (nested is Map<String, dynamic>) {
-        final h = _parseTotalHours(nested);
+      final nested = map['summary'];
+      if (nested is Map) {
+        final h = _parseTotalHours(Map<String, dynamic>.from(nested));
         if (h != null) return h;
       }
-      final items = raw['items'] ?? raw['absences'] ?? raw['data'];
+      final items = map['items'] ?? map['absences'] ?? map['data'];
       if (items is List) {
         double sum = 0;
         var any = false;
         for (final e in items) {
-          if (e is Map<String, dynamic>) {
-            final h = e['hours'] ?? e['duration_hours'] ?? e['count_hours'];
+          if (e is Map) {
+            final em = Map<String, dynamic>.from(e);
+            final h = em['hours'] ?? em['duration_hours'] ?? em['count_hours'];
             if (h is num) {
               sum += h.toDouble();
               any = true;

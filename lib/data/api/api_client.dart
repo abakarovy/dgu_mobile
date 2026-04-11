@@ -36,13 +36,13 @@ class ApiClient {
       },
     ));
 
-    // 2) Локальные ответы без HTTP (после подстановки Bearer — см. [MockDioInterceptor]).
+    // 2) Логирование всех вызовов (в т.ч. мок) — до мока, иначе при `resolve` не было бы строки [API] →.
+    _dio.interceptors.add(_ApiLogInterceptor());
+
+    // 3) Локальные ответы без HTTP (после подстановки Bearer — см. [MockDioInterceptor]).
     if (useMockBackend) {
       _dio.interceptors.add(MockDioInterceptor());
     }
-
-    // 3) Logging (all API calls)
-    _dio.interceptors.add(_ApiLogInterceptor());
   }
 
   late final Dio _dio;

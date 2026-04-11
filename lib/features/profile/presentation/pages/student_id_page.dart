@@ -238,58 +238,56 @@ class _StudentIdPageState extends State<StudentIdPage> {
   Widget _avatar() {
     const r = 12.0;
     final hasPath = _avatarPath != null && _avatarPath!.trim().isNotEmpty;
+    Widget placeholder() => ColoredBox(
+          color: const Color(0xFFF0F6FF),
+          child: Icon(
+            Icons.person_rounded,
+            size: 48,
+            color: _labelBlue.withValues(alpha: 0.45),
+          ),
+        );
     return SizedBox(
       width: _avatarWidth,
       height: _avatarHeight,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(r),
-            child: hasPath
-                ? Image.file(
-                    File(_avatarPath!),
-                    fit: BoxFit.cover,
-                    gaplessPlayback: true,
-                    errorBuilder: (_, _, _) => ColoredBox(
-                      color: const Color(0xFFF0F6FF),
-                      child: Icon(
-                        Icons.person_rounded,
-                        size: 48,
-                        color: _labelBlue.withValues(alpha: 0.45),
-                      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(r),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (hasPath)
+              Image.file(
+                File(_avatarPath!),
+                fit: BoxFit.cover,
+                gaplessPlayback: true,
+                errorBuilder: (_, _, _) => placeholder(),
+              )
+            else
+              placeholder(),
+            // Только рамка; тень с голубым даёт «плёнку» поверх фото — оставляем её для заглушки.
+            Positioned.fill(
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(r),
+                    border: Border.all(
+                      color: _labelBlue.withValues(alpha: 0.35),
+                      width: 2.5,
                     ),
-                  )
-                : ColoredBox(
-                    color: const Color(0xFFF0F6FF),
-                    child: Icon(
-                      Icons.person_rounded,
-                      size: 48,
-                      color: _labelBlue.withValues(alpha: 0.45),
-                    ),
+                    boxShadow: hasPath
+                        ? null
+                        : [
+                            BoxShadow(
+                              color: _labelBlue.withValues(alpha: 0.12),
+                              blurRadius: 16,
+                              offset: const Offset(0, 6),
+                            ),
+                          ],
                   ),
-          ),
-          Positioned.fill(
-            child: IgnorePointer(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(r),
-                  border: Border.all(
-                    color: _labelBlue.withValues(alpha: 0.35),
-                    width: 2.5,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: _labelBlue.withValues(alpha: 0.12),
-                      blurRadius: 16,
-                      offset: const Offset(0, 6),
-                    ),
-                  ],
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

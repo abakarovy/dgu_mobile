@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 
 import '../core/constants/api_constants.dart';
 import 'mock_accounts.dart';
+import 'mock_logger.dart';
 import 'mock_mode.dart';
 import 'mock_payloads.dart';
 import 'mock_session.dart';
@@ -16,12 +17,24 @@ class MockDioInterceptor extends Interceptor {
       return handler.next(options);
     }
 
+    final path = options.uri.path;
+    final norm = _normalizedPath(path);
+    MockLogger.log(
+      'запрос ${options.method} path="$path" normalized="$norm" uri=${options.uri}',
+    );
+
     try {
       final r = _mockResponse(options);
       if (r != null) {
+        MockLogger.log(
+          'ответ OK ${options.method} ${options.uri} http=${r.statusCode} '
+          '${MockLogger.summarizeResponseData(r.data)}',
+        );
         return handler.resolve(r);
       }
     } catch (e, st) {
+      MockLogger.log('ошибка при сборке мок-ответа: $e');
+      MockLogger.log('$st');
       return handler.reject(
         DioException(
           requestOptions: options,
@@ -32,6 +45,10 @@ class MockDioInterceptor extends Interceptor {
       );
     }
 
+    MockLogger.log(
+      'НЕИЗВЕСТНЫЙ маршрут — добавьте обработчик. '
+      'method=${options.method} path="$path" normalized="$norm" uri=${options.uri}',
+    );
     return handler.reject(
       DioException(
         requestOptions: options,
@@ -88,7 +105,11 @@ class MockDioInterceptor extends Interceptor {
       return _jsonResponse(o, 200, MockPayloads.journalGradesFlat(uid));
     }
 
-    if (method == 'GET' && _pathEnds(path, '/1c/schedule')) {
+    // Расписание: путь + полный URI (Dio/baseUrl на разных платформах дают разный `path`).
+    if (method == 'GET' &&
+        (_pathEnds(path, '/1c/schedule') ||
+            _pathContainsSegment(path, '1c/schedule') ||
+            _requestUriContains(o, '1c/schedule'))) {
       final q = o.uri.queryParameters;
       final scheduleUid = _studentIdFromQueryOrUser(q['student_id'], uid);
       if (q.containsKey('for_date')) {
@@ -173,7 +194,10 @@ class MockDioInterceptor extends Interceptor {
       final eff = _studentIdFromQueryOrUser(sid, uid);
       return _jsonResponse(o, 200, {'curriculum': MockPayloads.curriculum(eff)});
     }
-    if (method == 'GET' && _pathEnds(path, ApiConstants.oneCAbsencesPath)) {
+    if (method == 'GET' &&
+        (_pathEnds(path, ApiConstants.oneCAbsencesPath) ||
+            _pathContainsSegment(path, '1c/absences') ||
+            _requestUriContains(o, '1c/absences'))) {
       final sid = o.uri.queryParameters['student_id'];
       final eff = _studentIdFromQueryOrUser(sid, uid);
       return _jsonResponse(o, 200, MockPayloads.absences(eff));
@@ -342,6 +366,17 @@ class MockDioInterceptor extends Interceptor {
     Object? data,
   ) {
     return Response(requestOptions: o, statusCode: code, data: data);
+  }
+
+  static bool _pathContainsSegment(String path, String segment) {
+    final p = _normalizedPath(path).toLowerCase();
+    final s = segment.toLowerCase();
+    return p.contains('/$s') || p.endsWith('/$s');
+  }
+
+  static bool _requestUriContains(RequestOptions o, String needle) {
+    final n = needle.toLowerCase();
+    return o.uri.toString().toLowerCase().contains(n);
   }
 
   /// Путь запроса без лишних префиксов `/api` и завершающего `/`.

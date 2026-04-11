@@ -25,7 +25,11 @@ class JsonCache {
     if (s == null || s.isEmpty) return null;
     try {
       final v = jsonDecode(s);
-      return v is Map<String, dynamic> ? v : null;
+      // `jsonDecode` даёт `Map`, не всегда строго `Map<String, dynamic>` — иначе кэш «пустой».
+      if (v is Map) {
+        return Map<String, dynamic>.from(v);
+      }
+      return null;
     } catch (_) {
       return null;
     }

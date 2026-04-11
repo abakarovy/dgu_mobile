@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:dgu_mobile/core/constants/app_colors.dart';
 import 'package:dgu_mobile/core/constants/app_ui.dart';
 import 'package:dgu_mobile/core/di/app_container.dart';
+import 'package:dgu_mobile/core/utils/calendar_period.dart';
 import 'package:dgu_mobile/core/utils/parent_child_name.dart';
 import 'package:dgu_mobile/core/widgets/app_date_range_picker.dart';
 import 'package:dgu_mobile/core/theme/app_text_styles.dart';
@@ -66,10 +67,10 @@ class _AbsencesPageState extends State<AbsencesPage> with SingleTickerProviderSt
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    final now = DateTime.now();
-    final day = DateTime(now.year, now.month, now.day);
-    _rangeEnd = day;
-    _rangeStart = day.subtract(const Duration(days: 13));
+    final week = CalendarPeriod.weekMonSunContaining(DateTime.now());
+    _rangeStart = week.start;
+    _rangeEnd = week.end;
+    _isWeekMode = true;
     unawaited(_load());
     unawaited(_refreshGradesCache());
   }
@@ -186,12 +187,12 @@ class _AbsencesPageState extends State<AbsencesPage> with SingleTickerProviderSt
   }
 
   String get _periodLabel {
-    if (_rangeStart.day == _rangeEnd.day &&
-        _rangeStart.month == _rangeEnd.month &&
-        _rangeStart.year == _rangeEnd.year) {
-      return '${_rangeStart.day}.${_rangeStart.month.toString().padLeft(2, '0')}.${_rangeStart.year}';
+    final a = CalendarPeriod.dateOnly(_rangeStart);
+    final b = CalendarPeriod.dateOnly(_rangeEnd);
+    if (a == b) {
+      return CalendarPeriod.formatDdMmYyyy(a);
     }
-    return '${_rangeStart.day}.${_rangeStart.month.toString().padLeft(2, '0')} — ${_rangeEnd.day}.${_rangeEnd.month.toString().padLeft(2, '0')}.${_rangeEnd.year}';
+    return '${CalendarPeriod.formatDdMmYyyy(a)} — ${CalendarPeriod.formatDdMmYyyy(b)}';
   }
 
   void _prevPeriod() {
@@ -229,7 +230,7 @@ class _AbsencesPageState extends State<AbsencesPage> with SingleTickerProviderSt
       setState(() {
         _rangeStart = picked.start;
         _rangeEnd = picked.end;
-        _isWeekMode = picked.start.difference(picked.end).abs().inDays != 0;
+        _isWeekMode = CalendarPeriod.inclusiveDays(picked.start, picked.end) == 7;
       });
     }
   }

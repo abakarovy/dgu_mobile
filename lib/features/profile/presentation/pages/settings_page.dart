@@ -212,9 +212,13 @@ class _SettingsPageState extends State<SettingsPage> {
     final size = MediaQuery.sizeOf(context);
     const figmaW = 402.0;
     const figmaH = 874.0;
-    final layoutScale = min(size.width / figmaW, size.height / figmaH) * 1.2;
+    // Как на экране «Профиль» — для шапки с аватаром и ФИО.
+    final profileScale = min(size.width / figmaW, size.height / figmaH);
+    final layoutScale = profileScale * 1.2;
     final hPad = 12 * layoutScale;
     final gapSection = 16 * layoutScale;
+    /// Как [ProfilePage]: отступ под героем до следующего блока (`gapM`).
+    final gapUnderHero = 16 * profileScale;
     final gapBlock = 30 * layoutScale;
     final gapToggle = 10 * layoutScale;
     // Секции «Уведомления» / «Дополнительные»: в 1.5× к прежнему визуалу.
@@ -235,11 +239,11 @@ class _SettingsPageState extends State<SettingsPage> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _SettingsProfileHero(
-              layoutScale: layoutScale,
+              layoutScale: profileScale,
               fullName: fullName.isEmpty ? '—' : fullName,
               avatarPath: _avatarPath,
             ),
-            SizedBox(height: gapBlock),
+            SizedBox(height: gapUnderHero),
             Padding(
               padding: EdgeInsets.symmetric(horizontal: hPad),
               child: Row(
@@ -408,7 +412,7 @@ class _SettingsProfileHero extends StatelessWidget {
   Widget build(BuildContext context) {
     final heroH = 248 * layoutScale;
     final avatar = 96 * layoutScale;
-    final radius = 30 * layoutScale;
+    final radius = 33 * layoutScale;
     final borderW = 3.34 * layoutScale;
     final nameSize = 20.03 * layoutScale;
     final subtitleSize = 16.5 * layoutScale;
@@ -451,7 +455,6 @@ class _SettingsProfileHero extends StatelessWidget {
                   height: avatar,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(radius),
-                    border: Border.all(color: Colors.white, width: borderW),
                     boxShadow: [
                       BoxShadow(
                         color: const Color(0x1A000000),
@@ -462,7 +465,25 @@ class _SettingsProfileHero extends StatelessWidget {
                   ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(radius),
-                    child: _avatar(layoutScale),
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        Positioned.fill(child: _avatar(layoutScale)),
+                        Positioned.fill(
+                          child: IgnorePointer(
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(radius),
+                                border: Border.all(
+                                  color: Colors.white,
+                                  width: borderW,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
                 SizedBox(height: 8 * layoutScale),
@@ -498,7 +519,12 @@ class _SettingsProfileHero extends StatelessWidget {
     final p = avatarPath;
     if (p != null && p.isNotEmpty) {
       final f = File(p);
-      return Image.file(f, fit: BoxFit.cover, errorBuilder: (_, _, _) => _fallback(layoutScale));
+      return Image.file(
+        f,
+        fit: BoxFit.cover,
+        gaplessPlayback: true,
+        errorBuilder: (_, _, _) => _fallback(layoutScale),
+      );
     }
     return _fallback(layoutScale);
   }

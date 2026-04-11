@@ -4,6 +4,7 @@ import 'package:dgu_mobile/core/constants/app_colors.dart';
 import 'package:dgu_mobile/core/widgets/app_date_range_picker.dart';
 import 'package:dgu_mobile/core/theme/app_text_styles.dart';
 import 'package:dgu_mobile/core/di/app_container.dart';
+import 'package:dgu_mobile/core/utils/calendar_period.dart';
 import 'package:dgu_mobile/core/utils/parent_child_name.dart';
 import 'package:flutter/material.dart';
 
@@ -78,12 +79,12 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
   }
 
   String get _periodLabel {
-    if (_rangeStart.day == _rangeEnd.day &&
-        _rangeStart.month == _rangeEnd.month &&
-        _rangeStart.year == _rangeEnd.year) {
-      return '${_rangeStart.day}.${_rangeStart.month.toString().padLeft(2, '0')}.${_rangeStart.year}';
+    final a = CalendarPeriod.dateOnly(_rangeStart);
+    final b = CalendarPeriod.dateOnly(_rangeEnd);
+    if (a == b) {
+      return CalendarPeriod.formatDdMmYyyy(a);
     }
-    return '${_rangeStart.day}.${_rangeStart.month.toString().padLeft(2, '0')} — ${_rangeEnd.day}.${_rangeEnd.month.toString().padLeft(2, '0')}.${_rangeEnd.year}';
+    return '${CalendarPeriod.formatDdMmYyyy(a)} — ${CalendarPeriod.formatDdMmYyyy(b)}';
   }
 
   void _prevPeriod() {
@@ -121,7 +122,7 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
       setState(() {
         _rangeStart = picked.start;
         _rangeEnd = picked.end;
-        _isWeekMode = picked.start.difference(picked.end).abs().inDays != 0;
+        _isWeekMode = CalendarPeriod.inclusiveDays(picked.start, picked.end) == 7;
       });
     }
   }
@@ -171,12 +172,10 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
     super.initState();
     final initialIdx = widget.initialTabIndex.clamp(0, 2);
     _tabController = TabController(length: 3, vsync: this, initialIndex: initialIdx);
-    final now = DateTime.now();
-    final day = DateTime(now.year, now.month, now.day);
-    // Последние 14 дней (включая сегодня): одной календарной недели часто мало,
-    // оценки из журнала 1С за прошлую неделю иначе не попадают в «Текущие».
-    _rangeEnd = day;
-    _rangeStart = day.subtract(const Duration(days: 13));
+    final week = CalendarPeriod.weekMonSunContaining(DateTime.now());
+    _rangeStart = week.start;
+    _rangeEnd = week.end;
+    _isWeekMode = true;
 
     _grades = _decodeCachedGrades();
     _semesterOrder = _decodeCachedSemesters();
