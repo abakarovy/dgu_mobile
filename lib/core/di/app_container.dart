@@ -4,6 +4,7 @@ import '../../data/api/api_client.dart';
 import '../../data/api/auth_api.dart';
 import '../../data/api/api_exception.dart';
 import '../../data/api/account_api.dart';
+import '../../data/api/documents_api.dart';
 import '../../data/api/assignments_api.dart';
 import '../../data/api/events_api.dart';
 import '../../data/api/grades_api.dart';
@@ -38,6 +39,7 @@ abstract final class AppContainer {
   static AssignmentsApi? _assignmentsApi;
   static PushApi? _pushApi;
   static AccountApi? _accountApi;
+  static DocumentsApi? _documentsApi;
   static StudentTicketApi? _studentTicketApi;
   static JsonCache? _jsonCache;
   static String? _appDocumentsDirPath;
@@ -70,6 +72,7 @@ abstract final class AppContainer {
     _assignmentsApi = AssignmentsApi(apiClient: apiClient);
     _pushApi = PushApi(apiClient: apiClient);
     _accountApi = AccountApi(apiClient: apiClient);
+    _documentsApi = DocumentsApi(apiClient: apiClient);
     _studentTicketApi = StudentTicketApi(apiClient: apiClient);
     _jsonCache = jsonCache;
   }
@@ -153,6 +156,12 @@ abstract final class AppContainer {
   static AccountApi get accountApi {
     final a = _accountApi;
     if (a == null) throw StateError('AppContainer.init() must be called before using accountApi');
+    return a;
+  }
+
+  static DocumentsApi get documentsApi {
+    final a = _documentsApi;
+    if (a == null) throw StateError('AppContainer.init() must be called before using documentsApi');
     return a;
   }
 

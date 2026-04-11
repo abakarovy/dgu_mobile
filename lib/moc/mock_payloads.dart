@@ -307,8 +307,38 @@ abstract final class MockPayloads {
     return {'items': []};
   }
 
-  static Map<String, dynamic> orders(int userId) {
-    return {'items': []};
+  /// `POST /api/documents/certificate-order` (MOBILE_SPRAVKI_API.md).
+  static Map<String, dynamic> certificateOrderCreate() {
+    return {
+      'order_id': '550e8400-e29b-41d4-a716-446655440000',
+      'status': 'Created',
+      'request_id': 1001,
+    };
+  }
+
+  /// `GET /api/documents/certificate-orders`
+  static List<Map<String, dynamic>> certificateOrdersHistory() {
+    final now = DateTime.now().toUtc().toIso8601String();
+    return [
+      {
+        'request_id': 42,
+        'order_id': '660e8400-e29b-41d4-a716-446655440001',
+        'certificate_type': 'education',
+        'delivery_format': 'electronic',
+        'present_where': 'В вуз',
+        'status': 'pending',
+        'created_at': now,
+      },
+      {
+        'request_id': 41,
+        'order_id': '770e8400-e29b-41d4-a716-446655440002',
+        'certificate_type': 'scholarship',
+        'delivery_format': 'paper',
+        'present_where': 'По месту работы',
+        'status': 'done',
+        'created_at': now,
+      },
+    ];
   }
 
   static List<dynamic> oneCCuratorEvents(int userId) {

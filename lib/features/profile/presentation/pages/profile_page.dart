@@ -478,9 +478,10 @@ class _ProfilePageState extends State<ProfilePage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () {
+                  if ((me?.role ?? '').trim().toLowerCase() != 'parent')
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () {
                       final emailCtrl = TextEditingController();
                       bool busy = false;
                       String? errorText;
@@ -793,13 +794,13 @@ class _ProfilePageState extends State<ProfilePage> {
                           );
                         },
                       ).whenComplete(emailCtrl.dispose);
-                    },
-                    child: _primaryActionCard(
-                      layoutScale: layoutScale,
-                      title: 'Пригласить родителя',
-                      subtitle: 'Родитель получит доступ к вашим данным об успеваемости',
+                      },
+                      child: _primaryActionCard(
+                        layoutScale: layoutScale,
+                        title: 'Пригласить родителя',
+                        subtitle: 'Родитель получит доступ к вашим данным об успеваемости',
+                      ),
                     ),
-                  ),
                   SizedBox(height: actionGap),
                   GestureDetector(
                     behavior: HitTestBehavior.opaque,
@@ -818,8 +819,12 @@ class _ProfilePageState extends State<ProfilePage> {
                       final e = (me?.email ?? '').trim();
                       return e.isEmpty ? '—' : e;
                     }(),
-                    onChangePassword: () => context.push('/account/password-reset'),
-                    onChangeEmail: () => context.push('/account/email-change'),
+                    onChangePassword: (me?.role ?? '').trim().toLowerCase() == 'parent'
+                        ? null
+                        : () => context.push('/account/password-reset'),
+                    onChangeEmail: (me?.role ?? '').trim().toLowerCase() == 'parent'
+                        ? null
+                        : () => context.push('/account/email-change'),
                   ),
                   SizedBox(height: actionGap),
                 ],
@@ -928,8 +933,8 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget _mailCard({
     required double layoutScale,
     required String email,
-    required VoidCallback onChangePassword,
-    required VoidCallback onChangeEmail,
+    VoidCallback? onChangePassword,
+    VoidCallback? onChangeEmail,
   }) {
     final r = 26.4 * layoutScale;
     final titleFs = 11.53 * layoutScale;
@@ -1005,52 +1010,56 @@ class _ProfilePageState extends State<ProfilePage> {
                     const Spacer(),
                     Align(
                       alignment: Alignment.bottomRight,
-                      child: Wrap(
-                        spacing: (8 * layoutScale) / 4,
-                        runSpacing: (8 * layoutScale) / 4,
-                        children: [
-                          GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onTap: onChangePassword,
-                            child: Container(
-                              padding: EdgeInsets.all(miniPad),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF000000),
-                                borderRadius: BorderRadius.circular(miniR),
-                              ),
-                              child: Text(
-                                'Поменять пароль',
-                                style: AppTextStyle.inter(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: miniFs,
-                                  height: 1.0,
-                                  color: Colors.white,
-                                ),
-                              ),
+                      child: (onChangePassword == null && onChangeEmail == null)
+                          ? const SizedBox.shrink()
+                          : Wrap(
+                              spacing: (8 * layoutScale) / 4,
+                              runSpacing: (8 * layoutScale) / 4,
+                              children: [
+                                if (onChangePassword != null)
+                                  GestureDetector(
+                                    behavior: HitTestBehavior.opaque,
+                                    onTap: onChangePassword,
+                                    child: Container(
+                                      padding: EdgeInsets.all(miniPad),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF000000),
+                                        borderRadius: BorderRadius.circular(miniR),
+                                      ),
+                                      child: Text(
+                                        'Поменять пароль',
+                                        style: AppTextStyle.inter(
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: miniFs,
+                                          height: 1.0,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                if (onChangeEmail != null)
+                                  GestureDetector(
+                                    behavior: HitTestBehavior.opaque,
+                                    onTap: onChangeEmail,
+                                    child: Container(
+                                      padding: EdgeInsets.all(miniPad),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF000000),
+                                        borderRadius: BorderRadius.circular(miniR),
+                                      ),
+                                      child: Text(
+                                        'Поменять e-mail',
+                                        style: AppTextStyle.inter(
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: miniFs,
+                                          height: 1.0,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                              ],
                             ),
-                          ),
-                          GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onTap: onChangeEmail,
-                            child: Container(
-                              padding: EdgeInsets.all(miniPad),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF000000),
-                                borderRadius: BorderRadius.circular(miniR),
-                              ),
-                              child: Text(
-                                'Поменять e-mail',
-                                style: AppTextStyle.inter(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: miniFs,
-                                  height: 1.0,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
                     ),
                   ],
                 ),

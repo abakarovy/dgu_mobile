@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 
+import '../../core/constants/api_constants.dart';
 import 'api_client.dart';
 import 'api_exception.dart';
 
@@ -38,6 +39,59 @@ class AccountApi {
       final res = await _api.dio.get<dynamic>(
         '/students/me/parent-status',
         options: Options(validateStatus: (s) => s != null && s < 500),
+      );
+      if (res.statusCode != 200) {
+        throw DioException(
+          requestOptions: res.requestOptions,
+          response: res,
+          type: DioExceptionType.badResponse,
+        );
+      }
+      final raw = res.data;
+      if (raw is Map<String, dynamic>) return raw;
+      if (raw is Map) return Map<String, dynamic>.from(raw);
+      return const <String, dynamic>{};
+    } on DioException catch (e) {
+      throw ApiException.fromDio(e);
+    }
+  }
+
+  /// GET /api/parents/me/link-status
+  ///
+  /// Для роли `parent`: есть ли привязка к студенту (без 1С).
+  Future<Map<String, dynamic>> getParentsLinkStatus() async {
+    try {
+      final res = await _api.dio.get<dynamic>(
+        '/parents/me/link-status',
+        options: Options(validateStatus: (s) => s != null && s < 500),
+      );
+      if (res.statusCode != 200) {
+        throw DioException(
+          requestOptions: res.requestOptions,
+          response: res,
+          type: DioExceptionType.badResponse,
+        );
+      }
+      final raw = res.data;
+      if (raw is Map<String, dynamic>) return raw;
+      if (raw is Map) return Map<String, dynamic>.from(raw);
+      return const <String, dynamic>{};
+    } on DioException catch (e) {
+      throw ApiException.fromDio(e);
+    }
+  }
+
+  /// GET /api/parents/student-data
+  ///
+  /// Для роли `parent`: полные данные студента (оценки/профиль 1С/расписание и т.д.).
+  Future<Map<String, dynamic>> getParentsStudentData() async {
+    try {
+      final res = await _api.dio.get<dynamic>(
+        '/parents/student-data',
+        options: Options(
+          validateStatus: (s) => s != null && s < 500,
+          receiveTimeout: ApiConstants.scheduleReceiveTimeout,
+        ),
       );
       if (res.statusCode != 200) {
         throw DioException(

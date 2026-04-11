@@ -355,26 +355,6 @@ class Profile1cApi {
     }
   }
 
-  /// `GET /api/1c/orders?student_id=`
-  Future<Object?> getOrders() async {
-    final sid = await _studentIdFromToken();
-    if (sid == null) return null;
-    try {
-      final res = await _api.dio.get<dynamic>(
-        ApiConstants.oneCOrdersPath,
-        queryParameters: {'student_id': sid},
-        options: Options(
-          validateStatus: (s) => s != null && s < 500,
-          receiveTimeout: ApiConstants.scheduleReceiveTimeout,
-        ),
-      );
-      if (res.statusCode != 200) return null;
-      return res.data;
-    } on DioException {
-      return null;
-    }
-  }
-
   /// Кураторские часы в 1С: `GET /api/1c/events?student_id=` (не мероприятия колледжа).
   Future<Object?> getOneCCuratorEvents() async {
     final sid = await _studentIdFromToken();

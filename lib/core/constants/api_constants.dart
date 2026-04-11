@@ -52,9 +52,6 @@ abstract final class ApiConstants {
   /// Курсовые, ВКР, практики: `GET /api/1c/practices?student_id=`
   static const String oneCPracticesPath = '/1c/practices';
 
-  /// Заказы справок: `GET /api/1c/orders?student_id=`
-  static const String oneCOrdersPath = '/1c/orders';
-
   /// Кураторские часы в 1С (не путать с `GET /api/mobile/events`).
   static const String oneCCuratorEventsPath = '/1c/events';
 
@@ -63,4 +60,12 @@ abstract final class ApiConstants {
 
   /// `GET /api/health`
   static const String healthPath = '/health';
+
+  // --- Справки (документы), см. MOBILE_SPRAVKI_API.md ---
+
+  /// `POST /api/documents/certificate-order`
+  static const String documentsCertificateOrderPath = '/documents/certificate-order';
+
+  /// `GET /api/documents/certificate-orders` — история заказов
+  static const String documentsCertificateOrdersPath = '/documents/certificate-orders';
 }

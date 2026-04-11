@@ -3,6 +3,7 @@ import 'dart:math';
 import 'dart:ui';
 
 import 'package:dgu_mobile/core/constants/app_colors.dart';
+import 'package:dgu_mobile/core/constants/api_constants.dart';
 import 'package:dgu_mobile/core/constants/app_ui.dart';
 import 'package:dgu_mobile/core/theme/app_text_styles.dart';
 import 'package:flutter/material.dart';
@@ -57,6 +58,16 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _hydrateTodayFromCache() {
+    // Родитель: расписание берём из `/api/parents/student-data` (кэш), а не из `schedule:*`.
+    final isParent = _banner.me?.role.trim().toLowerCase() == 'parent';
+    if (isParent) {
+      final sd = AppContainer.jsonCache.getJsonMap('parents:student-data');
+      final mapped = _mapParentStudentDataToLessons(sd);
+      if (!mounted) return;
+      setState(() => _todayLessons = filterScheduleForCalendarToday(mapped));
+      return;
+    }
+
     var list = _mapCacheToLessons(AppContainer.jsonCache.getJsonList('schedule:week:v2'));
     if (list.isEmpty) {
       list = _mapCacheToLessons(AppContainer.jsonCache.getJsonList('schedule:today'));
@@ -64,6 +75,40 @@ class _HomePageState extends State<HomePage> {
     final filtered = filterScheduleForCalendarToday(list);
     if (!mounted) return;
     setState(() => _todayLessons = filtered);
+  }
+
+  List<ScheduleLesson> _mapParentStudentDataToLessons(Map<String, dynamic>? data) {
+    if (data == null) return const <ScheduleLesson>[];
+    dynamic rawSchedule = data['schedule'];
+    if (rawSchedule is Map) rawSchedule = rawSchedule['schedule'];
+    if (rawSchedule is! List) return const <ScheduleLesson>[];
+
+    String? toYmd(String ddMmYyyy) {
+      final m = RegExp(r'^(\d{2})\.(\d{2})\.(\d{4})$').firstMatch(ddMmYyyy.trim());
+      if (m == null) return null;
+      final dd = m.group(1)!;
+      final mm = m.group(2)!;
+      final yy = m.group(3)!;
+      return '$yy-$mm-$dd';
+    }
+
+    final out = <ScheduleLesson>[];
+    for (final e in rawSchedule) {
+      if (e is! Map) continue;
+      final m = Map<String, dynamic>.from(e);
+      final date = (m['date'] ?? '').toString();
+      final ymd = toYmd(date);
+      final map = <String, dynamic>{
+        'lesson_date': ymd,
+        'pair_number': m['pair_number'],
+        'subject': (m['subject'] ?? '').toString(),
+        'time': (m['time'] ?? '').toString(),
+        'teacher': (m['teacher'] ?? '').toString(),
+        'auditorium': (m['auditorium'] ?? m['room'] ?? '').toString(),
+      };
+      out.add(ScheduleLesson.fromJsonMap(map));
+    }
+    return out;
   }
 
   List<ScheduleLesson> _mapCacheToLessons(List<dynamic>? cached) {
@@ -75,6 +120,22 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _refreshTodayScheduleSilent({required bool force}) async {
+    final isParent = _banner.me?.role.trim().toLowerCase() == 'parent';
+    if (isParent) {
+      try {
+        final data = await AppContainer.accountApi
+            .getParentsStudentData()
+            .timeout(ApiConstants.prefetchRequestTimeout);
+        await AppContainer.jsonCache.setJson('parents:student-data', data);
+        if (!mounted) return;
+        setState(() {
+          _banner = _readBannerData();
+        });
+        _hydrateTodayFromCache();
+      } catch (_) {}
+      return;
+    }
+
     if (!force) {
       final cached = _mapCacheToLessons(AppContainer.jsonCache.getJsonList('schedule:week:v2'));
       final hasWeek = cached.isNotEmpty;
@@ -441,7 +502,11 @@ class _HomePageState extends State<HomePage> {
 
     final dateNow = DateTime.now();
     final summary = _buildTodaySummary(dateNow);
-    final displayName = _displayName(_banner.me?.fullName);
+    final isParent = (_banner.me?.role ?? '').trim().toLowerCase() == 'parent';
+    final studentName = _banner.studentFullName ?? _banner.me?.fullName;
+    final displayName = isParent
+        ? _displayName(_toGenitiveForParent(studentName))
+        : _displayName(_banner.me?.fullName);
 
     final groupParsed = _parseGroupForHome(_banner.groupLabel);
 
@@ -481,6 +546,10 @@ class _HomePageState extends State<HomePage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
+                if (isParent) ...[
+                  _roleChip(sf: sf, text: 'Родитель'),
+                  SizedBox(height: 10 * sf),
+                ],
                 Text(
                   displayName,
                   style: AppTextStyle.inter(
@@ -492,7 +561,7 @@ class _HomePageState extends State<HomePage> {
                 ),
                 SizedBox(height: 6 * sf),
                 Text(
-                  summary,
+                  isParent ? _buildTodaySummary(dateNow, parentStudent: displayName) : summary,
                   style: AppTextStyle.inter(
                     fontWeight: FontWeight.w400,
                     fontSize: 10.24 * sf,
@@ -504,15 +573,15 @@ class _HomePageState extends State<HomePage> {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _courseChip(
-                      sf: sf,
-                      text: groupParsed.courseGroupText,
-                    ),
-                    SizedBox(width: 10 * sf),
-                    _groupRightChip(
-                      sf: sf,
-                      text: groupParsed.groupAbbr,
-                    ),
+                    if (isParent) ...[
+                      _groupRightChip(sf: sf, text: groupParsed.courseGroupText),
+                      SizedBox(width: 10 * sf),
+                      _groupRightChip(sf: sf, text: groupParsed.groupAbbr),
+                    ] else ...[
+                      _courseChip(sf: sf, text: groupParsed.courseGroupText),
+                      SizedBox(width: 10 * sf),
+                      _groupRightChip(sf: sf, text: groupParsed.groupAbbr),
+                    ],
                   ],
                 ),
               ],
@@ -559,6 +628,27 @@ class _HomePageState extends State<HomePage> {
             fontSize: 8.96 * sf,
             color: blueText,
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _roleChip({required double sf, required String text}) {
+    return Container(
+      height: 22 * sf,
+      padding: EdgeInsets.symmetric(horizontal: 15 * sf),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12 * sf),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        text,
+        style: AppTextStyle.inter(
+          fontWeight: FontWeight.w700,
+          fontSize: 12 * sf,
+          height: 1.0,
+          color: const Color(0xFF2563EB),
         ),
       ),
     );
@@ -988,18 +1078,60 @@ class _HomePageState extends State<HomePage> {
     return ScheduleLessonTile.abbreviateTeacherName(s);
   }
 
-  String _buildTodaySummary(DateTime d) {
+  String _buildTodaySummary(DateTime d, {String? parentStudent}) {
     final weekday = _ruWeekday(d.weekday);
     final month = _ruMonthGen(d.month);
     final day = d.day;
 
     final count = _todayLessons.length;
     if (count == 0) {
+      if (parentStudent != null && parentStudent.trim().isNotEmpty) {
+        return 'Сегодня $weekday, $day $month. У $parentStudent на сегодня нет пар.';
+      }
       return 'Сегодня $weekday, $day $month. На сегодня нет пар.';
     }
 
     final firstTime = _parseStartTime(_todayLessons.first.time) ?? '—';
+    if (parentStudent != null && parentStudent.trim().isNotEmpty) {
+      return 'Сегодня $weekday, $day $month. У $parentStudent запланировано $count пар. Первая начнется в $firstTime.';
+    }
     return 'Сегодня $weekday, $day $month. У вас запланировано $count пар. Первая начнется в $firstTime.';
+  }
+
+  String _toGenitiveForParent(String? fullName) {
+    final s = (fullName ?? '').trim();
+    if (s.isEmpty) return '';
+    final parts = s.split(RegExp(r'\s+')).where((e) => e.trim().isNotEmpty).toList();
+    if (parts.isEmpty) return s;
+    final last = parts[0];
+    final first = parts.length > 1 ? parts[1] : '';
+    final lastGen = _lastNameToGenitive(last);
+    return [lastGen, first].where((x) => x.trim().isNotEmpty).join(' ');
+  }
+
+  String _lastNameToGenitive(String lastName) {
+    final src = lastName.trim();
+    if (src.isEmpty) return src;
+    final lower = src.toLowerCase();
+    String out;
+    if (lower.endsWith('ев') || lower.endsWith('ёв') || lower.endsWith('ов') || lower.endsWith('ин')) {
+      out = '$srcа';
+    } else if (lower.endsWith('ий')) {
+      out = '${src.substring(0, src.length - 2)}ия';
+    } else if (lower.endsWith('ый') || lower.endsWith('ой')) {
+      out = '${src.substring(0, src.length - 2)}ого';
+    } else if (lower.endsWith('а')) {
+      out = '${src.substring(0, src.length - 1)}ы';
+    } else if (lower.endsWith('я')) {
+      out = '${src.substring(0, src.length - 1)}и';
+    } else {
+      out = '$srcа';
+    }
+    // Preserve original casing similar to other UI ("Ягияев" => "Ягияева").
+    final cap = _capWord(out);
+    // If original was uppercase, keep uppercase.
+    final isUpper = src == src.toUpperCase();
+    return isUpper ? cap.toUpperCase() : cap;
   }
 
   String _ruWeekday(int weekday) {
@@ -1105,8 +1237,14 @@ class _GroupHomeParsed {
 }
 
 class _BannerData {
-  const _BannerData({required this.me, this.groupLabel, this.avgLabel});
+  const _BannerData({
+    required this.me,
+    this.studentFullName,
+    this.groupLabel,
+    this.avgLabel,
+  });
   final UserModel? me;
+  final String? studentFullName;
   final String? groupLabel;
   final String? avgLabel;
 }
@@ -1117,6 +1255,26 @@ _BannerData _readBannerData() {
   try {
     final c = AppContainer.jsonCache.getJsonMap('auth:me');
     if (c != null) me = UserModel.fromJson(c);
+  } catch (_) {}
+
+  // Родитель: имя/группа берутся из `/api/parents/student-data` (кэш).
+  String? parentStudentFullName;
+  OneCMyProfile? parentOneC;
+  try {
+    if ((me?.role ?? '').trim().toLowerCase() == 'parent') {
+      final sd = AppContainer.jsonCache.getJsonMap('parents:student-data');
+      if (sd != null) {
+        final student = sd['student'];
+        if (student is Map) {
+          final fn = (student['full_name'] ?? '').toString().trim();
+          if (fn.isNotEmpty) parentStudentFullName = fn;
+        }
+        final p1c = sd['profile_1c'];
+        if (p1c is Map) {
+          parentOneC = OneCMyProfile.fromJson(Map<String, dynamic>.from(p1c));
+        }
+      }
+    }
   } catch (_) {}
 
   GroupModel? group;
@@ -1138,8 +1296,9 @@ _BannerData _readBannerData() {
 
   return _BannerData(
     me: me,
+    studentFullName: parentStudentFullName,
     groupLabel: OneCMyProfile.resolveGroupLabel(
-      groupFrom1c: oneC?.group,
+      groupFrom1c: (parentOneC ?? oneC)?.group,
       groupFromApi: group?.displayLabel,
     ),
     avgLabel: avgLabel,

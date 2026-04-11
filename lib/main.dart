@@ -49,7 +49,7 @@ void main() async {
   /// `false` — реальный API ([ApiConstants.baseUrl]).
   // Переключатель моков (можно вручную менять на true/false).
   // Если хочешь включать через команду запуска, верни вариант с `--dart-define=USE_MOCK_BACKEND=true`.
-  const kUseMockBackend = true;
+  const kUseMockBackend = false;
   useMockBackend = kUseMockBackend;
 
   // Firebase is optional for backend API, but enable when configured.

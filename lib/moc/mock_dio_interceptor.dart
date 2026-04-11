@@ -132,6 +132,32 @@ class MockDioInterceptor extends Interceptor {
       }
     }
 
+    if (method == 'POST' && _pathEnds(path, ApiConstants.documentsCertificateOrderPath)) {
+      return _jsonResponse(o, 200, MockPayloads.certificateOrderCreate());
+    }
+    if (method == 'GET' && _pathEnds(path, ApiConstants.documentsCertificateOrdersPath)) {
+      return _jsonResponse(o, 200, MockPayloads.certificateOrdersHistory());
+    }
+    if (method == 'GET' && path.contains('/documents/certificate-order/') && path.endsWith('/status')) {
+      final oid = _orderIdFromDocumentsPath(path) ?? 'mock-order';
+      return _jsonResponse(o, 200, {
+        'order_id': oid,
+        'status': 'Готово',
+        'is_ready': true,
+      });
+    }
+    if (method == 'GET' && path.contains('/documents/certificate-order/') && path.endsWith('/download')) {
+      return Response(
+        requestOptions: o,
+        statusCode: 200,
+        headers: Headers.fromMap({
+          'content-type': ['application/pdf'],
+          'content-disposition': ['attachment; filename="certificate.pdf"'],
+        }),
+        data: _mockPdfBytes(),
+      );
+    }
+
     if (method == 'GET' && _pathEnds(path, ApiConstants.oneCCurriculumPath)) {
       return _jsonResponse(o, 200, {'curriculum': MockPayloads.curriculum(uid)});
     }
@@ -143,9 +169,6 @@ class MockDioInterceptor extends Interceptor {
     }
     if (method == 'GET' && _pathEnds(path, ApiConstants.oneCPracticesPath)) {
       return _jsonResponse(o, 200, MockPayloads.practices(uid));
-    }
-    if (method == 'GET' && _pathEnds(path, ApiConstants.oneCOrdersPath)) {
-      return _jsonResponse(o, 200, MockPayloads.orders(uid));
     }
     if (method == 'GET' && _pathEnds(path, ApiConstants.oneCCuratorEventsPath)) {
       return _jsonResponse(o, 200, MockPayloads.oneCCuratorEvents(uid));
@@ -291,6 +314,30 @@ class MockDioInterceptor extends Interceptor {
     if (data is Map) return Map<String, dynamic>.from(data);
     return {};
   }
+
+  /// Сегмент после `/documents/certificate-order/` до следующего `/`.
+  static String? _orderIdFromDocumentsPath(String path) {
+    final p = path.replaceAll('\\', '/');
+    const marker = '/documents/certificate-order/';
+    final i = p.indexOf(marker);
+    if (i < 0) return null;
+    final rest = p.substring(i + marker.length);
+    final seg = rest.split('/');
+    if (seg.isEmpty) return null;
+    return Uri.decodeComponent(seg.first);
+  }
+
+  static List<int> _mockPdfBytes() => <int>[
+        0x25,
+        0x50,
+        0x44,
+        0x46,
+        0x2d,
+        0x31,
+        0x2e,
+        0x34,
+        0x0a,
+      ];
 
   static int? _userId(RequestOptions o) {
     final h = o.headers['Authorization'] ?? o.headers['authorization'];
