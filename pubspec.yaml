@@ -25,7 +25,9 @@ dependencies:
   flutter_native_splash: ^2.4.6
   connectivity_plus: ^6.1.4
   web_socket_channel: ^3.0.3
-  file_saver: ^0.3.1
+  # Локальная копия: исправлен Dialog.swift (keyWindow deprecated на iOS 13+).
+  file_saver:
+    path: packages/file_saver
 
 dev_dependencies:
   flutter_test:
