@@ -78,12 +78,13 @@ void main() async {
     RealtimeWsClient.instance.connectIfPossible();
   });
 
+  // Прозрачный статус-бар: фон задаёт экран (на входе — [assets/images/photo.png]).
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
-      statusBarColor: Colors.green,
-      statusBarIconBrightness: Brightness.light,
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.dark,
       systemNavigationBarColor: Colors.transparent,
-      systemNavigationBarIconBrightness: Brightness.light,
+      systemNavigationBarIconBrightness: Brightness.dark,
     ),
   );
 

@@ -198,11 +198,18 @@ class _LoginPageState extends State<LoginPage> {
 
     return PopScope(
       canPop: false,
-      child: Theme(
-        data: noTapFxTheme,
-        child: Scaffold(
-          backgroundColor: Colors.white,
-          body: Column(
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: const SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.light,
+          systemNavigationBarColor: Colors.transparent,
+          systemNavigationBarIconBrightness: Brightness.dark,
+        ),
+        child: Theme(
+          data: noTapFxTheme,
+          child: Scaffold(
+            backgroundColor: Colors.white,
+            body: Column(
             children: [
               Expanded(
                 flex: photoFlex,
@@ -442,6 +449,7 @@ class _LoginPageState extends State<LoginPage> {
           ),
         ),
       ),
+    ),
     );
   }
 

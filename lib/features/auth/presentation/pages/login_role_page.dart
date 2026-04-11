@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
@@ -48,7 +49,7 @@ class LoginRolePage extends StatelessWidget {
     final btnTextStyle = AppTextStyle.inter(
       fontWeight: FontWeight.w700,
       fontSize: 45.47 * sf,
-      height: (70.73 / 45.47),
+      height: 1.0,
     );
     final btnHeight = (145.0 * sf).clamp(64.0, 190.0);
     final btnGap = (10.0 * sf).clamp(6.0, 14.0);
@@ -66,11 +67,18 @@ class LoginRolePage extends StatelessWidget {
       );
     }
 
-    return Theme(
-      data: noTapFxTheme,
-      child: Scaffold(
-        backgroundColor: Colors.white,
-        body: Column(
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+        systemNavigationBarColor: Colors.transparent,
+        systemNavigationBarIconBrightness: Brightness.dark,
+      ),
+      child: Theme(
+        data: noTapFxTheme,
+        child: Scaffold(
+          backgroundColor: Colors.white,
+          body: Column(
           children: [
             Expanded(
               flex: topFlex,
@@ -153,9 +161,12 @@ class LoginRolePage extends StatelessWidget {
                                         MaterialTapTargetSize.shrinkWrap,
                                     visualDensity: VisualDensity.compact,
                                     textStyle: btnTextStyle,
+                                    alignment: Alignment.center,
                                   ),
                                 ),
-                                child: const Text('Я студент'),
+                                child: const Center(
+                                  child: Text('Я студент'),
+                                ),
                               ),
                             ),
                             SizedBox(height: btnGap),
@@ -188,9 +199,12 @@ class LoginRolePage extends StatelessWidget {
                                         MaterialTapTargetSize.shrinkWrap,
                                     visualDensity: VisualDensity.compact,
                                     textStyle: btnTextStyle,
+                                    alignment: Alignment.center,
                                   ),
                                 ),
-                                child: const Text('Я родитель'),
+                                child: const Center(
+                                  child: Text('Я родитель'),
+                                ),
                               ),
                             ),
                           ],
@@ -204,6 +218,7 @@ class LoginRolePage extends StatelessWidget {
           ],
         ),
       ),
+    ),
     );
   }
 }
