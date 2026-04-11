@@ -2,49 +2,31 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'mock_accounts.dart';
+import 'mock_data_loader.dart';
 
-/// JSON-ответы мокового API (один студент: Али Ягияев).
+/// JSON-ответы мокового API (встроены в [MockBundleEmbedded] / [MockDataLoader.payloads]).
 abstract final class MockPayloads {
+  static Map<String, dynamic> get _p => MockDataLoader.payloads;
+
   static String _ymd(DateTime d) =>
       '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
   static String _ddMmYyyy(DateTime d) =>
       '${d.day.toString().padLeft(2, '0')}.${d.month.toString().padLeft(2, '0')}.${d.year}';
 
-  // (intentionally no unused helpers here; payloads are shaped to backend logs)
+  static String _ymdDaysAgo(int daysAgo) {
+    final now = DateTime.now();
+    final base = DateTime(now.year, now.month, now.day).subtract(Duration(days: daysAgo));
+    return _ymd(base);
+  }
 
   static Map<String, dynamic> oneCProfile(int userId) {
-    // Под форму ответа, которая видна в логах:
-    // {is_cached, student_id, last_name, first_name, middle_name, birthday(dd.MM.yyyy),
-    //  direction, group, department, education_form, admission_year, course, curator,
-    //  social_role, status, funding_type, student_book_number, study_form, full_name, grades:[...]}
-    return {
-      'is_cached': true,
-      'student_id': 23385,
-      'last_name': 'ЯГИЯЕВ',
-      'first_name': 'АЛИ',
-      'middle_name': 'ТАЖУТДИНОВИЧ',
-      'birthday': '10.09.2007',
-      'direction': '10.02.05 Обеспечение информационной безопасности автоматизированных систем',
-      'group': 'ОИБАС 3к 1г 2023',
-      'department': 'Обеспечение информационной безопасности автоматизированных систем',
-      'education_form': 'Очная форма обучения',
-      'admission_year': '2023',
-      'course': 3,
-      'curator': 'Шахбанова Марият Ибрагимбековна',
-      'social_role': '',
-      'status': 'Обучается',
-      'funding_type': 'Бюджетное финансирование',
-      'student_book_number': '23385',
-      'study_form': 'Очная форма обучения',
-      'full_name': 'ЯГИЯЕВ АЛИ ТАЖУТДИНОВИЧ',
-      'grades': syncGrades(userId)['grades'],
-    };
+    final base = Map<String, dynamic>.from(_p['oneCProfileBase'] as Map);
+    base['grades'] = syncGrades(userId)['grades'];
+    return base;
   }
 
   static Map<String, dynamic> studentTicket(int userId) {
-    // Под форму ответа в логах:
-    // {full_name, student_book_number, ticket_valid_until, ticket_issued_at, study_form, course}
     final p = oneCProfile(userId);
     return {
       'full_name': p['full_name'],
@@ -56,57 +38,39 @@ abstract final class MockPayloads {
     };
   }
 
-  static Map<String, dynamic> groupMy(int userId) {
-    // В логах `/groups/my` вернул `[]`.
-    return {};
-  }
+  static Map<String, dynamic> groupMy(int userId) => {};
 
   static List<dynamic> newsList(int userId) {
-    // Под форму ответа в логах (список объектов).
-    return [
-      {
-        'title': 'День открытых дверей (мок)',
-        'content': 'Приходите смотреть (мок).',
-        'excerpt': 'День открытых дверей',
-        // Локальный ассет — [NewsModel.bundleAssetPath] / карточка новости.
-        'image_url': 'assets/images/img1.png',
-        'id': 11,
-        'author_id': 7,
-        'is_published': true,
-        'created_at': DateTime.now().subtract(const Duration(days: 1)).toIso8601String(),
-        'updated_at': null,
-      },
-      {
-        'title': 'Студвесна (мок)',
-        'content': 'Приходите смотреть, Али.',
-        'excerpt': 'Студвесна в колледже ДГУ',
-        'image_url': 'assets/images/img2.png',
-        'id': 10,
-        'author_id': 7,
-        'is_published': true,
-        'created_at': DateTime.now().subtract(const Duration(days: 2)).toIso8601String(),
-        'updated_at': null,
-      },
-    ];
+    final now = DateTime.now();
+    final raw = List<Map<String, dynamic>>.from(
+      (_p['news_items'] as List).map((e) => Map<String, dynamic>.from(e as Map)),
+    );
+    final out = <Map<String, dynamic>>[];
+    for (final m in raw) {
+      final copy = Map<String, dynamic>.from(m);
+      final days = copy.remove('createdAtDaysAgo') as int;
+      copy['created_at'] = now.subtract(Duration(days: days)).toIso8601String();
+      copy['updated_at'] = null;
+      copy['is_published'] = true;
+      out.add(copy);
+    }
+    return out;
   }
 
   static List<dynamic> eventsList(int userId) {
-    // Под форму ответа в логах:
-    // {id,title,description,image_url,location,starts_at,ends_at,is_published,created_at}
-    final start = DateTime.now().add(const Duration(days: 7));
-    return [
-      {
-        'id': 1,
-        'title': 'Мероприятие (мок)',
-        'description': 'Описание мероприятия (мок).',
-        'image_url': null,
-        'location': 'Колледж ДГУ',
-        'starts_at': start.toIso8601String(),
-        'ends_at': null,
-        'is_published': true,
-        'created_at': DateTime.now().toIso8601String(),
-      },
-    ];
+    final now = DateTime.now();
+    final raw = List<Map<String, dynamic>>.from(
+      (_p['events_items'] as List).map((e) => Map<String, dynamic>.from(e as Map)),
+    );
+    final out = <Map<String, dynamic>>[];
+    for (final m in raw) {
+      final copy = Map<String, dynamic>.from(m);
+      final add = copy.remove('startsAtDaysFromNow') as int;
+      copy['starts_at'] = now.add(Duration(days: add)).toIso8601String();
+      copy['created_at'] = now.toIso8601String();
+      out.add(copy);
+    }
+    return out;
   }
 
   static Map<String, dynamic> eventById(int id) {
@@ -124,159 +88,41 @@ abstract final class MockPayloads {
   }
 
   static List<dynamic> assignments(int userId) {
-    // Оставляем как есть — приложению достаточно списка; формат близкий к `/api/mobile/assignments/my`.
-    const subj = 'Сети и системы передачи информации';
-    return [
-      {
-        'id': 9001,
-        'title': 'Лабораторная работа №3',
-        'description': 'Сдать отчёт в формате PDF (мок).',
-        'subject': subj,
-        'deadline_at': DateTime.now().add(const Duration(days: 5)).toIso8601String(),
-        'created_at': DateTime.now().subtract(const Duration(days: 2)).toIso8601String(),
-        'is_done': false,
-      },
-      {
-        'id': 9002,
-        'title': 'Контрольная работа',
-        'description': 'Темы из лекций 1–4.',
-        'subject': 'Математика',
-        'deadline_at': DateTime.now().add(const Duration(days: 14)).toIso8601String(),
-        'created_at': DateTime.now().subtract(const Duration(days: 1)).toIso8601String(),
-        'is_done': true,
-      },
-    ];
+    final now = DateTime.now();
+    final raw = List<Map<String, dynamic>>.from(
+      (_p['assignments_items'] as List).map((e) => Map<String, dynamic>.from(e as Map)),
+    );
+    final out = <Map<String, dynamic>>[];
+    for (final m in raw) {
+      final copy = Map<String, dynamic>.from(m);
+      final deadline = copy.remove('deadlineDaysFromNow') as int;
+      final createdAgo = copy.remove('createdDaysAgo') as int;
+      copy['deadline_at'] = now.add(Duration(days: deadline)).toIso8601String();
+      copy['created_at'] = now.subtract(Duration(days: createdAgo)).toIso8601String();
+      out.add(copy);
+    }
+    return out;
   }
 
-  /// Текущие + зачёт/экзамен для вкладки «Сессия»; даты в пределах последних 14 дней.
-  /// Плюс записи «Пропуск» — столько же, сколько [absences] `total_absences`, для списка на экране пропусков.
-  /// Несколько оценок по одному предмету — для шита «средний балл и все оценки».
   static Map<String, dynamic> syncGrades(int userId) {
-    // Под форму ответа в логах:
-    // {grades:[{semester, records:[{subject, grade, type, date, teacher_name}]}]}
-    final sem = '2 сем 2025-2026';
-    final now = DateTime.now();
-    final d0 = DateTime(now.year, now.month, now.day);
-    final d1 = DateTime(now.year, now.month, now.day).subtract(const Duration(days: 1));
-    final d2 = DateTime(now.year, now.month, now.day).subtract(const Duration(days: 4));
-    final d3 = DateTime(now.year, now.month, now.day).subtract(const Duration(days: 9));
-    final d12 = DateTime(now.year, now.month, now.day).subtract(const Duration(days: 12));
-    const tNet = 'Петров Пётр Сергеевич';
-    const tSec = 'Сидорова Анна Викторовна';
-    const tExpl = 'Козлов Денис Олегович';
-    final sNetworks = 'Сети и системы передачи информации';
-    final sExpl = 'Эксплуатация автоматизированных систем в защищенном исполнении';
-    final sTzi = 'Техническая защита информации';
+    final sem = _p['syncGradesSemester'] as String;
+    final raw = List<Map<String, dynamic>>.from(
+      (_p['gradeRecords'] as List).map((e) => Map<String, dynamic>.from(e as Map)),
+    );
+    final records = <Map<String, dynamic>>[];
+    for (final r in raw) {
+      final copy = Map<String, dynamic>.from(r);
+      final daysAgo = copy.remove('daysAgo') as int;
+      copy['date'] = _ymdDaysAgo(daysAgo);
+      records.add(copy);
+    }
     return {
       'grades': [
-        {
-          'semester': sem,
-          'records': [
-            {
-              'subject': 'Электроника и схемотехника',
-              'grade': 'Н',
-              'type': 'Пропуск',
-              'date': _ymd(d3),
-            },
-            {
-              'subject': sNetworks,
-              'grade': 'Н',
-              'type': 'Пропуск',
-              'date': _ymd(d2),
-            },
-            // «Текущие»: несколько оценок по одному предмету (шит по тапу).
-            {
-              'subject': sNetworks,
-              'grade': '5',
-              'type': 'Ответ у доски 1 АТ',
-              'date': _ymd(d1),
-              'teacher_name': tNet,
-            },
-            {
-              'subject': sNetworks,
-              'grade': '4',
-              'type': 'Ответ у доски 2 АТ',
-              'date': _ymd(d2),
-              'teacher_name': tNet,
-            },
-            {
-              'subject': sNetworks,
-              'grade': '5',
-              'type': 'Контрольная работа',
-              'date': _ymd(d3),
-              'teacher_name': tNet,
-            },
-            {
-              'subject': sNetworks,
-              'grade': '5',
-              'type': 'Практическое занятие',
-              'date': _ymd(d12),
-              'teacher_name': tNet,
-            },
-            {
-              'subject': sExpl,
-              'grade': '5',
-              'type': 'Ответ у доски 1 АТ',
-              'date': _ymd(d1),
-              'teacher_name': tExpl,
-            },
-            {
-              'subject': sExpl,
-              'grade': '4',
-              'type': 'Опрос терминов',
-              'date': _ymd(d2),
-              'teacher_name': tExpl,
-            },
-            {
-              'subject': sTzi,
-              'grade': '5',
-              'type': 'Ответ у доски 1 АТ',
-              'date': _ymd(d2),
-              'teacher_name': tSec,
-            },
-            {
-              'subject': sTzi,
-              'grade': '5',
-              'type': 'Юрайт',
-              'date': _ymd(d3),
-              'teacher_name': tSec,
-            },
-            // «Сессия»: итоговые типы (вкладка + шит по предмету).
-            {
-              'subject': sNetworks,
-              'grade': '5',
-              'type': 'Экзамен',
-              'date': _ymd(d0),
-              'teacher_name': tNet,
-            },
-            {
-              'subject': sNetworks,
-              'grade': '5',
-              'type': 'Дифференцированный зачёт',
-              'date': _ymd(d1),
-              'teacher_name': tNet,
-            },
-            {
-              'subject': sTzi,
-              'grade': 'зачёт',
-              'type': 'Зачёт',
-              'date': _ymd(d1),
-              'teacher_name': tSec,
-            },
-            {
-              'subject': sExpl,
-              'grade': '4',
-              'type': 'Курсовая работа',
-              'date': _ymd(d2),
-              'teacher_name': tExpl,
-            },
-          ],
-        },
+        {'semester': sem, 'records': records},
       ],
     };
   }
 
-  /// Плоский список для `GET /journal/grades/my` (fallback без student_id).
   static List<dynamic> journalGradesFlat(int userId) {
     final root = syncGrades(userId);
     final grades = root['grades'];
@@ -291,48 +137,35 @@ abstract final class MockPayloads {
     return out;
   }
 
-  static Map<String, dynamic> mobileHelp() {
-    return {
-      // Под лог: hotline, email, website_url, faq[{question,answer}]
-      'hotline': '+7 (8722) 67-XX-XX',
-      'hotline_phone': '+7 (8722) 67-XX-XX',
-      'email': 'colledgedsu@dgu.ru',
-      'website_url': 'https://college.dgu.ru/',
-      'faq': [
-        {'question': 'Как восстановить пароль?', 'answer': 'На экране входа нажмите «Забыли пароль» или обратитесь в учебный отдел колледжа.'},
-        {'question': 'Где посмотреть расписание?', 'answer': 'В разделе «Расписание» мобильного приложения или на сайте колледжа в личном кабинете студента.'},
-        {'question': 'Не приходят уведомления', 'answer': 'Проверьте настройки уведомлений в приложении и разрешения ОС для push.'},
-      ],
-    };
-  }
+  static Map<String, dynamic> mobileHelp() =>
+      Map<String, dynamic>.from(_p['mobileHelp'] as Map);
 
-  static Map<String, dynamic> notificationPreferences() {
-    return {
-      'push_new_grades': true,
-      'push_schedule_change': true,
-      'push_assignment_deadlines': true,
-      'push_college_news': true,
-      'push_college_events': true,
-    };
-  }
+  static Map<String, dynamic> notificationPreferences() =>
+      Map<String, dynamic>.from(_p['notificationPreferences'] as Map);
 
   static Map<String, dynamic> absences(int userId) {
-    // Под форму ответа в логах.
-    final sem = '2 сем 2025-2026';
-    const n = 20;
-    final start = DateTime(DateTime.now().year, 2, 1);
-    final end = DateTime(DateTime.now().year, 7, 31);
+    final a = _p['absences'] as Map<String, dynamic>;
+    final sem = a['semester'] as String;
+    final y = DateTime.now().year;
+    final start = DateTime(y, a['periodStartMonth'] as int, a['periodStartDay'] as int);
+    final end = DateTime(y, a['periodEndMonth'] as int, a['periodEndDay'] as int);
+    final totalHours = (a['total_hours'] is num)
+        ? (a['total_hours'] as num).toDouble()
+        : double.tryParse('${a['total_hours'] ?? ''}');
     return {
-      'student_id': 23385,
+      'student_id': userId,
       'status': 'success',
+      // Подпись в профиле, если семестр из оценок не совпал с `semesters[]`.
+      'total_hours': totalHours,
       'semesters': [
         {
           'semester': sem,
           'period': {'start': _ddMmYyyy(start), 'end': _ddMmYyyy(end)},
           'data': {
-            'total_absences': n,
-            'excused_absences': 0,
-            'unexcused_absences': n,
+            'total_absences': a['total_absences'],
+            'excused_absences': a['excused_absences'],
+            'unexcused_absences': a['unexcused_absences'],
+            'total_hours': totalHours,
           },
         },
       ],
@@ -340,115 +173,35 @@ abstract final class MockPayloads {
     };
   }
 
-  /// Учебный маршрут: часы как объект (см. [LearningRouteView]).
-  static List<dynamic> curriculum(int userId) {
-    // Под форму ответа в логах: {curriculum:[...]}
-    const s2 = 'Сети и системы передачи информации';
-    return [
-      {
-        'subject': 'Биология',
-        'semester': '1 семестр',
-        'control_form': 'Дифференцированный зачет',
-        'hours': {
-          'total': 36,
-          'theory_lectures': 4,
-          'practical': 32,
-          'lab': 0,
-          'seminar': 0,
-          'independent': 0,
-          'coursework': 0,
-          'consultation': 0,
-          'attestation': 4,
-          'individual_project': 0,
-        },
-      },
-      {
-        'subject': s2,
-        'semester': '2 семестр',
-        'control_form': 'Не задана',
-        'hours': {
-          'total': 54,
-          'theory_lectures': 14,
-          'practical': 40,
-          'lab': 0,
-          'seminar': 0,
-          'independent': 14,
-          'coursework': 0,
-          'consultation': 0,
-          'attestation': 0,
-          'individual_project': 0,
-        },
-      },
-    ];
-  }
+  static List<dynamic> curriculum(int userId) =>
+      List<dynamic>.from(_p['curriculum'] as List);
 
-  static List<dynamic> groupList(int userId) {
-    return [
-      {'name': 'Студент А', 'record_book': 'УБ111'},
-      {'name': 'Студент Б', 'record_book': 'УБ222'},
-    ];
-  }
+  static List<dynamic> groupList(int userId) =>
+      List<dynamic>.from(_p['group_list'] as List);
 
-  static Map<String, dynamic> practices(int userId) {
-    return {'items': []};
-  }
+  static Map<String, dynamic> practices(int userId) =>
+      Map<String, dynamic>.from(_p['practices'] as Map);
 
-  /// `POST /api/documents/certificate-order` (MOBILE_SPRAVKI_API.md).
-  static Map<String, dynamic> certificateOrderCreate() {
-    return {
-      'order_id': '550e8400-e29b-41d4-a716-446655440000',
-      'status': 'Created',
-      'request_id': 1001,
-    };
-  }
+  static Map<String, dynamic> certificateOrderCreate() =>
+      Map<String, dynamic>.from(_p['certificate_order_create'] as Map);
 
-  /// `GET /api/documents/certificate-orders` — при [forStudentId] только заказы этого студента (как на backend).
   static List<Map<String, dynamic>> certificateOrdersHistory({int? forStudentId}) {
     final now = DateTime.now().toUtc().toIso8601String();
-    final all = <Map<String, dynamic>>[
-      {
-        'request_id': 42,
-        'order_id': '660e8400-e29b-41d4-a716-446655440001',
-        'student_id': MockAccounts.aliId,
-        'certificate_type': 'education',
-        'delivery_format': 'electronic',
-        'present_where': 'В вуз',
-        'status': 'pending',
-        'created_at': now,
-      },
-      {
-        'request_id': 41,
-        'order_id': '770e8400-e29b-41d4-a716-446655440002',
-        'student_id': MockAccounts.aliId,
-        'certificate_type': 'scholarship',
-        'delivery_format': 'paper',
-        'present_where': 'По месту работы',
-        'status': 'done',
-        'created_at': now,
-      },
-      {
-        'request_id': 40,
-        'order_id': '880e8400-e29b-41d4-a716-446655440003',
-        'student_id': 999,
-        'certificate_type': 'education',
-        'delivery_format': 'electronic',
-        'present_where': 'Другой студент',
-        'status': 'done',
-        'created_at': now,
-      },
-    ];
+    final raw = List<Map<String, dynamic>>.from(
+      (_p['certificate_orders'] as List).map((e) => Map<String, dynamic>.from(e as Map)),
+    );
+    final all = <Map<String, dynamic>>[];
+    for (final m in raw) {
+      final copy = Map<String, dynamic>.from(m)..['created_at'] = now;
+      all.add(copy);
+    }
     if (forStudentId == null) return all;
     return [for (final m in all) if (m['student_id'] == forStudentId) m];
   }
 
-  static List<dynamic> oneCCuratorEvents(int userId) {
-    return [];
-  }
+  static List<dynamic> oneCCuratorEvents(int userId) => [];
 
-  /// Расписание на один календарный день (`for_date` = yyyy-MM-dd): разные пары по дням недели.
   static Map<String, dynamic> scheduleForDate(String forDateYmd, int userId) {
-    // Под форму ответа в логах:
-    // {schedule:[{date,day,pair_number,time,subject,room,teacher,week_type,subgroup,semester}], week:null, is_cached:true, schedule_scope:'today', schedule_for_date:'yyyy-MM-dd'}
     final d = DateTime.tryParse(forDateYmd) ?? DateTime.now();
     final dd = _ddMmYyyy(d);
     const days = {
@@ -461,49 +214,26 @@ abstract final class MockPayloads {
       DateTime.sunday: 'Воскресенье',
     };
     final day = days[d.weekday] ?? 'День';
+    const dayShortRu = ['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс'];
 
-    if (d.weekday == DateTime.sunday) {
-      return {
-        'schedule': <dynamic>[],
-        'week': null,
-        'is_cached': true,
-        'schedule_scope': 'today',
-        'schedule_for_date': forDateYmd,
-      };
+    final templates = List<Map<String, dynamic>>.from(
+      (_p['schedule_pair_templates'] as List).map((e) => Map<String, dynamic>.from(e as Map)),
+    );
+    final schedule = <Map<String, dynamic>>[];
+    for (final t in templates) {
+      final row = Map<String, dynamic>.from(t);
+      row['date'] = dd;
+      row['day'] = day;
+      row['day_short'] = dayShortRu[d.weekday - 1];
+      schedule.add(row);
     }
-
-    final schedule = <Map<String, dynamic>>[
-      {
-        'date': dd,
-        'day': day,
-        'pair_number': 1,
-        'time': '14:00 - 15:10',
-        'subject': 'Техническая защита информации',
-        'room': '215',
-        'teacher': 'Багирова София Динмагомедовна',
-        'week_type': 'Четная (2 неделя)',
-        'subgroup': 0,
-        'semester': '2 сем 2025-2026',
-      },
-      {
-        'date': dd,
-        'day': day,
-        'pair_number': 2,
-        'time': '15:20 - 16:30',
-        'subject': 'Сети и системы передачи информации',
-        'room': '216',
-        'teacher': 'Шахбанова Загидат Ибрагимбековна',
-        'week_type': 'Четная (2 неделя)',
-        'subgroup': 0,
-        'semester': '2 сем 2025-2026',
-      },
-    ];
 
     return {
       'schedule': schedule,
       'week': null,
       'is_cached': true,
-      'schedule_scope': 'today',
+      // Не `today`: пары уже с датой запрошенного дня (в т.ч. апрель 2026 в моке).
+      'schedule_scope': 'date',
       'schedule_for_date': forDateYmd,
     };
   }
@@ -514,14 +244,12 @@ abstract final class MockPayloads {
     return scheduleForDate(ymd, userId);
   }
 
-  /// Успешные POST без тела.
   static Map<String, dynamic> emptyOk() => {};
 
   static Map<String, dynamic> parentInviteOk() => {'success': true};
 
-  /// `GET /api/parents/student-data` — родитель видит данные ребёнка (мок — тот же профиль, что у студента 28).
   static Map<String, dynamic> parentsStudentData(int? _) {
-    const childId = 28;
+    final childId = MockAccounts.aliId;
     final profile = oneCProfile(childId);
     return {
       'student': {
@@ -541,7 +269,8 @@ abstract final class MockPayloads {
   }
 
   static Uint8List studentPhotoBytes(int userId) {
-    // 1x1 PNG (transparent). Валидная картинка, чтобы Image.file / decoder не падал.
+    final loaded = MockDataLoader.mockAvatarPngBytes;
+    if (loaded != null && loaded.isNotEmpty) return loaded;
     const b64 =
         'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMB/0p7k0kAAAAASUVORK5CYII=';
     return base64Decode(b64);

@@ -1,3 +1,5 @@
+import 'dart:math' show min;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -11,7 +13,7 @@ import '../../../../shared/widgets/app_header.dart';
 import '../widgets/support_contact_row.dart';
 import '../widgets/support_faq_row.dart';
 
-/// Экран поддержки: баннер как на главной (по центру), блок «Связаться с нами», «Частые вопросы».
+/// Экран поддержки: баннер как на главной, блок контактов в карточке, FAQ.
 class SupportPage extends StatefulWidget {
   const SupportPage({super.key});
 
@@ -26,6 +28,8 @@ class _SupportPageState extends State<SupportPage> {
   static const String _fallbackPhoneNumber = '+78005553535';
   static const String _fallbackEmail = 'support@dgu.ru';
   static const String _fallbackWebsiteUrl = 'https://college.dgu.ru';
+
+  static const double _uiScaleBoost = 1.2;
 
   @override
   void initState() {
@@ -75,50 +79,30 @@ class _SupportPageState extends State<SupportPage> {
       backgroundColor: Colors.white,
       appBar: AppHeader(
         leading: appHeaderNestedBackLeading(context),
-        headerTitle:
-            Text('Поддержка', style: appHeaderNestedTitleStyle),
+        headerTitle: Text('Поддержка', style: appHeaderNestedTitleStyle),
       ),
       body: RefreshIndicator(
         onRefresh: _load,
+        color: AppColors.primaryBlue,
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.symmetric(horizontal: AppUi.screenPaddingH),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              const SizedBox(height: AppUi.spacingL),
+              _buildHomeStyleBanner(context, loading: _loading),
               const SizedBox(height: AppUi.spacingXl),
-              _buildBanner(context, loading: _loading),
-              const SizedBox(height: 24),
-              _buildSectionTitle('СВЯЗАТЬСЯ С НАМИ'),
+              _buildSectionTitle('Связаться с нами'),
               const SizedBox(height: AppUi.spacingM),
-              SupportContactRow(
-                description: 'Горячая линия',
-                title: phone,
-                iconPath: 'assets/icons/tel.svg',
-                iconColor: AppColors.supportTelIcon,
-                iconBackgroundColor: AppColors.supportTelIconBg,
-                onTap: () => _launchTel(context, phone),
-              ),
-              const SizedBox(height: 10),
-              SupportContactRow(
-                description: 'Email поддержка',
-                title: email,
-                iconPath: 'assets/icons/mail.svg',
-                iconColor: AppColors.supportMailIcon,
-                iconBackgroundColor: AppColors.supportMailIconBg,
-                onTap: () => _launchMail(context, email),
-              ),
-              const SizedBox(height: 10),
-              SupportContactRow(
-                description: 'Сайт колледжа',
-                title: Uri.tryParse(site)?.host.isNotEmpty == true ? Uri.parse(site).host : site,
-                iconPath: 'assets/icons/internet.svg',
-                iconColor: AppColors.supportInternetIcon,
-                iconBackgroundColor: AppColors.supportInternetIconBg,
-                onTap: () => _launchWebsite(context, site),
+              _buildContactsCard(
+                context,
+                phone: phone,
+                email: email,
+                site: site,
               ),
               const SizedBox(height: 28),
-              _buildSectionTitle('ЧАСТЫЕ ВОПРОСЫ'),
+              _buildSectionTitle('Частые вопросы'),
               const SizedBox(height: AppUi.spacingM),
               if (faq.isEmpty)
                 Text(
@@ -145,86 +129,174 @@ class _SupportPageState extends State<SupportPage> {
     );
   }
 
-  Widget _buildBanner(BuildContext context, {required bool loading}) {
+  /// Баннер в стиле главной: градиент, декор справа, заголовок по центру.
+  Widget _buildHomeStyleBanner(BuildContext context, {required bool loading}) {
+    final size = MediaQuery.sizeOf(context);
+    final sf = min(size.width / 402, size.height / 874) * _uiScaleBoost;
+    final radius = 20.0 * sf;
+    final pad = 20.0 * sf;
+
     return Container(
-      constraints: const BoxConstraints(minHeight: 140),
+      constraints: BoxConstraints(minHeight: 168 * sf),
       decoration: BoxDecoration(
-        color: AppColors.primaryBlue,
-        borderRadius: BorderRadius.circular(AppUi.radiusXl),
+        borderRadius: BorderRadius.circular(radius),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF1E40AF),
+            Color(0xFF3B82F6),
+          ],
+        ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0x4D003882),
-            offset: const Offset(0, 10),
-            blurRadius: 15,
-            spreadRadius: -3,
+            color: const Color(0xFFDBEAFE),
+            offset: Offset(0, 5.12 * sf),
+            blurRadius: 6.4 * sf,
+            spreadRadius: -3.84 * sf,
+          ),
+          BoxShadow(
+            color: const Color(0xFFDBEAFE),
+            offset: Offset(0, 12.8 * sf),
+            blurRadius: 16 * sf,
+            spreadRadius: -3.2 * sf,
           ),
         ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          vertical: AppUi.supportBannerPadding,
-          horizontal: AppUi.screenPaddingH,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: AppUi.supportBannerIconBoxSize,
-              height: AppUi.supportBannerIconBoxSize,
-              decoration: BoxDecoration(
-                color: AppColors.supportBannerIconBoxBg,
-                borderRadius:
-                    BorderRadius.circular(AppUi.supportBannerIconBoxRadius),
-              ),
-              child: Center(
-                child: SvgPicture.asset(
-                  'assets/icons/mes.svg',
-                  width: AppUi.supportBannerIconSize,
-                  height: AppUi.supportBannerIconSize,
-                  colorFilter: const ColorFilter.mode(
-                    AppColors.textOnBanner,
-                    BlendMode.srcIn,
+      clipBehavior: Clip.antiAlias,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned(
+            right: 0,
+            bottom: 0,
+            child: Image.asset(
+              'assets/images/image_home.png',
+              width: 108 * sf,
+              height: 123 * sf,
+              fit: BoxFit.contain,
+            ),
+          ),
+          Padding(
+            padding: EdgeInsets.all(pad),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Container(
+                  width: 56 * sf,
+                  height: 56 * sf,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(14 * sf),
+                  ),
+                  child: Center(
+                    child: SvgPicture.asset(
+                      'assets/icons/mes.svg',
+                      width: 28 * sf,
+                      height: 28 * sf,
+                      colorFilter: const ColorFilter.mode(
+                        AppColors.textOnBanner,
+                        BlendMode.srcIn,
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ),
-            const SizedBox(height: AppUi.supportBannerPadding),
-            Text(
-              'Как мы можем помочь?',
-              textAlign: TextAlign.center,
-              style: AppTextStyle.inter(
-                fontWeight: FontWeight.w700,
-                fontSize: 20,
-                height: 28 / 20,
-                color: AppColors.textOnBanner,
-              ),
-            ),
-            const SizedBox(height: AppUi.spacingS),
-            Text(
-              'Наша команда поддержки готова ответить на любые ваши вопросы',
-              textAlign: TextAlign.center,
-              style: AppTextStyle.inter(
-                fontWeight: FontWeight.w400,
-                fontSize: 12,
-                height: 16 / 12,
-                color: AppColors.textOnBanner.withValues(alpha: 0.7),
-              ),
-            ),
-            if (loading) ...[
-              const SizedBox(height: 12),
-              SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    AppColors.textOnBanner.withValues(alpha: 0.9),
+                SizedBox(height: 14 * sf),
+                Text(
+                  'Как мы можем помочь?',
+                  textAlign: TextAlign.center,
+                  style: AppTextStyle.inter(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 19 * sf,
+                    height: 1.2,
+                    color: AppColors.textOnBanner,
                   ),
                 ),
-              ),
-            ],
-          ],
-        ),
+                SizedBox(height: 8 * sf),
+                Text(
+                  'Команда поддержки колледжа ответит на вопросы по приложению и обучению',
+                  textAlign: TextAlign.center,
+                  style: AppTextStyle.inter(
+                    fontWeight: FontWeight.w400,
+                    fontSize: 11.5 * sf,
+                    height: 1.35,
+                    color: AppColors.textOnBanner.withValues(alpha: 0.88),
+                  ),
+                ),
+                if (loading) ...[
+                  SizedBox(height: 12 * sf),
+                  SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        AppColors.textOnBanner.withValues(alpha: 0.9),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Карточка как блоки на главной: белый фон, лёгкая тень.
+  Widget _buildContactsCard(
+    BuildContext context, {
+    required String phone,
+    required String email,
+    required String site,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            offset: const Offset(0, 4),
+            blurRadius: 12,
+            spreadRadius: 0,
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SupportContactRow(
+            description: 'Горячая линия',
+            title: phone,
+            iconPath: 'assets/icons/tel.svg',
+            iconColor: AppColors.supportTelIcon,
+            iconBackgroundColor: AppColors.supportTelIconBg,
+            showShadow: false,
+            onTap: () => _launchTel(context, phone),
+          ),
+          const SizedBox(height: 10),
+          SupportContactRow(
+            description: 'Email поддержка',
+            title: email,
+            iconPath: 'assets/icons/mail.svg',
+            iconColor: AppColors.supportMailIcon,
+            iconBackgroundColor: AppColors.supportMailIconBg,
+            showShadow: false,
+            onTap: () => _launchMail(context, email),
+          ),
+          const SizedBox(height: 10),
+          SupportContactRow(
+            description: 'Сайт колледжа',
+            title: Uri.tryParse(site)?.host.isNotEmpty == true ? Uri.parse(site).host : site,
+            iconPath: 'assets/icons/internet.svg',
+            iconColor: AppColors.supportInternetIcon,
+            iconBackgroundColor: AppColors.supportInternetIconBg,
+            showShadow: false,
+            onTap: () => _launchWebsite(context, site),
+          ),
+        ],
       ),
     );
   }
@@ -243,13 +315,10 @@ class _SupportPageState extends State<SupportPage> {
   }
 
   static Future<void> _launchTel(BuildContext context, String phoneNumber) async {
-    debugPrint('[Support] Нажали: Горячая линия');
     final uri = Uri.parse('tel:$phoneNumber');
     try {
       await launchUrl(uri);
-      debugPrint('[Support] Открыли звонилку с номером $phoneNumber');
-    } catch (e) {
-      debugPrint('[Support] Не удалось открыть звонилку: $e');
+    } catch (_) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Не удалось открыть звонилку')),
@@ -259,13 +328,10 @@ class _SupportPageState extends State<SupportPage> {
   }
 
   static Future<void> _launchMail(BuildContext context, String email) async {
-    debugPrint('[Support] Нажали: Email поддержка');
     final uri = Uri.parse('mailto:$email');
     try {
       await launchUrl(uri);
-      debugPrint('[Support] Открыли почту: $email');
-    } catch (e) {
-      debugPrint('[Support] Не удалось открыть почту: $e');
+    } catch (_) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Не удалось открыть почту')),
@@ -275,13 +341,10 @@ class _SupportPageState extends State<SupportPage> {
   }
 
   static Future<void> _launchWebsite(BuildContext context, String url) async {
-    debugPrint('[Support] Нажали: Сайт колледжа');
     final uri = Uri.parse(url);
     try {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
-      debugPrint('[Support] Открыли браузер: $url');
-    } catch (e) {
-      debugPrint('[Support] Не удалось открыть браузер: $e');
+    } catch (_) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Не удалось открыть браузер')),
@@ -295,6 +358,10 @@ class _SupportPageState extends State<SupportPage> {
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
       builder: (context) {
         return Padding(
           padding: const EdgeInsets.fromLTRB(AppUi.screenPaddingH, 0, AppUi.screenPaddingH, 24),

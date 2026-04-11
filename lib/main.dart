@@ -11,6 +11,7 @@ import 'app/app.dart';
 import 'app/router/app_router.dart';
 import 'core/auth/unauthorized_handler.dart';
 import 'core/di/app_container.dart';
+import 'moc/mock_data_loader.dart';
 import 'moc/mock_mode.dart';
 import 'core/logging/app_log_file.dart';
 import 'core/push/push_registrar.dart';
@@ -45,11 +46,14 @@ void main() async {
     isOptional: true,
   );
 
-  /// `true` — данные из `lib/moc`, HTTP к бэкенду не выполняется ([MockDioInterceptor]).
+  /// `true` — мок из `lib/moc` (JSON в коде + фото из assets), HTTP к бэкенду не выполняется ([MockDioInterceptor]).
   /// `false` — реальный API ([ApiConstants.baseUrl]).
   // Переключатель моков (можно вручную менять на true/false).
   // Если хочешь включать через команду запуска, верни вариант с `--dart-define=USE_MOCK_BACKEND=true`.
   const kUseMockBackend = true;
+  if (kUseMockBackend) {
+    await MockDataLoader.load();
+  }
   useMockBackend = kUseMockBackend;
 
   // Firebase is optional for backend API, but enable when configured.

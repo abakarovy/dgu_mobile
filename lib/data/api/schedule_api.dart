@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 
 import '../../core/constants/api_constants.dart';
@@ -19,6 +21,14 @@ class ScheduleApi {
   static DateTime? _lastCalendarWeekFetchAt;
 
   static const Duration _calendarWeekMinRepeatInterval = Duration(minutes: 3);
+
+  /// После выхода из аккаунта — иначе следующий пользователь может увидеть чужую неделю из памяти.
+  static void clearSessionCaches() {
+    _calendarWeekInFlightByKey.clear();
+    _lastCalendarWeekKey = null;
+    _lastCalendarWeekResult = null;
+    _lastCalendarWeekFetchAt = null;
+  }
 
   /// Календарная дата `yyyy-MM-dd` (локальная).
   static String ymd(DateTime d) =>
@@ -166,11 +176,11 @@ class ScheduleApi {
           type: DioExceptionType.badResponse,
         );
       }
-      final data = res.data;
+      final data = _unwrapJsonData(res.data);
       var list = _parseSchedule(data);
-      if (data is Map<String, dynamic> &&
-          _scheduleScopeIsToday(data['schedule_scope'])) {
-        final anchor = DateTime.tryParse(forDateYmd);
+      final dataMap = data is Map ? Map<String, dynamic>.from(data) : null;
+      if (dataMap != null && _scheduleScopeIsToday(dataMap['schedule_scope'])) {
+        final anchor = _parseLocalYmd(forDateYmd);
         if (anchor != null) {
           list = _remapLessonsToAnchorDay(list, anchor);
         }
@@ -195,8 +205,8 @@ class ScheduleApi {
             ),
           );
           if (res2.statusCode == 200) {
-            final list2 = _parseSchedule(res2.data);
-            final anchor = DateTime.tryParse(forDateYmd);
+            final list2 = _parseSchedule(_unwrapJsonData(res2.data));
+            final anchor = _parseLocalYmd(forDateYmd);
             if (anchor != null) {
               final target = DateTime(anchor.year, anchor.month, anchor.day);
               final byDate = list2.where((l) {
@@ -388,13 +398,47 @@ class ScheduleApi {
     }
   }
 
+  static dynamic _unwrapJsonData(dynamic data) {
+    if (data is String && data.trim().isNotEmpty) {
+      try {
+        return jsonDecode(data);
+      } catch (_) {}
+    }
+    return data;
+  }
+
+  /// `yyyy-MM-dd` → локальная календарная дата (без UTC-сдвига у [DateTime.parse] для строки даты).
+  static DateTime? _parseLocalYmd(String ymd) {
+    final t = ymd.trim();
+    final m = RegExp(r'^(\d{4})-(\d{2})-(\d{2})$').firstMatch(t);
+    if (m == null) return DateTime.tryParse(t);
+    final y = int.tryParse(m.group(1)!);
+    final mo = int.tryParse(m.group(2)!);
+    final d = int.tryParse(m.group(3)!);
+    if (y == null || mo == null || d == null) return null;
+    return DateTime(y, mo, d);
+  }
+
   List<ScheduleLesson> _parseSchedule(dynamic data) {
-    final list = (data is List)
-        ? data
-        : (data is Map<String, dynamic> && data['schedule'] is List)
-            ? (data['schedule'] as List)
-            : (data is Map<String, dynamic> && data['items'] is List)
-                ? (data['items'] as List)
+    var unwrapped = _unwrapJsonData(data);
+    if (unwrapped is Map) {
+      final top = Map<String, dynamic>.from(unwrapped);
+      if (top['schedule'] == null && top['items'] == null && top['data'] != null) {
+        final inner = top['data'];
+        if (inner is Map) {
+          unwrapped = _unwrapJsonData(inner);
+        } else if (inner is List) {
+          unwrapped = inner;
+        }
+      }
+    }
+    final asMap = unwrapped is Map ? Map<String, dynamic>.from(unwrapped) : null;
+    final list = (unwrapped is List)
+        ? unwrapped
+        : (asMap != null && asMap['schedule'] is List)
+            ? (asMap['schedule'] as List)
+            : (asMap != null && asMap['items'] is List)
+                ? (asMap['items'] as List)
                 : <dynamic>[];
 
     return list

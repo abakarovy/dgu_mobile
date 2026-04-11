@@ -354,7 +354,7 @@ class _SchedulePageState extends State<SchedulePage> {
 
     // 2) Тихо обновляем из сети (без блокировки UI).
     try {
-      final sid = await _linkedStudentIdForScheduleApi();
+      final sid = await _studentIdForScheduleQuery();
       final fresh = await AppContainer.scheduleApi.getWeekForCalendar(
         _mondayOfWeek,
         studentId: sid,
@@ -371,6 +371,22 @@ class _SchedulePageState extends State<SchedulePage> {
     } catch (_) {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  /// Родитель: id ребёнка; студент: номер зачётки из кэша 1С (часто именно его ждёт бэкенд).
+  Future<int?> _studentIdForScheduleQuery() async {
+    final parent = await _linkedStudentIdForScheduleApi();
+    if (parent != null) return parent;
+    final cached = AppContainer.jsonCache.getJsonMap('1c:my-profile');
+    if (cached != null) {
+      final p = int.tryParse(cached['student_book_number']?.toString().trim() ?? '');
+      if (p != null) return p;
+    }
+    final me = AppContainer.jsonCache.getJsonMap('auth:me');
+    final id = me?['id'];
+    if (id is int) return id;
+    if (id is num) return id.toInt();
+    return null;
   }
 
   /// Родитель: `GET /api/1c/schedule` требует `student_id` ребёнка.

@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:dgu_mobile/core/constants/app_colors.dart';
-import 'package:dgu_mobile/core/platform/native_date_range_picker.dart';
+import 'package:dgu_mobile/core/widgets/app_date_range_picker.dart';
 import 'package:dgu_mobile/core/theme/app_text_styles.dart';
 import 'package:dgu_mobile/core/di/app_container.dart';
 import 'package:dgu_mobile/core/utils/parent_child_name.dart';
@@ -111,7 +111,7 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
   }
 
   Future<void> _pickDateRange(BuildContext context) async {
-    final picked = await showNativeOrMaterialDateRangePicker(
+    final picked = await showAppDateRangePicker(
       context: context,
       firstDate: DateTime(2020),
       lastDate: DateTime.now().add(const Duration(days: 365)),

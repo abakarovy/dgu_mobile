@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 
 import '../../core/constants/api_constants.dart';
+import '../../core/cache/json_cache.dart';
 import '../models/absences_detail.dart';
 import '../models/one_c_my_profile.dart';
 import '../services/token_storage.dart';
@@ -11,23 +12,89 @@ import 'api_exception.dart';
 
 /// `GET /api/1c/my-profile` — профиль студента из 1С.
 class Profile1cApi {
-  Profile1cApi({required ApiClient apiClient, required TokenStorage tokenStorage})
-      : _api = apiClient,
-        _tokenStorage = tokenStorage;
+  Profile1cApi({
+    required ApiClient apiClient,
+    required TokenStorage tokenStorage,
+    JsonCache? jsonCache,
+  })  : _api = apiClient,
+        _tokenStorage = tokenStorage,
+        _jsonCache = jsonCache;
 
   final ApiClient _api;
   final TokenStorage _tokenStorage;
+  final JsonCache? _jsonCache;
+
+  static int? _idFromUserMap(Map<String, dynamic>? m) {
+    if (m == null) return null;
+    final id = m['id'];
+    if (id is int) return id;
+    if (id is num) return id.toInt();
+    return null;
+  }
 
   Future<int?> _studentIdFromToken() async {
     final raw = await _tokenStorage.getUserDataJson();
-    if (raw == null || raw.isEmpty) return null;
-    try {
-      final m = jsonDecode(raw) as Map<String, dynamic>;
-      final id = m['id'];
-      if (id is int) return id;
-      if (id is num) return id.toInt();
-    } catch (_) {}
-    return null;
+    if (raw != null && raw.isNotEmpty) {
+      try {
+        final m = jsonDecode(raw) as Map<String, dynamic>;
+        final id = _idFromUserMap(m);
+        if (id != null) return id;
+      } catch (_) {}
+    }
+    final cached = _jsonCache?.getJsonMap('auth:me');
+    return _idFromUserMap(cached);
+  }
+
+  /// Запросы 1С часто ждут **номер зачётной книжки** как `student_id`, а не id пользователя в приложении.
+  Future<int?> _studentIdFor1CEndpoints({int? studentId}) async {
+    if (studentId != null) return studentId;
+    final cached = _jsonCache?.getJsonMap('1c:my-profile');
+    if (cached != null) {
+      final sb = cached['student_book_number']?.toString().trim();
+      if (sb != null && sb.isNotEmpty) {
+        final p = int.tryParse(sb);
+        if (p != null) return p;
+      }
+      for (final k in ['student_id', 'onec_student_id', 'id_1c']) {
+        final v = cached[k];
+        if (v is int) return v;
+        if (v is num) return v.toInt();
+        if (v is String) {
+          final n = int.tryParse(v.trim());
+          if (n != null) return n;
+        }
+      }
+    }
+    return _studentIdFromToken();
+  }
+
+  /// Ответы вида `{ "data": { "semesters": [...] } }` с тем же смыслом, что и корневой JSON.
+  static Map<String, dynamic>? _unwrapAbsencesBody(dynamic raw) {
+    final u = _unwrapJsonData(raw);
+    if (u is! Map) return null;
+    final m = Map<String, dynamic>.from(u);
+    if (m['semesters'] != null) return m;
+    final d = m['data'];
+    if (d is Map) {
+      final inner = Map<String, dynamic>.from(d);
+      if (inner['semesters'] != null) return inner;
+    }
+    final r = m['result'];
+    if (r is Map) {
+      final inner = Map<String, dynamic>.from(r);
+      if (inner['semesters'] != null) return inner;
+    }
+    return m;
+  }
+
+  /// Dio на части платформ отдаёт тело ответа строкой вместо распарсенного JSON.
+  static dynamic _unwrapJsonData(dynamic data) {
+    if (data is String && data.trim().isNotEmpty) {
+      try {
+        return jsonDecode(data);
+      } catch (_) {}
+    }
+    return data;
   }
 
   /// [studentId] — для роли `parent`: ID ребёнка (см. `GET /api/1c/my-profile?student_id=`).
@@ -50,8 +117,7 @@ class Profile1cApi {
           type: DioExceptionType.badResponse,
         );
       }
-      final raw = res.data;
-      final map = _unwrapToMap(raw);
+      final map = _unwrapToMap(_unwrapJsonData(res.data));
       if (map == null) {
         throw DioException(
           requestOptions: res.requestOptions,
@@ -129,7 +195,7 @@ class Profile1cApi {
     String? end,
     int? studentId,
   }) async {
-    final sid = studentId ?? await _studentIdFromToken();
+    final sid = await _studentIdFor1CEndpoints(studentId: studentId);
     if (sid == null) return null;
     try {
       final qp = <String, dynamic>{'student_id': sid};
@@ -146,9 +212,10 @@ class Profile1cApi {
         ),
       );
       if (res.statusCode != 200) return null;
-      final fromSemesters = _parseAbsencesFromSemesters(res.data, currentSemester: currentSemester);
+      final body = _unwrapAbsencesBody(res.data) ?? _unwrapJsonData(res.data);
+      final fromSemesters = _parseAbsencesFromSemesters(body, currentSemester: currentSemester);
       if (fromSemesters != null) return fromSemesters;
-      final hours = _parseTotalHours(res.data);
+      final hours = _parseTotalHours(body);
       if (hours == null) return null;
       return _formatHoursRu(hours);
     } on DioException {
@@ -158,7 +225,7 @@ class Profile1cApi {
 
   /// Полный ответ пропусков: семестры и опционально список записей.
   Future<AbsencesDetail?> getAbsencesDetail({int? studentId}) async {
-    final sid = studentId ?? await _studentIdFromToken();
+    final sid = await _studentIdFor1CEndpoints(studentId: studentId);
     if (sid == null) return null;
     try {
       final res = await _api.dio.get<dynamic>(
@@ -170,17 +237,21 @@ class Profile1cApi {
         ),
       );
       if (res.statusCode != 200) return null;
-      return _parseAbsencesDetail(res.data);
+      final raw = _unwrapAbsencesBody(res.data) ?? _unwrapJsonData(res.data);
+      return _parseAbsencesDetail(raw);
     } on DioException {
       return null;
     }
   }
 
   static AbsencesDetail _parseAbsencesDetail(dynamic raw) {
-    if (raw is! Map) {
+    final u = raw is Map
+        ? (_unwrapAbsencesBody(raw) ?? Map<String, dynamic>.from(raw))
+        : _unwrapJsonData(raw);
+    if (u is! Map) {
       return const AbsencesDetail(semesters: []);
     }
-    final map = Map<String, dynamic>.from(raw);
+    final map = Map<String, dynamic>.from(u);
     final semesters = <AbsenceSemesterRow>[];
     final sems = map['semesters'];
     if (sems is List) {
@@ -232,6 +303,15 @@ class Profile1cApi {
     return null;
   }
 
+  /// Подпись для карточки профиля: сначала **часы** пропусков, иначе количество пропусков.
+  static String? _labelFromAbsenceSemesterData(Map<String, dynamic> d) {
+    final h = _asDouble(d['total_hours'] ?? d['hours'] ?? d['sum_hours']);
+    if (h != null && h > 0) return _formatHoursRu(h);
+    final n = _asInt(d['total_absences']);
+    if (n != null) return _formatAbsencesRu(n);
+    return null;
+  }
+
   static String? _parseAbsencesFromSemesters(dynamic raw, {String? currentSemester}) {
     if (raw is! Map) return null;
     final map = Map<String, dynamic>.from(raw);
@@ -245,8 +325,8 @@ class Profile1cApi {
         if ((m['semester']?.toString().trim() ?? '') != cur) continue;
         final d = m['data'];
         if (d is Map) {
-          final n = _asInt(d['total_absences']);
-          if (n != null) return _formatAbsencesRu(n);
+          final label = _labelFromAbsenceSemesterData(Map<String, dynamic>.from(d));
+          if (label != null) return label;
         }
       }
     }
@@ -254,8 +334,8 @@ class Profile1cApi {
     if (first is Map) {
       final d = first['data'];
       if (d is Map) {
-        final n = _asInt(d['total_absences']);
-        if (n != null) return _formatAbsencesRu(n);
+        final label = _labelFromAbsenceSemesterData(Map<String, dynamic>.from(d));
+        if (label != null) return label;
       }
     }
     return null;
@@ -387,12 +467,14 @@ class Profile1cApi {
   }
 
   static Map<String, dynamic>? _unwrapToMap(dynamic raw) {
-    if (raw is Map<String, dynamic>) {
-      final profile = raw['profile'];
+    final u = _unwrapJsonData(raw);
+    if (u is Map) {
+      final m = Map<String, dynamic>.from(u);
+      final profile = m['profile'];
       if (profile is Map<String, dynamic>) return profile;
-      final data = raw['data'];
+      final data = m['data'];
       if (data is Map<String, dynamic>) return data;
-      return raw;
+      return m;
     }
     return null;
   }

@@ -43,9 +43,34 @@ class ScheduleLesson {
     DateTime? lessonDate;
     final raw = j['lesson_date'];
     if (raw is String && raw.isNotEmpty) {
-      lessonDate = DateTime.tryParse(raw);
+      final s = raw.trim();
+      final ymd = RegExp(r'^(\d{4})-(\d{2})-(\d{2})').firstMatch(s);
+      if (ymd != null) {
+        final y = int.tryParse(ymd.group(1)!);
+        final mo = int.tryParse(ymd.group(2)!);
+        final d = int.tryParse(ymd.group(3)!);
+        if (y != null && mo != null && d != null) {
+          lessonDate = DateTime(y, mo, d);
+        }
+      }
+      lessonDate ??= DateTime.tryParse(s);
       if (lessonDate != null) {
         lessonDate = DateTime(lessonDate.year, lessonDate.month, lessonDate.day);
+      }
+    }
+    if (lessonDate == null) {
+      final ds = j['date'];
+      if (ds is String && ds.isNotEmpty) {
+        final dot = RegExp(r'^(\d{1,2})\.(\d{1,2})\.(\d{4})$');
+        final m = dot.firstMatch(ds.trim());
+        if (m != null) {
+          final d = int.tryParse(m.group(1)!);
+          final mo = int.tryParse(m.group(2)!);
+          final y = int.tryParse(m.group(3)!);
+          if (d != null && mo != null && y != null) {
+            lessonDate = DateTime(y, mo, d);
+          }
+        }
       }
     }
     int? pairNo;

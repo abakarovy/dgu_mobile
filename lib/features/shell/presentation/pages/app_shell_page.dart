@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/navigation/app_overlay_notifier.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/navigation/home_refresh_host.dart';
 import '../../../../core/navigation/news_header_host.dart';
@@ -67,16 +68,23 @@ class _AppShellPageState extends State<AppShellPage> {
         isSettingsScreen ||
         isAbsencesScreen;
 
-    /// Без нижнего меню: полноэкранные вложенные экраны профиля.
-    final hideShellBottomNav =
-        isSettingsScreen || isAbsencesScreen || isStudentIdScreen;
+    /// Без нижнего меню: полноэкранные вложенные экраны профиля и поддержка.
+    final hideShellBottomNavBase = isSettingsScreen ||
+        isAbsencesScreen ||
+        isStudentIdScreen ||
+        isSupportScreen;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const NetworkDegradedBanner(),
         Expanded(
-          child: Scaffold(
+          child: ValueListenableBuilder<int>(
+            valueListenable: AppOverlayNotifier.modalBottomSheetDepth,
+            builder: (context, sheetDepth, _) {
+              final hideShellBottomNav =
+                  hideShellBottomNavBase || sheetDepth > 0;
+              return Scaffold(
             appBar: hideShellAppBar
                 ? null
                 : AppHeader(
@@ -242,6 +250,8 @@ class _AppShellPageState extends State<AppShellPage> {
                       ),
                     ),
                   ),
+          );
+            },
           ),
         ),
       ],

@@ -2,8 +2,11 @@ import 'dart:convert';
 
 import '../../../../core/auth/auth_session.dart';
 import '../../../../core/cache/json_cache.dart';
+import '../../../../core/network/app_network_banner_controller.dart';
 import '../../../../core/push/push_registrar.dart';
 import '../../../../core/realtime/realtime_ws_client.dart';
+import '../../../../core/storage/local_user_storage_wipe.dart';
+import '../../../../data/api/schedule_api.dart';
 import '../../../../data/api/auth_api.dart';
 import '../../../../data/models/user_model.dart';
 import '../../../../data/services/token_storage.dart';
@@ -114,6 +117,9 @@ class AuthRepositoryImpl implements AuthRepository {
     await RealtimeWsClient.instance.disconnect();
     await _tokenStorage.clear();
     await _jsonCache.clearAll();
+    await wipeUserLocalPreferencesAndAvatarFiles();
+    ScheduleApi.clearSessionCaches();
+    AppNetworkBannerController.instance.clearDegradation();
     AuthSession.bump();
   }
 

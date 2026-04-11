@@ -4,6 +4,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
+import '../../moc/mock_mode.dart';
 import '../di/app_container.dart';
 
 /// Режим красной полосы над AppBar: нет сети или бэкенд не ответил вовремя.
@@ -43,6 +44,10 @@ final class AppNetworkBannerController extends ChangeNotifier {
   }
 
   void applyAfterBootstrap({required bool deviceOffline, required bool allPrefetchOk}) {
+    if (useMockBackend) {
+      _setKind(AppNetworkBannerKind.none);
+      return;
+    }
     if (deviceOffline) {
       _setKind(AppNetworkBannerKind.offline);
     } else if (!allPrefetchOk) {
@@ -50,6 +55,11 @@ final class AppNetworkBannerController extends ChangeNotifier {
     } else {
       _setKind(AppNetworkBannerKind.none);
     }
+  }
+
+  /// Сбросить предупреждение после выхода из аккаунта.
+  void clearDegradation() {
+    _setKind(AppNetworkBannerKind.none);
   }
 
   void _setKind(AppNetworkBannerKind k) {
@@ -64,7 +74,9 @@ final class AppNetworkBannerController extends ChangeNotifier {
       _connectivitySub = Connectivity().onConnectivityChanged.listen(
         (results) {
           if (isOfflineResult(results)) {
-            _setKind(AppNetworkBannerKind.offline);
+            if (!useMockBackend) {
+              _setKind(AppNetworkBannerKind.offline);
+            }
           } else {
             if (_kind == AppNetworkBannerKind.offline) {
               unawaited(refreshAfterConnectivityRestored());
@@ -85,6 +97,10 @@ final class AppNetworkBannerController extends ChangeNotifier {
   }
 
   Future<void> refreshAfterConnectivityRestored() async {
+    if (useMockBackend) {
+      _setKind(AppNetworkBannerKind.none);
+      return;
+    }
     final offline = await checkDeviceOffline();
     if (offline) return;
     final ok = await AppContainer.prefetchAll();
@@ -96,6 +112,11 @@ final class AppNetworkBannerController extends ChangeNotifier {
     _refreshBusy = true;
     notifyListeners();
     try {
+      if (useMockBackend) {
+        await AppContainer.prefetchAll();
+        _setKind(AppNetworkBannerKind.none);
+        return;
+      }
       final offline = await checkDeviceOffline();
       if (offline) {
         _setKind(AppNetworkBannerKind.offline);

@@ -14,4 +14,7 @@ abstract final class AppConstants {
 
   /// Время (epoch ms), до которого кнопка "Сбросить" заблокирована (anti-spam).
   static const String passwordResetCooldownUntilMsKey = 'password_reset_cooldown_until_ms';
+
+  /// Локальные черновики заказов справок ([CertificateOrderPage]).
+  static const String certificateOrdersPrefsKey = 'profile:certificate_orders_v3';
 }

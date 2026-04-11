@@ -52,8 +52,9 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
     return AppBar(
       automaticallyImplyLeading: false,
       backgroundColor: Colors.white,
-      elevation: 0,
-      scrolledUnderElevation: 0,
+      elevation: 1,
+      shadowColor: Colors.black.withValues(alpha: 0.08),
+      scrolledUnderElevation: 1,
       surfaceTintColor: Colors.transparent,
       leading: hasLeading ? leading : null,
       leadingWidth: hasLeading ? kToolbarHeight : null,

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:math' show min;
 
+import 'package:dgu_mobile/core/constants/app_colors.dart';
 import 'package:dgu_mobile/core/constants/app_constants.dart';
 import 'package:dgu_mobile/core/di/app_container.dart';
 import 'package:dgu_mobile/core/theme/app_text_styles.dart';
@@ -104,6 +105,66 @@ class _SettingsPageState extends State<SettingsPage> {
       }
     } finally {
       if (mounted) setState(() => _savingPrefs = false);
+    }
+  }
+
+  Future<void> _confirmLogout(BuildContext context) async {
+    if (_loggingOut) return;
+    final go = await showDialog<bool>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.35),
+      builder: (ctx) {
+        return AlertDialog(
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.transparent,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Text(
+            'Выйти из аккаунта?',
+            style: AppTextStyle.inter(
+              fontWeight: FontWeight.w800,
+              fontSize: 18,
+              height: 1.2,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          content: Text(
+            'Кэш и сохранённые данные приложения для этого входа будут удалены.',
+            style: AppTextStyle.inter(
+              fontWeight: FontWeight.w500,
+              fontSize: 14,
+              height: 1.35,
+              color: AppColors.grey,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: Text(
+                'Отмена',
+                style: AppTextStyle.inter(
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primaryBlue,
+                ),
+              ),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFFC84547),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: Text(
+                'Выйти',
+                style: AppTextStyle.inter(fontWeight: FontWeight.w700, color: Colors.white),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+    if (go == true && mounted) {
+      await _onLogout();
     }
   }
 
@@ -285,7 +346,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       iconSize: 15 * layoutScale,
                       label: 'Выйти из аккаунта',
                       labelColor: const Color(0xFFC84547),
-                      onTap: _loggingOut ? null : _onLogout,
+                      onTap: _loggingOut ? null : () => _confirmLogout(context),
                     ),
                   ),
                   SizedBox(width: 20 * layoutScale),

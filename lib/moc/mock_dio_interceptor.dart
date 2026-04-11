@@ -344,10 +344,25 @@ class MockDioInterceptor extends Interceptor {
     return Response(requestOptions: o, statusCode: code, data: data);
   }
 
+  /// Путь запроса без лишних префиксов `/api` и завершающего `/`.
+  static String _normalizedPath(String path) {
+    var p = path.trim();
+    if (p.endsWith('/')) p = p.substring(0, p.length - 1);
+    if (p.toLowerCase().startsWith('/api/')) {
+      p = p.substring('/api'.length);
+    }
+    return p;
+  }
+
   static bool _pathEnds(String path, String suffix) {
-    final p = path.endsWith('/') ? path.substring(0, path.length - 1) : path;
+    final p = _normalizedPath(path);
     final s = suffix.startsWith('/') ? suffix : '/$suffix';
-    return p.endsWith(s) || path.endsWith('$s/');
+    if (p.endsWith(s)) return true;
+    final raw = path.endsWith('/') ? path.substring(0, path.length - 1) : path;
+    if (raw.endsWith(s) || raw.endsWith('$s/')) return true;
+    // Запасной вариант (редкие прокси / объединение baseUrl).
+    final tail = s.startsWith('/') ? s.substring(1) : s;
+    return p.endsWith(tail) || path.contains('/$tail');
   }
 
   static Map<String, String> _parseForm(dynamic data) {
@@ -402,10 +417,16 @@ class MockDioInterceptor extends Interceptor {
   static int _studentIdFromQueryOrUser(String? studentIdParam, int? uid) {
     if (studentIdParam != null) {
       final p = int.tryParse(studentIdParam);
-      if (p != null) return p;
+      if (p != null) return _normalizeMockStudentId(p);
     }
-    if (uid != null) return uid;
+    if (uid != null) return _normalizeMockStudentId(uid);
     return MockAccounts.aliId;
+  }
+
+  /// Номер зачётной книжки из 1С и id пользователя в моке — один студент.
+  static int _normalizeMockStudentId(int id) {
+    if (id == 23385) return MockAccounts.aliId;
+    return id;
   }
 
   static int? _userId(RequestOptions o) {

@@ -4,7 +4,7 @@ import 'package:dgu_mobile/core/constants/app_colors.dart';
 import 'package:dgu_mobile/core/constants/app_ui.dart';
 import 'package:dgu_mobile/core/di/app_container.dart';
 import 'package:dgu_mobile/core/utils/parent_child_name.dart';
-import 'package:dgu_mobile/core/platform/native_date_range_picker.dart';
+import 'package:dgu_mobile/core/widgets/app_date_range_picker.dart';
 import 'package:dgu_mobile/core/theme/app_text_styles.dart';
 import 'package:dgu_mobile/data/models/absences_detail.dart';
 import 'package:dgu_mobile/features/grades/domain/entities/grade_entity.dart';
@@ -219,7 +219,7 @@ class _AbsencesPageState extends State<AbsencesPage> with SingleTickerProviderSt
   }
 
   Future<void> _pickDateRange(BuildContext context) async {
-    final picked = await showNativeOrMaterialDateRangePicker(
+    final picked = await showAppDateRangePicker(
       context: context,
       firstDate: DateTime(2020),
       lastDate: DateTime.now().add(const Duration(days: 365)),
@@ -848,9 +848,11 @@ class _AbsencesPageState extends State<AbsencesPage> with SingleTickerProviderSt
   }
 
   String _semesterDetailLabel(AbsenceSemesterRow row) {
+    final h = row.totalHours;
+    if (h != null) return _formatHoursRu(h);
     final a = row.totalAbsences;
     if (a != null) return _formatAbsencesRu(a);
-    return _formatHoursRu(row.totalHours);
+    return '—';
   }
 }
 

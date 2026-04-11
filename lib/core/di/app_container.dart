@@ -21,6 +21,8 @@ import '../../features/auth/data/repositories/auth_repository_impl.dart';
 import '../../features/schedule/domain/schedule_calendar_filter.dart';
 import '../auth/auth_session.dart';
 import '../../core/cache/json_cache.dart';
+import '../network/app_network_banner_controller.dart';
+import '../storage/local_user_storage_wipe.dart';
 import 'package:path_provider/path_provider.dart';
 
 /// Простой DI: инициализация один раз при старте, затем доступ к репозиториям.
@@ -63,7 +65,11 @@ abstract final class AppContainer {
     );
     _newsApi = NewsApi(apiClient: apiClient);
     _scheduleApi = ScheduleApi(apiClient: apiClient);
-    _profile1cApi = Profile1cApi(apiClient: apiClient, tokenStorage: tokenStorage);
+    _profile1cApi = Profile1cApi(
+      apiClient: apiClient,
+      tokenStorage: tokenStorage,
+      jsonCache: jsonCache,
+    );
     _eventsApi = EventsApi(apiClient: apiClient);
     _gradesApi = GradesApi(apiClient: apiClient, tokenStorage: tokenStorage);
     _groupsApi = GroupsApi(apiClient: apiClient);
@@ -191,6 +197,15 @@ abstract final class AppContainer {
     try {
       await jsonCache.clearAll();
     } catch (_) {}
+    try {
+      await wipeUserLocalPreferencesAndAvatarFiles();
+    } catch (_) {}
+    try {
+      ScheduleApi.clearSessionCaches();
+    } catch (_) {}
+    try {
+      AppNetworkBannerController.instance.clearDegradation();
+    } catch (_) {}
     AuthSession.bump();
   }
 
@@ -219,9 +234,10 @@ abstract final class AppContainer {
       _timedPrefetch(t, _prefetchNotificationPreferences),
       _timedPrefetch(t, _prefetchAssignments),
       _timedPrefetch(t, _prefetchStudentTicket),
-      _timedPrefetch(ApiConstants.scheduleReceiveTimeout, _prefetchOneCProfile),
-      _timedPrefetch(ApiConstants.prefetchScheduleTimeout, _prefetchScheduleCaches),
     ]);
+    // Профиль 1С нужен до расписания (student_id = номер зачётки в query).
+    await _timedPrefetch(ApiConstants.scheduleReceiveTimeout, _prefetchOneCProfile);
+    await _timedPrefetch(ApiConstants.prefetchScheduleTimeout, _prefetchScheduleCaches);
     // После `grades:my` в кэше — подпись пропусков с учётом текущего семестра.
     await _timedPrefetch(t, _prefetchProfileAbsencesLabel);
     await _timedPrefetch(
@@ -403,9 +419,19 @@ abstract final class AppContainer {
     await jsonCache.setJson('1c:my-profile', p.toJsonMap());
   }
 
+  static int? _studentBookIdFrom1cCache() {
+    final m = jsonCache.getJsonMap('1c:my-profile');
+    if (m == null) return null;
+    return int.tryParse(m['student_book_number']?.toString().trim() ?? '');
+  }
+
   /// Неделя (7 запросов по дням) + срез «сегодня» для главной.
   static Future<void> _prefetchScheduleCaches() async {
-    final week = await scheduleApi.getWeekForCalendar(DateTime.now());
+    final sid = _studentBookIdFrom1cCache();
+    final week = await scheduleApi.getWeekForCalendar(
+      DateTime.now(),
+      studentId: sid,
+    );
     await jsonCache.setJson(
       ScheduleApi.weekCalendarCacheKey(DateTime.now()),
       [for (final l in week) l.toJsonMap()],

@@ -78,7 +78,11 @@ class _HomePageState extends State<HomePage> {
       return;
     }
 
-    var list = _mapCacheToLessons(AppContainer.jsonCache.getJsonList('schedule:week:v2'));
+    var list = _mapCacheToLessons(
+      AppContainer.jsonCache.getJsonList(
+        ScheduleApi.weekCalendarCacheKey(DateTime.now()),
+      ),
+    );
     if (list.isEmpty) {
       list = _mapCacheToLessons(AppContainer.jsonCache.getJsonList('schedule:today'));
     }
@@ -161,8 +165,18 @@ class _HomePageState extends State<HomePage> {
       }
     }
     try {
-      final fresh = await AppContainer.scheduleApi
-          .getWeekForCalendar(DateTime.now(), forceRefresh: force);
+      final bookId = int.tryParse(
+        AppContainer.jsonCache
+                .getJsonMap('1c:my-profile')?['student_book_number']
+                ?.toString()
+                .trim() ??
+            '',
+      );
+      final fresh = await AppContainer.scheduleApi.getWeekForCalendar(
+        DateTime.now(),
+        forceRefresh: force,
+        studentId: bookId,
+      );
       await AppContainer.jsonCache.setJson(
         ScheduleApi.weekCalendarCacheKey(DateTime.now()),
         [for (final l in fresh) l.toJsonMap()],

@@ -5,6 +5,7 @@ import 'package:file_saver/file_saver.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../../core/constants/app_constants.dart';
 import '../../../../core/di/app_container.dart';
 import '../../../../core/utils/parent_child_name.dart';
 import '../../../../core/theme/app_text_styles.dart';
@@ -51,7 +52,7 @@ class CertificateOrderPage extends StatefulWidget {
 }
 
 class _CertificateOrderPageState extends State<CertificateOrderPage> {
-  static const _prefsKey = 'profile:certificate_orders_v3';
+  static const _prefsKey = AppConstants.certificateOrdersPrefsKey;
 
   static const List<String> _types = [
     'Об обучении',

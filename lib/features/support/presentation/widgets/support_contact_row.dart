@@ -14,6 +14,7 @@ class SupportContactRow extends StatelessWidget {
     required this.iconColor,
     required this.iconBackgroundColor,
     this.onTap,
+    this.showShadow = true,
   });
 
   final String description;
@@ -22,18 +23,21 @@ class SupportContactRow extends StatelessWidget {
   final Color iconColor;
   final Color iconBackgroundColor;
   final VoidCallback? onTap;
+  final bool showShadow;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            offset: const Offset(0, 2),
-            blurRadius: 4,
-          ),
-        ],
+        boxShadow: showShadow
+            ? [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.06),
+                  offset: const Offset(0, 2),
+                  blurRadius: 4,
+                ),
+              ]
+            : null,
       ),
       child: Material(
         color: Colors.white,
