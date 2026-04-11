@@ -72,10 +72,14 @@ class MockDioInterceptor extends Interceptor {
       return _jsonResponse(o, 200, <dynamic>[]);
     }
     if (method == 'GET' && _pathEnds(path, ApiConstants.oneCMyProfilePath)) {
-      return _jsonResponse(o, 200, MockPayloads.oneCProfile(uid));
+      final sid = o.uri.queryParameters['student_id'];
+      final eff = _studentIdFromQueryOrUser(sid, uid);
+      return _jsonResponse(o, 200, MockPayloads.oneCProfile(eff));
     }
     if (method == 'GET' && _pathEnds(path, ApiConstants.oneCSyncGradesPath)) {
-      return _jsonResponse(o, 200, MockPayloads.syncGrades(uid));
+      final sid = o.uri.queryParameters['student_id'];
+      final eff = _studentIdFromQueryOrUser(sid, uid);
+      return _jsonResponse(o, 200, MockPayloads.syncGrades(eff));
     }
     if (method == 'GET' && _pathEnds(path, ApiConstants.oneCFinalGradesPath)) {
       return _jsonResponse(o, 200, MockPayloads.syncGrades(uid));
@@ -86,13 +90,14 @@ class MockDioInterceptor extends Interceptor {
 
     if (method == 'GET' && _pathEnds(path, '/1c/schedule')) {
       final q = o.uri.queryParameters;
+      final scheduleUid = _studentIdFromQueryOrUser(q['student_id'], uid);
       if (q.containsKey('for_date')) {
-        return _jsonResponse(o, 200, MockPayloads.scheduleForDate(q['for_date']!, uid));
+        return _jsonResponse(o, 200, MockPayloads.scheduleForDate(q['for_date']!, scheduleUid));
       }
       if (q.containsKey('week')) {
-        return _jsonResponse(o, 200, MockPayloads.scheduleToday(uid));
+        return _jsonResponse(o, 200, MockPayloads.scheduleToday(scheduleUid));
       }
-      return _jsonResponse(o, 200, MockPayloads.scheduleToday(uid));
+      return _jsonResponse(o, 200, MockPayloads.scheduleToday(scheduleUid));
     }
 
     if (method == 'GET' && _pathEnds(path, '/mobile/assignments/my')) {
@@ -136,7 +141,12 @@ class MockDioInterceptor extends Interceptor {
       return _jsonResponse(o, 200, MockPayloads.certificateOrderCreate());
     }
     if (method == 'GET' && _pathEnds(path, ApiConstants.documentsCertificateOrdersPath)) {
-      return _jsonResponse(o, 200, MockPayloads.certificateOrdersHistory());
+      final qsid = int.tryParse(o.uri.queryParameters['student_id'] ?? '');
+      return _jsonResponse(
+        o,
+        200,
+        MockPayloads.certificateOrdersHistory(forStudentId: qsid),
+      );
     }
     if (method == 'GET' && path.contains('/documents/certificate-order/') && path.endsWith('/status')) {
       final oid = _orderIdFromDocumentsPath(path) ?? 'mock-order';
@@ -159,10 +169,25 @@ class MockDioInterceptor extends Interceptor {
     }
 
     if (method == 'GET' && _pathEnds(path, ApiConstants.oneCCurriculumPath)) {
-      return _jsonResponse(o, 200, {'curriculum': MockPayloads.curriculum(uid)});
+      final sid = o.uri.queryParameters['student_id'];
+      final eff = _studentIdFromQueryOrUser(sid, uid);
+      return _jsonResponse(o, 200, {'curriculum': MockPayloads.curriculum(eff)});
     }
     if (method == 'GET' && _pathEnds(path, ApiConstants.oneCAbsencesPath)) {
-      return _jsonResponse(o, 200, MockPayloads.absences(uid));
+      final sid = o.uri.queryParameters['student_id'];
+      final eff = _studentIdFromQueryOrUser(sid, uid);
+      return _jsonResponse(o, 200, MockPayloads.absences(eff));
+    }
+
+    if (method == 'GET' && _pathEnds(path, '/parents/student-data')) {
+      return _jsonResponse(o, 200, MockPayloads.parentsStudentData(uid));
+    }
+    if (method == 'GET' && _pathEnds(path, '/parents/me/link-status')) {
+      return _jsonResponse(o, 200, {
+        'linked': true,
+        'student_id': MockAccounts.aliId,
+        'link_status': 'linked',
+      });
     }
     if (method == 'GET' && _pathEnds(path, ApiConstants.oneCGroupListPath)) {
       return _jsonResponse(o, 200, MockPayloads.groupList(uid));
@@ -223,12 +248,28 @@ class MockDioInterceptor extends Interceptor {
     final form = _parseForm(o.data);
     final username = form['username'] ?? form['email'] ?? '';
     final password = form['password'] ?? '';
+    final otp = (form['otp_code'] ?? '').trim();
     final match = MockAccounts.tryLogin(username, password);
     if (match == null) {
       return Response(
         requestOptions: o,
         statusCode: 401,
         data: {'detail': 'Неверный логин или пароль (мок)'},
+      );
+    }
+    if (otp.isEmpty) {
+      return _jsonResponse(o, 200, {
+        'requires_otp': true,
+        'message': 'Код отправлен на email (мок: введите 123456).',
+        'email_masked': 's***@example.com',
+        'resend_after_seconds': 5,
+      });
+    }
+    if (otp != '123456') {
+      return Response(
+        requestOptions: o,
+        statusCode: 401,
+        data: {'detail': 'Неверный код подтверждения (мок: 123456)'},
       );
     }
     MockSession.lastUserId = match.userId;
@@ -245,12 +286,30 @@ class MockDioInterceptor extends Interceptor {
 
   static Response<dynamic> _postRegisterStudent(RequestOptions o) {
     final m = _asMap(o.data);
+    final otp = '${m['otp_code'] ?? ''}'.trim();
     final email = '${m['email'] ?? ''}'.trim();
     final fullName = '${m['full_name'] ?? 'Студент Моковый'}'.trim();
     final user = Map<String, dynamic>.from(MockAccounts.userJsonById(MockAccounts.aliId));
     user['email'] = email.isNotEmpty ? email : user['email'];
     user['full_name'] = fullName;
     final id = user['id'] as int;
+    if (otp.isEmpty) {
+      return _jsonResponse(o, 200, {
+        'requires_otp': true,
+        'message': 'Код отправлен на email (мок: введите 123456).',
+        'email_masked': email.contains('@')
+            ? '${email[0]}***@${email.split('@').last}'
+            : 'e***@example.com',
+        'resend_after_seconds': 5,
+      });
+    }
+    if (otp != '123456') {
+      return Response(
+        requestOptions: o,
+        statusCode: 401,
+        data: {'detail': 'Неверный код (мок: 123456)'},
+      );
+    }
     return Response(
       requestOptions: o,
       statusCode: 201,
@@ -338,6 +397,16 @@ class MockDioInterceptor extends Interceptor {
         0x34,
         0x0a,
       ];
+
+  /// `student_id` в query → ребёнок; иначе id из JWT; иначе студент Али (мок).
+  static int _studentIdFromQueryOrUser(String? studentIdParam, int? uid) {
+    if (studentIdParam != null) {
+      final p = int.tryParse(studentIdParam);
+      if (p != null) return p;
+    }
+    if (uid != null) return uid;
+    return MockAccounts.aliId;
+  }
 
   static int? _userId(RequestOptions o) {
     final h = o.headers['Authorization'] ?? o.headers['authorization'];

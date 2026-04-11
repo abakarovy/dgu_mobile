@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -8,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/di/app_container.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../data/api/api_exception.dart';
+import '../../domain/auth_flow_results.dart';
 
 /// Экран входа/регистрации по E-mail.
 /// Визуально повторяет стиль входа по зачётке.
@@ -23,13 +25,21 @@ class LoginEmailPage extends StatefulWidget {
 class _LoginEmailPageState extends State<LoginEmailPage> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _otpController = TextEditingController();
   final _emailFocusNode = FocusNode();
   final _passwordFocusNode = FocusNode();
+  final _otpFocusNode = FocusNode();
   final Set<String> _errorFields = {};
   bool _showWrongCredentialsError = false;
   String _credentialsErrorMessage = 'Неверный E-Mail или пароль';
   bool _submitting = false;
   bool _obscurePassword = true;
+
+  bool _awaitingOtp = false;
+  bool _otpIsForRegister = false;
+  OtpChallenge? _otpChallenge;
+  Timer? _resendTimer;
+  int _resendSecondsLeft = 0;
 
   bool _hasText(TextEditingController c) => c.text.trim().isNotEmpty;
 
@@ -85,19 +95,185 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
         });
       }
     });
+    _otpFocusNode.addListener(() {
+      if (_otpFocusNode.hasFocus) {
+        setState(() {
+          _errorFields.remove('otp');
+          _showWrongCredentialsError = false;
+        });
+      }
+    });
   }
 
   @override
   void dispose() {
+    _resendTimer?.cancel();
     _emailController.dispose();
     _passwordController.dispose();
+    _otpController.dispose();
     _emailFocusNode.dispose();
     _passwordFocusNode.dispose();
+    _otpFocusNode.dispose();
     super.dispose();
+  }
+
+  void _startResendCooldown(int seconds) {
+    _resendTimer?.cancel();
+    setState(() => _resendSecondsLeft = seconds.clamp(0, 3600));
+    _resendTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      setState(() {
+        if (_resendSecondsLeft <= 1) {
+          _resendTimer?.cancel();
+          _resendSecondsLeft = 0;
+        } else {
+          _resendSecondsLeft--;
+        }
+      });
+    });
+  }
+
+  void _leaveOtpStep() {
+    _resendTimer?.cancel();
+    setState(() {
+      _awaitingOtp = false;
+      _otpChallenge = null;
+      _otpIsForRegister = false;
+      _otpController.clear();
+      _resendSecondsLeft = 0;
+      _showWrongCredentialsError = false;
+    });
+  }
+
+  Future<void> _resendOtp() async {
+    if (_submitting || _resendSecondsLeft > 0) return;
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+    if (email.isEmpty || password.isEmpty) return;
+    try {
+      setState(() => _submitting = true);
+      if (_otpIsForRegister) {
+        final fullName = _verifiedFullName;
+        final book = _verifiedBookNumber;
+        if (fullName == null || book == null) return;
+        final r = await AppContainer.authRepository.registerStudent(
+          fullName: fullName,
+          studentBookNumber: book,
+          email: email,
+          password: password,
+          registrationToken: _registrationToken,
+        );
+        if (!mounted) return;
+        switch (r) {
+          case AuthRegisterSuccess():
+            context.go('/bootstrap');
+            return;
+          case AuthRegisterNeedsOtp(:final challenge):
+            setState(() {
+              _otpChallenge = challenge;
+              _startResendCooldown(challenge.resendAfterSeconds);
+            });
+        }
+      } else {
+        final r = await AppContainer.authRepository.login(
+          username: email,
+          password: password,
+        );
+        if (!mounted) return;
+        switch (r) {
+          case AuthLoginSuccess():
+            context.go('/bootstrap');
+            return;
+          case AuthLoginNeedsOtp(:final challenge):
+            setState(() {
+              _otpChallenge = challenge;
+              _startResendCooldown(challenge.resendAfterSeconds);
+            });
+        }
+      }
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _showWrongCredentialsError = true;
+        _credentialsErrorMessage = e.message;
+      });
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
   }
 
   Future<void> _submit() async {
     if (_submitting) return;
+
+    if (_awaitingOtp) {
+      final code = _otpController.text.trim();
+      final errors = <String>{};
+      if (code.length != 6) errors.add('otp');
+      setState(() {
+        _errorFields
+          ..clear()
+          ..addAll(errors);
+        _showWrongCredentialsError = false;
+      });
+      if (errors.isNotEmpty) return;
+
+      final email = _emailController.text.trim();
+      final password = _passwordController.text.trim();
+      try {
+        setState(() => _submitting = true);
+        if (_otpIsForRegister) {
+          final fullName = _verifiedFullName;
+          final book = _verifiedBookNumber;
+          if (fullName == null || book == null) {
+            throw ApiException('Ошибка');
+          }
+          final r = await AppContainer.authRepository.registerStudent(
+            fullName: fullName,
+            studentBookNumber: book,
+            email: email,
+            password: password,
+            registrationToken: _registrationToken,
+            otpCode: code,
+          );
+          if (!mounted) return;
+          switch (r) {
+            case AuthRegisterSuccess():
+              context.go('/bootstrap');
+            case AuthRegisterNeedsOtp(:final challenge):
+              setState(() {
+                _otpChallenge = challenge;
+                _startResendCooldown(challenge.resendAfterSeconds);
+              });
+          }
+        } else {
+          final r = await AppContainer.authRepository.login(
+            username: email,
+            password: password,
+            otpCode: code,
+          );
+          if (!mounted) return;
+          switch (r) {
+            case AuthLoginSuccess():
+              context.go('/bootstrap');
+            case AuthLoginNeedsOtp(:final challenge):
+              setState(() {
+                _otpChallenge = challenge;
+                _startResendCooldown(challenge.resendAfterSeconds);
+              });
+          }
+        }
+      } on ApiException catch (e) {
+        if (!mounted) return;
+        setState(() {
+          _showWrongCredentialsError = true;
+          _credentialsErrorMessage = e.message;
+        });
+      } finally {
+        if (mounted) setState(() => _submitting = false);
+      }
+      return;
+    }
+
     final errors = <String>{};
     if (_emailController.text.trim().isEmpty) errors.add('email');
     if (_passwordController.text.trim().isEmpty) errors.add('password');
@@ -119,22 +295,43 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
         if (fullName == null || book == null) {
           throw ApiException('Ошибка');
         }
-        await AppContainer.authRepository.registerStudent(
+        final r = await AppContainer.authRepository.registerStudent(
           fullName: fullName,
           studentBookNumber: book,
           email: email,
           password: password,
           registrationToken: _registrationToken,
         );
+        if (!mounted) return;
+        switch (r) {
+          case AuthRegisterSuccess():
+            context.go('/bootstrap');
+          case AuthRegisterNeedsOtp(:final challenge):
+            setState(() {
+              _awaitingOtp = true;
+              _otpIsForRegister = true;
+              _otpChallenge = challenge;
+              _startResendCooldown(challenge.resendAfterSeconds);
+            });
+        }
       } else {
-        await AppContainer.authRepository.login(
+        final r = await AppContainer.authRepository.login(
           username: email,
           password: password,
         );
+        if (!mounted) return;
+        switch (r) {
+          case AuthLoginSuccess():
+            context.go('/bootstrap');
+          case AuthLoginNeedsOtp(:final challenge):
+            setState(() {
+              _awaitingOtp = true;
+              _otpIsForRegister = false;
+              _otpChallenge = challenge;
+              _startResendCooldown(challenge.resendAfterSeconds);
+            });
+        }
       }
-      if (!mounted) return;
-      // Как при холодном старте: прогрев кэша под тем же пользователем.
-      context.go('/bootstrap');
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() {
@@ -301,78 +498,216 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
                               ),
                               SizedBox(height: gap),
                             ],
-                            _buildField(
-                              key: 'email',
-                              hint: 'E-mail',
-                              controller: _emailController,
-                              focusNode: _emailFocusNode,
-                              nextFocus: _passwordFocusNode,
-                              keyboardType: TextInputType.emailAddress,
-                              fieldHeight: fieldHeight,
-                              fieldRadius: fieldRadius,
-                              fieldBorderW: fieldBorderW,
-                              fieldLeftPad: fieldLeftPad,
-                              blue: blue,
-                              hintStyle: hintStyle,
-                              valueStyle: valueStyle,
-                              obscureText: false,
-                            ),
-                            SizedBox(height: gap),
-                            _buildField(
-                              key: 'password',
-                              hint: 'Пароль',
-                              controller: _passwordController,
-                              focusNode: _passwordFocusNode,
-                              nextFocus: null,
-                              onLastFieldSubmitted: _submit,
-                              keyboardType: TextInputType.visiblePassword,
-                              fieldHeight: fieldHeight,
-                              fieldRadius: fieldRadius,
-                              fieldBorderW: fieldBorderW,
-                              fieldLeftPad: fieldLeftPad,
-                              blue: blue,
-                              hintStyle: hintStyle,
-                              valueStyle: valueStyle,
-                              obscureText: _obscurePassword,
-                              onPasswordVisibilityToggle: () => setState(
-                                () => _obscurePassword = !_obscurePassword,
+                            if (_awaitingOtp && _otpChallenge != null) ...[
+                              Text(
+                                _otpChallenge!.message,
+                                textAlign: TextAlign.center,
+                                style: AppTextStyle.inter(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: (14 * sf).clamp(13.0, 16.0),
+                                  height: 1.3,
+                                  color: Colors.black87,
+                                ),
                               ),
-                            ),
-                            SizedBox(height: gap),
-                            SizedBox(
-                              height: btnHeight,
-                              child: FilledButton(
-                                onPressed: _submitting ? null : _submit,
-                                style: noOverlay(
-                                  FilledButton.styleFrom(
-                                    backgroundColor: blue,
-                                    foregroundColor: Colors.white,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(
-                                        btnRadius,
+                              if ((_otpChallenge!.emailMasked ?? '')
+                                  .trim()
+                                  .isNotEmpty) ...[
+                                SizedBox(height: gap * 0.6),
+                                Text(
+                                  'Код отправлен на ${_otpChallenge!.emailMasked}',
+                                  textAlign: TextAlign.center,
+                                  style: AppTextStyle.inter(
+                                    fontWeight: FontWeight.w500,
+                                    fontSize: (12 * sf).clamp(11.0, 14.0),
+                                    height: 1.25,
+                                    color: Colors.black54,
+                                  ),
+                                ),
+                              ],
+                              SizedBox(height: gap),
+                              _buildField(
+                                key: 'otp',
+                                hint: 'Код из письма (6 цифр)',
+                                controller: _otpController,
+                                focusNode: _otpFocusNode,
+                                nextFocus: null,
+                                onLastFieldSubmitted: _submit,
+                                keyboardType: TextInputType.number,
+                                maxLength: 6,
+                                fieldHeight: fieldHeight,
+                                fieldRadius: fieldRadius,
+                                fieldBorderW: fieldBorderW,
+                                fieldLeftPad: fieldLeftPad,
+                                blue: blue,
+                                hintStyle: hintStyle,
+                                valueStyle: valueStyle,
+                                obscureText: false,
+                              ),
+                              SizedBox(height: gap),
+                              SizedBox(
+                                height: btnHeight,
+                                child: FilledButton(
+                                  onPressed: _submitting ? null : _submit,
+                                  style: noOverlay(
+                                    FilledButton.styleFrom(
+                                      backgroundColor: blue,
+                                      foregroundColor: Colors.white,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(
+                                          btnRadius,
+                                        ),
                                       ),
+                                      fixedSize: Size.fromHeight(btnHeight),
+                                      minimumSize: Size(
+                                        double.infinity,
+                                        btnHeight,
+                                      ),
+                                      padding: EdgeInsets.zero,
+                                      tapTargetSize:
+                                          MaterialTapTargetSize.shrinkWrap,
+                                      visualDensity: VisualDensity.compact,
+                                      textStyle: btnTextStyle,
                                     ),
-                                    fixedSize: Size.fromHeight(btnHeight),
-                                    minimumSize: Size(
-                                      double.infinity,
-                                      btnHeight,
-                                    ),
-                                    padding: EdgeInsets.zero,
-                                    tapTargetSize:
-                                        MaterialTapTargetSize.shrinkWrap,
-                                    visualDensity: VisualDensity.compact,
-                                    textStyle: btnTextStyle,
                                   ),
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    _submitting ? 'Входим…' : 'Войти',
+                                  child: Center(
+                                    child: Text(
+                                      _submitting
+                                          ? 'Проверяем…'
+                                          : 'Подтвердить',
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                            SizedBox(height: gap),
-                            if (!_isParentRole)
+                              SizedBox(height: gap * 0.6),
+                              TextButton(
+                                onPressed: (_submitting || _resendSecondsLeft > 0)
+                                    ? null
+                                    : _resendOtp,
+                                child: Text(
+                                  _resendSecondsLeft > 0
+                                      ? 'Отправить снова через $_resendSecondsLeft с'
+                                      : 'Отправить код снова',
+                                  style: AppTextStyle.inter(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: (13 * sf).clamp(12.0, 15.0),
+                                    color: blue,
+                                  ),
+                                ),
+                              ),
+                              SizedBox(height: gap * 0.4),
+                              SizedBox(
+                                height: btnHeight,
+                                child: OutlinedButton(
+                                  onPressed:
+                                      _submitting ? null : _leaveOtpStep,
+                                  style: noOverlay(
+                                    OutlinedButton.styleFrom(
+                                      foregroundColor: blue,
+                                      backgroundColor: Colors.transparent,
+                                      side: BorderSide(
+                                        color: blue,
+                                        width: btnBorder,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(
+                                          btnRadius,
+                                        ),
+                                      ),
+                                      fixedSize: Size.fromHeight(btnHeight),
+                                      minimumSize: Size(
+                                        double.infinity,
+                                        btnHeight,
+                                      ),
+                                      padding: EdgeInsets.zero,
+                                      tapTargetSize:
+                                          MaterialTapTargetSize.shrinkWrap,
+                                      visualDensity: VisualDensity.compact,
+                                      textStyle: btnTextStyle,
+                                    ),
+                                  ),
+                                  child: const Center(
+                                    child: Text('Назад к паролю'),
+                                  ),
+                                ),
+                              ),
+                            ] else ...[
+                              _buildField(
+                                key: 'email',
+                                hint: 'E-mail',
+                                controller: _emailController,
+                                focusNode: _emailFocusNode,
+                                nextFocus: _passwordFocusNode,
+                                keyboardType: TextInputType.emailAddress,
+                                fieldHeight: fieldHeight,
+                                fieldRadius: fieldRadius,
+                                fieldBorderW: fieldBorderW,
+                                fieldLeftPad: fieldLeftPad,
+                                blue: blue,
+                                hintStyle: hintStyle,
+                                valueStyle: valueStyle,
+                                obscureText: false,
+                              ),
+                              SizedBox(height: gap),
+                              _buildField(
+                                key: 'password',
+                                hint: 'Пароль',
+                                controller: _passwordController,
+                                focusNode: _passwordFocusNode,
+                                nextFocus: null,
+                                onLastFieldSubmitted: _submit,
+                                keyboardType: TextInputType.visiblePassword,
+                                fieldHeight: fieldHeight,
+                                fieldRadius: fieldRadius,
+                                fieldBorderW: fieldBorderW,
+                                fieldLeftPad: fieldLeftPad,
+                                blue: blue,
+                                hintStyle: hintStyle,
+                                valueStyle: valueStyle,
+                                obscureText: _obscurePassword,
+                                onPasswordVisibilityToggle: () => setState(
+                                  () => _obscurePassword = !_obscurePassword,
+                                ),
+                              ),
+                              SizedBox(height: gap),
+                              SizedBox(
+                                height: btnHeight,
+                                child: FilledButton(
+                                  onPressed: _submitting ? null : _submit,
+                                  style: noOverlay(
+                                    FilledButton.styleFrom(
+                                      backgroundColor: blue,
+                                      foregroundColor: Colors.white,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(
+                                          btnRadius,
+                                        ),
+                                      ),
+                                      fixedSize: Size.fromHeight(btnHeight),
+                                      minimumSize: Size(
+                                        double.infinity,
+                                        btnHeight,
+                                      ),
+                                      padding: EdgeInsets.zero,
+                                      tapTargetSize:
+                                          MaterialTapTargetSize.shrinkWrap,
+                                      visualDensity: VisualDensity.compact,
+                                      textStyle: btnTextStyle,
+                                    ),
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      _submitting
+                                          ? 'Входим…'
+                                          : (_isRegisterMode
+                                              ? 'Зарегистрироваться'
+                                              : 'Войти'),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                            if (!_awaitingOtp) SizedBox(height: gap),
+                            if (!_awaitingOtp && !_isParentRole)
                               SizedBox(
                                 height: btnHeight,
                                 child: OutlinedButton(
@@ -411,7 +746,9 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
                                   ),
                                 ),
                               ),
-                            if (_isParentRole && !_isRegisterMode) ...[
+                            if (!_awaitingOtp &&
+                                _isParentRole &&
+                                !_isRegisterMode) ...[
                               SizedBox(height: gap),
                               SizedBox(
                                 height: btnHeight,
@@ -485,6 +822,7 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
     FocusNode? nextFocus,
     VoidCallback? onLastFieldSubmitted,
     required TextInputType keyboardType,
+    int? maxLength,
     required double fieldHeight,
     required double fieldRadius,
     required double fieldBorderW,
@@ -545,6 +883,9 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
         ),
         inputFormatters: [
           if (key == 'email') FilteringTextInputFormatter.deny(RegExp(r'\s')),
+          if (key == 'otp') FilteringTextInputFormatter.digitsOnly,
+          if (maxLength != null)
+            LengthLimitingTextInputFormatter(maxLength),
         ],
         decoration: InputDecoration(
           hintText: hint,

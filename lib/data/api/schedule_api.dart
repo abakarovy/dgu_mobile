@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 
 import '../../core/constants/api_constants.dart';
 import '../../features/schedule/data/schedule_lesson.dart';
+import '../../features/schedule/domain/schedule_calendar_filter.dart';
 import 'api_client.dart';
 import 'api_exception.dart';
 
@@ -31,30 +32,45 @@ class ScheduleApi {
     return day.subtract(Duration(days: day.weekday - DateTime.monday));
   }
 
+  /// Ключ [JsonCache] для списка пар недели (ПН–ВС), чтобы разные недели не перетирали друг друга.
+  static String weekCalendarCacheKey(DateTime anyInWeek) {
+    final monday = mondayOfWeekContaining(anyInWeek);
+    return 'schedule:week:v2:${ymd(monday)}';
+  }
+
   /// GET `/api/1c/schedule?week=числитель&today_only=false` — неделя по типу недели 1С.
   /// Если [week] — дата `yyyy-MM-dd`, трактуем как `for_date` на этот день.
   /// Иначе без [week] — `for_date` на понедельник недели, содержащей [weekStart].
-  Future<List<ScheduleLesson>> getWeek({DateTime? weekStart, String? week}) async {
+  ///
+  /// [studentId] — для роли `parent`: ID ребёнка (`student_id` в query).
+  Future<List<ScheduleLesson>> getWeek({
+    DateTime? weekStart,
+    String? week,
+    int? studentId,
+  }) async {
     final w = week?.trim();
     if (w != null && w.isNotEmpty) {
       if (RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(w)) {
-        return _fetchScheduleForDate(w);
+        return _fetchScheduleForDate(w, studentId: studentId);
       }
-      return _fetchScheduleWeekFilter(w, todayOnly: false);
+      return _fetchScheduleWeekFilter(w, todayOnly: false, studentId: studentId);
     }
     final monday = mondayOfWeekContaining(weekStart ?? DateTime.now());
-    return _fetchScheduleForDate(ymd(monday));
+    return _fetchScheduleForDate(ymd(monday), studentId: studentId);
   }
 
   /// Собирает ПН–ВС: для каждого дня `GET /api/1c/schedule?for_date=…`.
   /// Запросы **последовательно**, чтобы не упираться в таймауты и лимиты сервера.
   /// [forceRefresh] — игнорировать последний успешный ответ по этой неделе (например, pull-to-refresh).
+  ///
+  /// [studentId] — для роли `parent`: ID ребёнка.
   Future<List<ScheduleLesson>> getWeekForCalendar(
     DateTime anyInWeek, {
     bool forceRefresh = false,
+    int? studentId,
   }) async {
     final monday = mondayOfWeekContaining(anyInWeek);
-    final key = ymd(monday);
+    final key = _calendarWeekCacheKey(monday, studentId);
     final now = DateTime.now();
 
     if (!forceRefresh) {
@@ -73,7 +89,7 @@ class ScheduleApi {
     if (existing != null) return existing;
 
     final f = () async {
-      final list = await _getWeekForCalendarImpl(monday);
+      final list = await _getWeekForCalendarImpl(monday, studentId: studentId);
       _lastCalendarWeekKey = key;
       _lastCalendarWeekResult = list;
       _lastCalendarWeekFetchAt = DateTime.now();
@@ -87,13 +103,22 @@ class ScheduleApi {
     }
   }
 
-  Future<List<ScheduleLesson>> _getWeekForCalendarImpl(DateTime monday) async {
+  static String _calendarWeekCacheKey(DateTime monday, int? studentId) {
+    final base = ymd(monday);
+    if (studentId == null) return base;
+    return '$base@$studentId';
+  }
+
+  Future<List<ScheduleLesson>> _getWeekForCalendarImpl(
+    DateTime monday, {
+    int? studentId,
+  }) async {
     final chunks = <List<ScheduleLesson>>[];
     for (var i = 0; i < 7; i++) {
       try {
         final day = DateTime(monday.year, monday.month, monday.day).add(Duration(days: i));
         final dayYmd = ymd(day);
-        chunks.add(await _fetchScheduleForDate(dayYmd));
+        chunks.add(await _fetchScheduleForDate(dayYmd, studentId: studentId));
       } catch (_) {
         chunks.add(<ScheduleLesson>[]);
       }
@@ -104,8 +129,8 @@ class ScheduleApi {
     // Fallback: если все 7 дней пустые — пробуем полную выгрузку недели по типу недели 1С,
     // затем привязываем пары к календарной неделе (ПН–ВС) по `weekdayIndex`.
     try {
-      final a = await _fetchScheduleWeekFilter('числитель', todayOnly: false);
-      final b = await _fetchScheduleWeekFilter('знаменатель', todayOnly: false);
+      final a = await _fetchScheduleWeekFilter('числитель', todayOnly: false, studentId: studentId);
+      final b = await _fetchScheduleWeekFilter('знаменатель', todayOnly: false, studentId: studentId);
       final remapped = <ScheduleLesson>[];
       remapped.addAll(_anchorWeekByWeekdayIndex(a, monday));
       remapped.addAll(_anchorWeekByWeekdayIndex(b, monday));
@@ -116,14 +141,19 @@ class ScheduleApi {
     }
   }
 
-  Future<List<ScheduleLesson>> _fetchScheduleForDate(String forDateYmd) async {
+  Future<List<ScheduleLesson>> _fetchScheduleForDate(
+    String forDateYmd, {
+    int? studentId,
+  }) async {
     try {
+      final qp = <String, dynamic>{
+        'for_date': forDateYmd,
+        'today_only': true,
+      };
+      if (studentId != null) qp['student_id'] = studentId;
       final res = await _api.dio.get<dynamic>(
         '/1c/schedule',
-        queryParameters: {
-          'for_date': forDateYmd,
-          'today_only': true,
-        },
+        queryParameters: qp,
         options: Options(
           validateStatus: (s) => s != null && s < 500,
           receiveTimeout: ApiConstants.scheduleReceiveTimeout,
@@ -146,27 +176,61 @@ class ScheduleApi {
         }
       }
       // Fallback: на некоторых стендах `today_only=true` стабильно возвращает пустой список.
-      // Пробуем запрос с `today_only=false` (если backend его учитывает) и всё равно привязываем к дате.
+      // `today_only=false` может вернуть расписание за весь период — нельзя «пришить» все строки к одному дню
+      // (иначе пустое воскресенье показывает сотни пар). Берём только строки с датой = запрошенный день
+      // или без даты, но с тем же днём недели.
       if (list.isEmpty) {
         try {
+          final qp2 = <String, dynamic>{
+            'for_date': forDateYmd,
+            'today_only': false,
+          };
+          if (studentId != null) qp2['student_id'] = studentId;
           final res2 = await _api.dio.get<dynamic>(
             '/1c/schedule',
-            queryParameters: {
-              'for_date': forDateYmd,
-              'today_only': false,
-            },
+            queryParameters: qp2,
             options: Options(
               validateStatus: (s) => s != null && s < 500,
               receiveTimeout: ApiConstants.scheduleReceiveTimeout,
             ),
           );
           if (res2.statusCode == 200) {
-            var list2 = _parseSchedule(res2.data);
+            final list2 = _parseSchedule(res2.data);
             final anchor = DateTime.tryParse(forDateYmd);
             if (anchor != null) {
-              list2 = _remapLessonsToAnchorDay(list2, anchor);
+              final target = DateTime(anchor.year, anchor.month, anchor.day);
+              final byDate = list2.where((l) {
+                if (l.lessonDate == null) return false;
+                final ld = l.lessonDate!;
+                return ld.year == target.year &&
+                    ld.month == target.month &&
+                    ld.day == target.day;
+              }).toList();
+              if (byDate.isNotEmpty) {
+                return sortScheduleLessonsByPair(byDate);
+              }
+              final idx = target.weekday - 1;
+              final undatedSameDay = list2
+                  .where(
+                    (l) => l.lessonDate == null && l.weekdayIndex == idx,
+                  )
+                  .map(
+                    (l) => ScheduleLesson(
+                      weekdayIndex: idx,
+                      lessonDate: target,
+                      pairNumber: l.pairNumber,
+                      subject: l.subject,
+                      time: l.time,
+                      teacher: l.teacher,
+                      auditorium: l.auditorium,
+                    ),
+                  )
+                  .toList();
+              if (undatedSameDay.isNotEmpty) {
+                return sortScheduleLessonsByPair(undatedSameDay);
+              }
+              return const <ScheduleLesson>[];
             }
-            if (list2.isNotEmpty) return list2;
           }
         } catch (_) {
           // ignore fallback errors
@@ -201,15 +265,19 @@ class ScheduleApi {
   }
 
   Future<List<ScheduleLesson>> _fetchScheduleWeekFilter(
-    String week,
-    {required bool todayOnly}) async {
+    String week, {
+    required bool todayOnly,
+    int? studentId,
+  }) async {
     try {
+      final qp = <String, dynamic>{
+        'week': week,
+        'today_only': todayOnly,
+      };
+      if (studentId != null) qp['student_id'] = studentId;
       final res = await _api.dio.get<dynamic>(
         '/1c/schedule',
-        queryParameters: {
-          'week': week,
-          'today_only': todayOnly,
-        },
+        queryParameters: qp,
         options: Options(
           validateStatus: (s) => s != null && s < 500,
           receiveTimeout: ApiConstants.scheduleReceiveTimeout,

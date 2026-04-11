@@ -136,10 +136,14 @@ class DocumentsApi {
   }
 
   /// История: `GET /api/documents/certificate-orders`
-  Future<List<Map<String, dynamic>>> getCertificateOrders() async {
+  /// Для родителя передайте [studentId] — заказы по привязанному ребёнку (см. MOBILE_SPRAVKI / backend).
+  Future<List<Map<String, dynamic>>> getCertificateOrders({int? studentId}) async {
     try {
       final res = await _api.dio.get<dynamic>(
         ApiConstants.documentsCertificateOrdersPath,
+        queryParameters: {
+          ...?studentId != null ? <String, dynamic>{'student_id': studentId} : null,
+        },
         options: Options(
           validateStatus: (s) => s != null && s < 600,
           receiveTimeout: ApiConstants.scheduleReceiveTimeout,

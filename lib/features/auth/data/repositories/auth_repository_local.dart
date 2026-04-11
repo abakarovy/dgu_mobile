@@ -1,3 +1,4 @@
+import '../../domain/auth_flow_results.dart';
 import '../../domain/entities/user_entity.dart';
 import '../../domain/repositories/auth_repository.dart';
 
@@ -15,8 +16,12 @@ class AuthRepositoryLocal implements AuthRepository {
   );
 
   @override
-  Future<UserEntity> login({required String username, required String password}) async {
-    return _mockUser;
+  Future<AuthLoginResult> login({
+    required String username,
+    required String password,
+    String? otpCode,
+  }) async {
+    return AuthLoginSuccess(_mockUser);
   }
 
   @override
@@ -29,22 +34,24 @@ class AuthRepositoryLocal implements AuthRepository {
   }
 
   @override
-  Future<UserEntity> registerStudent({
+  Future<AuthRegisterResult> registerStudent({
     required String fullName,
     required String studentBookNumber,
     required String email,
     required String password,
     String? registrationToken,
+    String? otpCode,
   }) async {
-    // Локальный режим: "регистрируем" и возвращаем пользователя.
-    return UserEntity(
-      id: 'local-registered-1',
-      email: email,
-      fullName: fullName,
-      role: 'student',
-      studentBookNumber: studentBookNumber,
-      course: 1,
-      direction: 'Информатика',
+    return AuthRegisterSuccess(
+      UserEntity(
+        id: 'local-registered-1',
+        email: email,
+        fullName: fullName,
+        role: 'student',
+        studentBookNumber: studentBookNumber,
+        course: 1,
+        direction: 'Информатика',
+      ),
     );
   }
 

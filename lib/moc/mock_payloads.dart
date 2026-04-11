@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'mock_accounts.dart';
+
 /// JSON-ответы мокового API (один студент: Али Ягияев).
 abstract final class MockPayloads {
   static String _ymd(DateTime d) =>
@@ -316,13 +318,14 @@ abstract final class MockPayloads {
     };
   }
 
-  /// `GET /api/documents/certificate-orders`
-  static List<Map<String, dynamic>> certificateOrdersHistory() {
+  /// `GET /api/documents/certificate-orders` — при [forStudentId] только заказы этого студента (как на backend).
+  static List<Map<String, dynamic>> certificateOrdersHistory({int? forStudentId}) {
     final now = DateTime.now().toUtc().toIso8601String();
-    return [
+    final all = <Map<String, dynamic>>[
       {
         'request_id': 42,
         'order_id': '660e8400-e29b-41d4-a716-446655440001',
+        'student_id': MockAccounts.aliId,
         'certificate_type': 'education',
         'delivery_format': 'electronic',
         'present_where': 'В вуз',
@@ -332,13 +335,26 @@ abstract final class MockPayloads {
       {
         'request_id': 41,
         'order_id': '770e8400-e29b-41d4-a716-446655440002',
+        'student_id': MockAccounts.aliId,
         'certificate_type': 'scholarship',
         'delivery_format': 'paper',
         'present_where': 'По месту работы',
         'status': 'done',
         'created_at': now,
       },
+      {
+        'request_id': 40,
+        'order_id': '880e8400-e29b-41d4-a716-446655440003',
+        'student_id': 999,
+        'certificate_type': 'education',
+        'delivery_format': 'electronic',
+        'present_where': 'Другой студент',
+        'status': 'done',
+        'created_at': now,
+      },
     ];
+    if (forStudentId == null) return all;
+    return [for (final m in all) if (m['student_id'] == forStudentId) m];
   }
 
   static List<dynamic> oneCCuratorEvents(int userId) {
@@ -418,6 +434,27 @@ abstract final class MockPayloads {
   static Map<String, dynamic> emptyOk() => {};
 
   static Map<String, dynamic> parentInviteOk() => {'success': true};
+
+  /// `GET /api/parents/student-data` — родитель видит данные ребёнка (мок — тот же профиль, что у студента 28).
+  static Map<String, dynamic> parentsStudentData(int? _) {
+    const childId = 28;
+    final profile = oneCProfile(childId);
+    return {
+      'student': {
+        'id': childId,
+        'full_name': profile['full_name'],
+        'full_name_display': 'Ягияев Али Тажутдинович',
+        'full_name_genitive': 'Ягияева Али Тажутдиновича',
+        'course': profile['course'],
+        'direction': profile['direction'],
+        'department': profile['department'],
+        'student_book_number': profile['student_book_number'],
+      },
+      'grades': journalGradesFlat(childId),
+      'profile_1c': profile,
+      'schedule': scheduleToday(childId),
+    };
+  }
 
   static Uint8List studentPhotoBytes(int userId) {
     // 1x1 PNG (transparent). Валидная картинка, чтобы Image.file / decoder не падал.

@@ -7,8 +7,10 @@ import '../../../../core/realtime/realtime_ws_client.dart';
 import '../../../../data/api/auth_api.dart';
 import '../../../../data/models/user_model.dart';
 import '../../../../data/services/token_storage.dart';
+import '../../domain/auth_flow_results.dart';
 import '../../domain/entities/user_entity.dart';
 import '../../domain/repositories/auth_repository.dart';
+import '../../../../data/api/auth_api_outcomes.dart';
 
 /// Реализация AuthRepository через College DGU API и TokenStorage.
 class AuthRepositoryImpl implements AuthRepository {
@@ -25,12 +27,35 @@ class AuthRepositoryImpl implements AuthRepository {
   final JsonCache _jsonCache;
 
   @override
-  Future<UserEntity> login({required String username, required String password}) async {
-    final user = await _authApi.login(username: username.trim(), password: password);
-    PushRegistrar.instance.ensureRegistered();
-    RealtimeWsClient.instance.connectIfPossible();
-    AuthSession.bump();
-    return user.toEntity();
+  Future<AuthLoginResult> login({
+    required String username,
+    required String password,
+    String? otpCode,
+  }) async {
+    final outcome = await _authApi.login(
+      username: username.trim(),
+      password: password,
+      otpCode: otpCode,
+    );
+    switch (outcome) {
+      case AuthApiLoginSuccess(:final user):
+        PushRegistrar.instance.ensureRegistered();
+        RealtimeWsClient.instance.connectIfPossible();
+        AuthSession.bump();
+        return AuthLoginSuccess(user.toEntity());
+      case AuthApiLoginOtpRequired(
+          :final message,
+          :final emailMasked,
+          :final resendAfterSeconds,
+        ):
+        return AuthLoginNeedsOtp(
+          OtpChallenge(
+            message: message,
+            emailMasked: emailMasked,
+            resendAfterSeconds: resendAfterSeconds,
+          ),
+        );
+    }
   }
 
   @override
@@ -46,24 +71,41 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
-  Future<UserEntity> registerStudent({
+  Future<AuthRegisterResult> registerStudent({
     required String fullName,
     required String studentBookNumber,
     required String email,
     required String password,
     String? registrationToken,
+    String? otpCode,
   }) async {
-    final user = await _authApi.registerStudent(
+    final outcome = await _authApi.registerStudent(
       fullName: fullName.trim(),
       studentBookNumber: studentBookNumber.trim(),
       email: email.trim(),
       password: password,
       registrationToken: registrationToken,
+      otpCode: otpCode,
     );
-    PushRegistrar.instance.ensureRegistered();
-    RealtimeWsClient.instance.connectIfPossible();
-    AuthSession.bump();
-    return user.toEntity();
+    switch (outcome) {
+      case AuthApiRegisterSuccess(:final user):
+        PushRegistrar.instance.ensureRegistered();
+        RealtimeWsClient.instance.connectIfPossible();
+        AuthSession.bump();
+        return AuthRegisterSuccess(user.toEntity());
+      case AuthApiRegisterOtpRequired(
+          :final message,
+          :final emailMasked,
+          :final resendAfterSeconds,
+        ):
+        return AuthRegisterNeedsOtp(
+          OtpChallenge(
+            message: message,
+            emailMasked: emailMasked,
+            resendAfterSeconds: resendAfterSeconds,
+          ),
+        );
+    }
   }
 
   @override

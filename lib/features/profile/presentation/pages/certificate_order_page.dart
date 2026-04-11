@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../core/di/app_container.dart';
+import '../../../../core/utils/parent_child_name.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../data/api/api_exception.dart';
 import '../../../../shared/widgets/app_header.dart';
@@ -148,7 +149,21 @@ class _CertificateOrderPageState extends State<CertificateOrderPage> {
   /// История: `GET /api/documents/certificate-orders` (MOBILE_SPRAVKI_API.md).
   Future<void> _refreshOrdersFromApi({required List<_CertOrder> mergeWith}) async {
     try {
-      final rows = await AppContainer.documentsApi.getCertificateOrders();
+      int? filterSid;
+      try {
+        final raw = await AppContainer.tokenStorage.getUserDataJson();
+        if (raw != null && raw.isNotEmpty) {
+          final m = jsonDecode(raw) as Map<String, dynamic>;
+          if ((m['role'] ?? '').toString().trim().toLowerCase() == 'parent') {
+            filterSid = await _childStudentIdForParentDocs();
+          }
+        }
+      } catch (_) {}
+      var rows = await AppContainer.documentsApi.getCertificateOrders(studentId: filterSid);
+      final sidFilter = filterSid;
+      if (sidFilter != null) {
+        rows = [for (final m in rows) if (_certRowMatchesStudent(m, sidFilter)) m];
+      }
       final fromApi = <_CertOrder>[];
       for (final m in rows) {
         final o = _CertOrder.tryParseApi(m);
@@ -164,7 +179,7 @@ class _CertificateOrderPageState extends State<CertificateOrderPage> {
     }
   }
 
-  /// Только для родителя: `student_id` в теле `POST /documents/certificate-order`.
+  /// Только для родителя: `student_id` в теле `documents/certificate-order` и в запросе истории.
   Future<int?> _parentStudentIdIfParent() async {
     try {
       final raw = await AppContainer.tokenStorage.getUserDataJson();
@@ -182,21 +197,39 @@ class _CertificateOrderPageState extends State<CertificateOrderPage> {
     }
   }
 
-  /// Удалённые заказы + локальные; при совпадении `order_id` сервер важнее, кроме локального «Скачано».
+  /// Id ребёнка: сначала кэш `parents:student-data`, иначе link-status.
+  Future<int?> _childStudentIdForParentDocs() async {
+    final c = ParentChildName.childStudentId();
+    if (c != null) return c;
+    return _parentStudentIdIfParent();
+  }
+
+  static bool _certRowMatchesStudent(Map<String, dynamic> m, int studentId) {
+    final v = m['student_id'] ?? m['student_user_id'] ?? m['for_student_id'] ?? m['target_user_id'];
+    if (v == null) return true;
+    final n = v is int ? v : (v is num ? v.toInt() : int.tryParse(v.toString()));
+    return n == null || n == studentId;
+  }
+
+  /// Сервер — источник истины, если ответ не пустой (иначе локальные строки при офлайне).
+  /// Локальные заказы без `order_id` на сервере не показываем — иначе в списке «лишние» старые записи из prefs.
   static List<_CertOrder> _mergeOrders(List<_CertOrder> local, List<_CertOrder> remote) {
-    final map = <String, _CertOrder>{};
-    for (final r in remote) {
-      map[r.orderNumber] = r;
+    if (remote.isNotEmpty) {
+      final localByOrder = <String, _CertOrder>{
+        for (final l in local) l.orderNumber: l,
+      };
+      final merged = <_CertOrder>[
+        for (final r in remote)
+          (localByOrder[r.orderNumber]?.status == _CertOrderStatus.downloaded)
+              ? r.copyWith(status: _CertOrderStatus.downloaded)
+              : r,
+      ];
+      merged.sort((a, b) => b.createdAtMs.compareTo(a.createdAtMs));
+      return merged;
     }
+    final map = <String, _CertOrder>{};
     for (final l in local) {
-      final r = map[l.orderNumber];
-      if (r == null) {
-        map[l.orderNumber] = l;
-      } else if (l.status == _CertOrderStatus.downloaded) {
-        map[l.orderNumber] = r.copyWith(status: _CertOrderStatus.downloaded);
-      } else {
-        map[l.orderNumber] = r;
-      }
+      map[l.orderNumber] = l;
     }
     final merged = map.values.toList();
     merged.sort((a, b) => b.createdAtMs.compareTo(a.createdAtMs));
@@ -235,17 +268,19 @@ class _CertificateOrderPageState extends State<CertificateOrderPage> {
     final comment = _commentCtrl.text.trim();
 
     if (typeLabel.isEmpty || formatLabel.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Выберите тип и формат справки')),
-      );
+      setState(() {
+        _statusCheckFeedback = 'Выберите тип и формат справки';
+        _statusCheckFeedbackIsError = true;
+      });
       return;
     }
     final apiType = _typeRuToApi[typeLabel];
     final apiFormat = _formatRuToApi[formatLabel];
     if (apiType == null || apiFormat == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Неверный тип или формат справки')),
-      );
+      setState(() {
+        _statusCheckFeedback = 'Неверный тип или формат справки';
+        _statusCheckFeedbackIsError = true;
+      });
       return;
     }
 
@@ -254,7 +289,7 @@ class _CertificateOrderPageState extends State<CertificateOrderPage> {
       _statusCheckFeedback = null;
     });
     try {
-      final parentSid = await _parentStudentIdIfParent();
+      final parentSid = await _childStudentIdForParentDocs();
       final res = await AppContainer.documentsApi.createCertificateOrder(
         type: apiType,
         format: apiFormat,
@@ -284,9 +319,10 @@ class _CertificateOrderPageState extends State<CertificateOrderPage> {
       if (!mounted) return;
       await _refreshOrdersFromApi(mergeWith: next);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Заказ создан. № ${res.orderId}')),
-      );
+      setState(() {
+        _statusCheckFeedback = 'Заказ создан. № ${res.orderId}';
+        _statusCheckFeedbackIsError = false;
+      });
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() {
@@ -347,13 +383,11 @@ class _CertificateOrderPageState extends State<CertificateOrderPage> {
     final o = _currentOrder;
     if (o == null) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            _history.isEmpty ? 'История пустая' : 'Выберите заказ в списке ниже',
-          ),
-        ),
-      );
+      setState(() {
+        _statusCheckFeedback =
+            _history.isEmpty ? 'История пустая' : 'Выберите заказ в списке ниже';
+        _statusCheckFeedbackIsError = true;
+      });
       return;
     }
     setState(() => _pdfDownloadBusy = true);
@@ -380,9 +414,10 @@ class _CertificateOrderPageState extends State<CertificateOrderPage> {
       _replaceOrderInHistory(updated);
       await _saveHistory(_history);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Файл сохранён: $savedPath')),
-      );
+      setState(() {
+        _statusCheckFeedback = 'Файл сохранён: $savedPath';
+        _statusCheckFeedbackIsError = false;
+      });
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() {
@@ -719,19 +754,9 @@ class _CertificateOrderPageState extends State<CertificateOrderPage> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppHeader(
-        headerTitle: Text(
-          'Заказать справку',
-          style: AppTextStyle.inter(
-            fontWeight: FontWeight.w800,
-            fontSize: 16,
-            height: 1.2,
-            color: const Color(0xFF000000),
-          ),
-        ),
-        leading: IconButton(
-          onPressed: () => Navigator.of(context).pop(),
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Color(0xFF000000)),
-        ),
+        leading: appHeaderNestedBackLeading(context),
+        headerTitle:
+            Text('Заказать справку', style: appHeaderNestedTitleStyle),
       ),
       body: SafeArea(
         child: SingleChildScrollView(

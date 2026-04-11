@@ -14,6 +14,8 @@ import '../../../schedule/data/schedule_lesson.dart';
 import '../../../schedule/domain/schedule_calendar_filter.dart';
 import '../../../schedule/presentation/widgets/schedule_lesson_tile.dart';
 import '../../../../core/di/app_container.dart';
+import '../../../../core/utils/parent_child_name.dart';
+import '../../../../data/api/schedule_api.dart';
 import '../../../../core/navigation/home_refresh_host.dart';
 import '../../../../data/models/group_model.dart';
 import '../../../../data/models/one_c_my_profile.dart';
@@ -29,11 +31,14 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   static const Duration _silentScheduleMinInterval = Duration(minutes: 8);
+  /// Обновление карточек «текущая пара» при смене времени без перезапуска приложения.
+  static const Duration _scheduleClockTick = Duration(seconds: 30);
   static const double _uiScaleBoost = 1.2;
 
   late _BannerData _banner;
   List<ScheduleLesson> _todayLessons = const <ScheduleLesson>[];
   DateTime? _lastSilentScheduleRefreshAt;
+  Timer? _clockTick;
 
   @override
   void initState() {
@@ -45,6 +50,10 @@ class _HomePageState extends State<HomePage> {
       _hydrateTodayFromCache();
       unawaited(_refreshTodayScheduleSilent(force: force));
     });
+    _clockTick = Timer.periodic(_scheduleClockTick, (_) {
+      if (!mounted) return;
+      setState(() {});
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) setState(() => _banner = _readBannerData());
       unawaited(_refreshTodayScheduleSilent(force: false));
@@ -53,6 +62,7 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void dispose() {
+    _clockTick?.cancel();
     HomeRefreshHost.clear();
     super.dispose();
   }
@@ -137,7 +147,11 @@ class _HomePageState extends State<HomePage> {
     }
 
     if (!force) {
-      final cached = _mapCacheToLessons(AppContainer.jsonCache.getJsonList('schedule:week:v2'));
+      final cached = _mapCacheToLessons(
+        AppContainer.jsonCache.getJsonList(
+          ScheduleApi.weekCalendarCacheKey(DateTime.now()),
+        ),
+      );
       final hasWeek = cached.isNotEmpty;
       final last = _lastSilentScheduleRefreshAt;
       if (hasWeek &&
@@ -150,7 +164,7 @@ class _HomePageState extends State<HomePage> {
       final fresh = await AppContainer.scheduleApi
           .getWeekForCalendar(DateTime.now(), forceRefresh: force);
       await AppContainer.jsonCache.setJson(
-        'schedule:week:v2',
+        ScheduleApi.weekCalendarCacheKey(DateTime.now()),
         [for (final l in fresh) l.toJsonMap()],
       );
       final shown = filterScheduleForCalendarToday(fresh);
@@ -503,10 +517,15 @@ class _HomePageState extends State<HomePage> {
     final dateNow = DateTime.now();
     final summary = _buildTodaySummary(dateNow);
     final isParent = (_banner.me?.role ?? '').trim().toLowerCase() == 'parent';
-    final studentName = _banner.studentFullName ?? _banner.me?.fullName;
     final displayName = isParent
-        ? _displayName(_toGenitiveForParent(studentName))
+        ? (ParentChildName.twoWordGenitiveLabel() ?? '…')
         : _displayName(_banner.me?.fullName);
+    final String? parentForSummary = isParent
+        ? () {
+            final s = ParentChildName.twoWordGenitiveLabel()?.trim();
+            return (s == null || s.isEmpty) ? null : s;
+          }()
+        : null;
 
     final groupParsed = _parseGroupForHome(_banner.groupLabel);
 
@@ -547,7 +566,10 @@ class _HomePageState extends State<HomePage> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (isParent) ...[
-                  _roleChip(sf: sf, text: 'Родитель'),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: _roleChip(sf: sf, text: 'Родитель'),
+                  ),
                   SizedBox(height: 10 * sf),
                 ],
                 Text(
@@ -561,7 +583,12 @@ class _HomePageState extends State<HomePage> {
                 ),
                 SizedBox(height: 6 * sf),
                 Text(
-                  isParent ? _buildTodaySummary(dateNow, parentStudent: displayName) : summary,
+                  isParent
+                      ? _buildTodaySummary(
+                          dateNow,
+                          parentStudent: parentForSummary,
+                        )
+                      : summary,
                   style: AppTextStyle.inter(
                     fontWeight: FontWeight.w400,
                     fontSize: 10.24 * sf,
@@ -634,21 +661,23 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _roleChip({required double sf, required String text}) {
-    return Container(
-      height: 22 * sf,
-      padding: EdgeInsets.symmetric(horizontal: 15 * sf),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12 * sf),
-      ),
-      alignment: Alignment.center,
-      child: Text(
-        text,
-        style: AppTextStyle.inter(
-          fontWeight: FontWeight.w700,
-          fontSize: 12 * sf,
-          height: 1.0,
-          color: const Color(0xFF2563EB),
+    return IntrinsicWidth(
+      child: Container(
+        height: 22 * sf,
+        padding: const EdgeInsets.symmetric(horizontal: 15),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12 * sf),
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          text,
+          style: AppTextStyle.inter(
+            fontWeight: FontWeight.w700,
+            fontSize: 12 * sf,
+            height: 1.0,
+            color: const Color(0xFF2563EB),
+          ),
         ),
       ),
     );
@@ -1058,7 +1087,8 @@ class _HomePageState extends State<HomePage> {
     final now = DateTime.now();
     final start = DateTime(now.year, now.month, now.day, range.$1.$1, range.$1.$2);
     final end = DateTime(now.year, now.month, now.day, range.$2.$1, range.$2.$2);
-    return now.isAfter(start) && now.isBefore(end);
+    // Интервал [start, end): на границе начала пары (например ровно 14:00) тоже «идёт».
+    return !now.isBefore(start) && now.isBefore(end);
   }
 
   ((int, int), (int, int))? _parseTimeRange(String raw) {
@@ -1096,42 +1126,6 @@ class _HomePageState extends State<HomePage> {
       return 'Сегодня $weekday, $day $month. У $parentStudent запланировано $count пар. Первая начнется в $firstTime.';
     }
     return 'Сегодня $weekday, $day $month. У вас запланировано $count пар. Первая начнется в $firstTime.';
-  }
-
-  String _toGenitiveForParent(String? fullName) {
-    final s = (fullName ?? '').trim();
-    if (s.isEmpty) return '';
-    final parts = s.split(RegExp(r'\s+')).where((e) => e.trim().isNotEmpty).toList();
-    if (parts.isEmpty) return s;
-    final last = parts[0];
-    final first = parts.length > 1 ? parts[1] : '';
-    final lastGen = _lastNameToGenitive(last);
-    return [lastGen, first].where((x) => x.trim().isNotEmpty).join(' ');
-  }
-
-  String _lastNameToGenitive(String lastName) {
-    final src = lastName.trim();
-    if (src.isEmpty) return src;
-    final lower = src.toLowerCase();
-    String out;
-    if (lower.endsWith('ев') || lower.endsWith('ёв') || lower.endsWith('ов') || lower.endsWith('ин')) {
-      out = '$srcа';
-    } else if (lower.endsWith('ий')) {
-      out = '${src.substring(0, src.length - 2)}ия';
-    } else if (lower.endsWith('ый') || lower.endsWith('ой')) {
-      out = '${src.substring(0, src.length - 2)}ого';
-    } else if (lower.endsWith('а')) {
-      out = '${src.substring(0, src.length - 1)}ы';
-    } else if (lower.endsWith('я')) {
-      out = '${src.substring(0, src.length - 1)}и';
-    } else {
-      out = '$srcа';
-    }
-    // Preserve original casing similar to other UI ("Ягияев" => "Ягияева").
-    final cap = _capWord(out);
-    // If original was uppercase, keep uppercase.
-    final isUpper = src == src.toUpperCase();
-    return isUpper ? cap.toUpperCase() : cap;
   }
 
   String _ruWeekday(int weekday) {

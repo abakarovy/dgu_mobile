@@ -5,6 +5,7 @@ import 'dart:math' show min;
 import 'package:dgu_mobile/core/constants/api_constants.dart';
 import 'package:dgu_mobile/core/constants/app_constants.dart';
 import 'package:dgu_mobile/core/di/app_container.dart';
+import 'package:dgu_mobile/core/utils/parent_child_name.dart';
 import 'package:dgu_mobile/core/theme/app_text_styles.dart';
 import 'package:dgu_mobile/data/api/api_exception.dart';
 import 'package:flutter/material.dart';
@@ -13,6 +14,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../../data/api/grades_api.dart' show GradesBundle;
 import '../../../../data/models/one_c_my_profile.dart';
 import '../../../../data/models/student_ticket_model.dart';
 import '../../../../data/models/user_model.dart';
@@ -46,6 +48,7 @@ class _ProfilePageState extends State<ProfilePage> {
     _absenceHoursText = _readCachedAbsencesLabel();
     _applyPerformanceFromCache();
     _saved1cPhotoPath = _bestLocal1cPhotoPathSync();
+    _maybeHydrateParentTicketFromOneC();
     _loadAvatarPath();
     _refreshMeInBackground();
   }
@@ -90,13 +93,59 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   OneCMyProfile? _readCachedOneC() {
-    final cached = AppContainer.jsonCache.getJsonMap('1c:my-profile');
-    if (cached == null) return null;
     try {
-      return OneCMyProfile.fromJson(cached);
-    } catch (_) {
-      return null;
-    }
+      final cached = AppContainer.jsonCache.getJsonMap('1c:my-profile');
+      if (cached != null) return OneCMyProfile.fromJson(cached);
+      final me = _readCachedMe();
+      if ((me?.role ?? '').trim().toLowerCase() == 'parent') {
+        final sd = AppContainer.jsonCache.getJsonMap('parents:student-data');
+        final p1c = sd?['profile_1c'];
+        if (p1c is Map) {
+          return OneCMyProfile.fromJson(Map<String, dynamic>.from(p1c));
+        }
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  void _maybeHydrateParentTicketFromOneC() {
+    if ((_me?.role ?? '').trim().toLowerCase() != 'parent') return;
+    if (_ticket != null) return;
+    final c = _oneC;
+    if (c == null) return;
+    setState(() {
+      _ticket = _studentTicketFromOneC(c);
+    });
+  }
+
+  static StudentTicketModel _studentTicketFromOneC(OneCMyProfile c) {
+    return StudentTicketModel(
+      fullName: c.fullName,
+      studentBookNumber: c.studentBookNumber,
+      birthDate: c.birthDate,
+      department: c.department,
+      studyGroup: c.group,
+      admissionYear: c.admissionYear,
+      studyForm: c.studyForm,
+      status: c.status,
+      course: c.course,
+    );
+  }
+
+  static int? _childStudentIdFromParentsPayload(Map<String, dynamic>? data) {
+    if (data == null) return null;
+    final st = data['student'];
+    if (st is! Map) return null;
+    final id = st['id'];
+    if (id is int) return id;
+    if (id is num) return id.toInt();
+    return null;
+  }
+
+  int? _syncChildStudentIdForParent() {
+    if ((_me?.role ?? '').trim().toLowerCase() != 'parent') return null;
+    final sd = AppContainer.jsonCache.getJsonMap('parents:student-data');
+    return _childStudentIdFromParentsPayload(sd);
   }
 
   /// Подпись пропусков с прогрева splash (`profile:absences-label`), до сетевого ответа.
@@ -109,11 +158,14 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> _refreshMeInBackground() async {
+    UserModel? me = _me ?? _readCachedMe();
+
     try {
       final fresh = await AppContainer.authApi
           .getMe()
           .timeout(ApiConstants.prefetchRequestTimeout);
       await AppContainer.jsonCache.setJson('auth:me', fresh.toJson());
+      me = fresh;
       if (mounted) {
         setState(() {
           _me = fresh;
@@ -121,41 +173,83 @@ class _ProfilePageState extends State<ProfilePage> {
       }
     } catch (_) {}
 
+    final isParent = (me?.role ?? '').trim().toLowerCase() == 'parent';
+    int? childId;
+    if (isParent) {
+      try {
+        final data = await AppContainer.accountApi
+            .getParentsStudentData()
+            .timeout(ApiConstants.prefetchRequestTimeout);
+        await AppContainer.jsonCache.setJson('parents:student-data', data);
+        childId = _childStudentIdFromParentsPayload(data);
+      } catch (_) {}
+      childId ??= _syncChildStudentIdForParent();
+    }
+
+    if (!isParent) {
+      try {
+        final t = await AppContainer.studentTicketApi
+            .getMyTicket()
+            .timeout(ApiConstants.prefetchRequestTimeout);
+        await AppContainer.jsonCache.setJson('mobile:student-ticket', t.toJsonMap());
+        if (mounted) {
+          setState(() {
+            _ticket = t;
+          });
+        }
+      } catch (_) {}
+    }
+
     try {
-      final t = await AppContainer.studentTicketApi
-          .getMyTicket()
-          .timeout(ApiConstants.prefetchRequestTimeout);
-      await AppContainer.jsonCache.setJson('mobile:student-ticket', t.toJsonMap());
-      if (mounted) {
-        setState(() {
-          _ticket = t;
-        });
+      if (isParent && childId != null) {
+        final p = await AppContainer.profile1cApi
+            .getMyProfile(studentId: childId)
+            .timeout(ApiConstants.prefetchRequestTimeout);
+        await AppContainer.jsonCache.setJson('1c:my-profile', p.toJsonMap());
+        if (mounted) {
+          setState(() {
+            _oneC = p;
+            _ticket = _ticket ?? _studentTicketFromOneC(p);
+          });
+        }
+      } else if (!isParent) {
+        final p = await AppContainer.profile1cApi
+            .getMyProfile()
+            .timeout(ApiConstants.prefetchRequestTimeout);
+        await AppContainer.jsonCache.setJson('1c:my-profile', p.toJsonMap());
+        if (mounted) {
+          setState(() {
+            _oneC = p;
+          });
+        }
       }
     } catch (_) {}
 
-    try {
-      final p = await AppContainer.profile1cApi
-          .getMyProfile()
-          .timeout(ApiConstants.prefetchRequestTimeout);
-      await AppContainer.jsonCache.setJson('1c:my-profile', p.toJsonMap());
-      if (mounted) {
-        setState(() {
-          _oneC = p;
-        });
-      }
-    } catch (_) {}
-
-    // Фото студента из 1С (бинарное). Используем только если пользователь не поставил своё.
     try {
       if ((_savedAvatarPath ?? '').trim().isEmpty) {
-        unawaited(_ensure1cPhotoCached(refreshIfCached: true));
+        unawaited(
+          _ensure1cPhotoCached(
+            refreshIfCached: true,
+            studentId: isParent ? childId : null,
+          ),
+        );
       }
     } catch (_) {}
 
     try {
-      final bundle = await AppContainer.gradesApi
-          .loadMyGrades()
-          .timeout(ApiConstants.prefetchRequestTimeout);
+      if (isParent && childId == null) {
+        // Нет привязки к ребёнку — не затираем кэш оценок пустым ответом.
+      } else {
+      final GradesBundle bundle;
+      if (isParent && childId != null) {
+        bundle = await AppContainer.gradesApi
+            .loadMyGrades(studentIdOverride: childId)
+            .timeout(ApiConstants.prefetchRequestTimeout);
+      } else {
+        bundle = await AppContainer.gradesApi
+            .loadMyGrades()
+            .timeout(ApiConstants.prefetchRequestTimeout);
+      }
       await AppContainer.jsonCache.setJson(
         'grades:my',
         [
@@ -174,12 +268,16 @@ class _ProfilePageState extends State<ProfilePage> {
       if (mounted) {
         setState(_applyPerformanceFromCache);
       }
+      }
     } catch (_) {}
 
     try {
       final sem = _currentSemesterLabel(_loadGradesFromCache());
       final abs = await AppContainer.profile1cApi
-          .getAbsencesDisplayLabel(currentSemester: sem)
+          .getAbsencesDisplayLabel(
+            currentSemester: sem,
+            studentId: isParent ? childId : null,
+          )
           .timeout(ApiConstants.prefetchRequestTimeout);
       if (abs != null) {
         await AppContainer.jsonCache.setJson(
@@ -295,10 +393,18 @@ class _ProfilePageState extends State<ProfilePage> {
     });
 
     // Показываем кэш сразу, а обновление с бэка делаем в фоне.
-    unawaited(_ensure1cPhotoCached(refreshIfCached: true));
+    unawaited(
+      _ensure1cPhotoCached(
+        refreshIfCached: true,
+        studentId: _syncChildStudentIdForParent(),
+      ),
+    );
   }
 
-  Future<void> _ensure1cPhotoCached({required bool refreshIfCached}) async {
+  Future<void> _ensure1cPhotoCached({
+    required bool refreshIfCached,
+    int? studentId,
+  }) async {
     // If we already have a cached file on disk, don't refetch on every app restart.
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -318,7 +424,7 @@ class _ProfilePageState extends State<ProfilePage> {
     }
 
     final bytes = await AppContainer.profile1cApi
-        .getStudentPhotoBytes()
+        .getStudentPhotoBytes(studentId: studentId)
         .timeout(ApiConstants.prefetchRequestTimeout);
     if (bytes == null || bytes.isEmpty) return;
     final dirPath = AppContainer.appDocumentsDirPath ??
@@ -365,12 +471,27 @@ class _ProfilePageState extends State<ProfilePage> {
     return '—';
   }
 
+  String _profileHeroDisplayName(UserModel? me) {
+    if (me == null) return '—';
+    if ((me.role).trim().toLowerCase() == 'parent') {
+      final line = ParentChildName.settingsRoditelChildLine();
+      if (line != null && line.trim().isNotEmpty) return line.trim();
+    }
+    final n = (me.fullName).trim();
+    return n.isEmpty ? '—' : n;
+  }
+
   @override
   Widget build(BuildContext context) {
     final me = _me;
-    final fullName = (me?.fullName ?? '').trim();
-    final course = (me?.course?.toString() ?? '').trim();
-    final direction = (me?.direction ?? '').trim();
+    final fullName = _profileHeroDisplayName(me);
+    final isParentProfile = (me?.role ?? '').trim().toLowerCase() == 'parent';
+    final course = isParentProfile
+        ? (_oneC?.course != null ? _oneC!.course.toString().trim() : '')
+        : (me?.course?.toString() ?? '').trim();
+    final direction = isParentProfile
+        ? (_oneC?.direction ?? '').trim()
+        : (me?.direction ?? '').trim();
     final formFull = _educationFormFull(me);
     final ticketNo = _displayTicketNumber(me);
     final absenceLabel = _absenceHoursText ?? '—';

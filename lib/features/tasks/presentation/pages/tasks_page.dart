@@ -3,7 +3,6 @@ import 'package:dgu_mobile/core/constants/app_ui.dart';
 import 'package:dgu_mobile/core/di/app_container.dart';
 import 'package:dgu_mobile/core/theme/app_text_styles.dart';
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../../data/models/assignment_model.dart';
 import '../../../../shared/widgets/app_header.dart';
@@ -99,27 +98,9 @@ class _TasksPageState extends State<TasksPage> {
             child: Scaffold(
               backgroundColor: Colors.white,
               appBar: AppHeader(
-                leadingLeftPadding: 6,
-                leading: GestureDetector(
-                  onTap: () => context.pop(),
-                  behavior: HitTestBehavior.opaque,
-                  child: const Center(
-                    child: Icon(
-                      Icons.arrow_back_ios_new,
-                      size: 20,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                ),
-                headerTitle: Text(
-                  'Задания',
-                  style: AppTextStyle.inter(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 18,
-                    height: 24 / 18,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
+                leading: appHeaderNestedBackLeading(context),
+                headerTitle:
+                    Text('Задания', style: appHeaderNestedTitleStyle),
               ),
               body: RefreshIndicator(
                 onRefresh: _load,

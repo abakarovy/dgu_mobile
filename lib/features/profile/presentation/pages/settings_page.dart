@@ -2,10 +2,10 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:math' show min;
 
-import 'package:dgu_mobile/core/constants/app_colors.dart';
 import 'package:dgu_mobile/core/constants/app_constants.dart';
 import 'package:dgu_mobile/core/di/app_container.dart';
 import 'package:dgu_mobile/core/theme/app_text_styles.dart';
+import 'package:dgu_mobile/core/utils/parent_child_name.dart';
 import 'package:dgu_mobile/data/api/api_exception.dart';
 import 'package:dgu_mobile/data/models/notification_preferences_model.dart';
 import 'package:dgu_mobile/data/models/user_model.dart';
@@ -124,10 +124,21 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
+  String _settingsHeroName(UserModel? me) {
+    if (me == null) return '—';
+    final role = me.role.trim().toLowerCase();
+    if (role == 'parent') {
+      final line = ParentChildName.settingsRoditelChildLine();
+      if (line != null && line.trim().isNotEmpty) return line.trim();
+    }
+    final n = me.fullName.trim();
+    return n.isEmpty ? '—' : n;
+  }
+
   @override
   Widget build(BuildContext context) {
     final me = _me;
-    final fullName = (me?.fullName ?? '').trim();
+    final fullName = _settingsHeroName(me);
     final p = _prefs ??
         const NotificationPreferencesModel(
           pushNewGrades: true,
@@ -153,27 +164,8 @@ class _SettingsPageState extends State<SettingsPage> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppHeader(
-        leadingLeftPadding: 6,
-        leading: GestureDetector(
-          onTap: () => context.pop(),
-          behavior: HitTestBehavior.opaque,
-          child: const Center(
-            child: Icon(
-              Icons.arrow_back_ios_new,
-              size: 20,
-              color: AppColors.textPrimary,
-            ),
-          ),
-        ),
-        headerTitle: Text(
-          'Настройки',
-          style: AppTextStyle.inter(
-            fontWeight: FontWeight.w700,
-            fontSize: 18,
-            height: 24 / 18,
-            color: AppColors.textPrimary,
-          ),
-        ),
+        leading: appHeaderNestedBackLeading(context),
+        headerTitle: Text('Настройки', style: appHeaderNestedTitleStyle),
       ),
       body: SingleChildScrollView(
         padding: EdgeInsets.only(bottom: 32 * layoutScale),
@@ -635,6 +627,7 @@ class _FooterActionButton extends StatelessWidget {
           color: background,
         ),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Container(
               width: innerSize,
@@ -643,26 +636,29 @@ class _FooterActionButton extends StatelessWidget {
                 color: innerBoxColor,
                 borderRadius: BorderRadius.circular(innerRadius),
               ),
-              child: Center(
-                child: SvgPicture.asset(
-                  iconAsset,
-                  width: iconSize,
-                  height: iconSize,
-                ),
+              alignment: Alignment.center,
+              child: SvgPicture.asset(
+                iconAsset,
+                width: iconSize,
+                height: iconSize,
               ),
             ),
-            SizedBox(width: 14 * layoutScale),
+            SizedBox(width: 7 * layoutScale),
             Expanded(
               child: Text(
                 label,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
+                textHeightBehavior: const TextHeightBehavior(
+                  applyHeightToFirstAscent: false,
+                  applyHeightToLastDescent: false,
+                ),
                 style: AppTextStyle.inter(
                   fontWeight: FontWeight.w600,
-                  fontSize: 11 * layoutScale,
-                  height: 1.1,
+                  fontSize: 10 * layoutScale,
+                  height: 1.0,
                   color: labelColor,
-                ),
+                ).copyWith(leadingDistribution: TextLeadingDistribution.even),
               ),
             ),
           ],

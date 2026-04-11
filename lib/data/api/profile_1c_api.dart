@@ -30,11 +30,14 @@ class Profile1cApi {
     return null;
   }
 
-  Future<OneCMyProfile> getMyProfile() async {
+  /// [studentId] — для роли `parent`: ID ребёнка (см. `GET /api/1c/my-profile?student_id=`).
+  Future<OneCMyProfile> getMyProfile({int? studentId}) async {
     try {
+      final qp = <String, dynamic>{'mobile': 'true'};
+      if (studentId != null) qp['student_id'] = studentId;
       final res = await _api.dio.get<dynamic>(
         ApiConstants.oneCMyProfilePath,
-        queryParameters: const {'mobile': 'true'},
+        queryParameters: qp,
         options: Options(
           validateStatus: (s) => s != null && s < 500,
           receiveTimeout: ApiConstants.scheduleReceiveTimeout,
@@ -97,8 +100,9 @@ class Profile1cApi {
   }
 
   /// Учебный план: `GET /api/1c/curriculum?student_id=` (см. руководство мобильного клиента).
-  Future<Object?> getCurriculum() async {
-    final sid = await _studentIdFromToken();
+  /// [studentId] — для родителя: ID ребёнка; иначе берётся из токена.
+  Future<Object?> getCurriculum({int? studentId}) async {
+    final sid = studentId ?? await _studentIdFromToken();
     if (sid == null) return null;
     try {
       final res = await _api.dio.get<dynamic>(
@@ -123,8 +127,9 @@ class Profile1cApi {
     String? currentSemester,
     String? start,
     String? end,
+    int? studentId,
   }) async {
-    final sid = await _studentIdFromToken();
+    final sid = studentId ?? await _studentIdFromToken();
     if (sid == null) return null;
     try {
       final qp = <String, dynamic>{'student_id': sid};
@@ -152,8 +157,8 @@ class Profile1cApi {
   }
 
   /// Полный ответ пропусков: семестры и опционально список записей.
-  Future<AbsencesDetail?> getAbsencesDetail() async {
-    final sid = await _studentIdFromToken();
+  Future<AbsencesDetail?> getAbsencesDetail({int? studentId}) async {
+    final sid = studentId ?? await _studentIdFromToken();
     if (sid == null) return null;
     try {
       final res = await _api.dio.get<dynamic>(

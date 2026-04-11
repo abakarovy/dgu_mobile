@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_ui.dart';
@@ -90,21 +89,11 @@ class _NotificationsPageState extends State<NotificationsPage> {
         );
 
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppHeader(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 20),
-          onPressed: () => context.pop(),
-          color: AppColors.textPrimary,
-        ),
-        headerTitle: Text(
-          'Уведомления',
-          style: AppTextStyle.inter(
-            fontWeight: FontWeight.w700,
-            fontSize: 18,
-            height: 24 / 18,
-            color: AppColors.textPrimary,
-          ),
-        ),
+        leading: appHeaderNestedBackLeading(context),
+        headerTitle:
+            Text('Уведомления', style: appHeaderNestedTitleStyle),
       ),
       body: RefreshIndicator(
         onRefresh: _load,

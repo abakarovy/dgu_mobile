@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:dgu_mobile/core/constants/app_colors.dart';
 import 'package:dgu_mobile/core/constants/app_ui.dart';
 import 'package:dgu_mobile/core/di/app_container.dart';
+import 'package:dgu_mobile/core/utils/parent_child_name.dart';
 import 'package:dgu_mobile/core/platform/native_date_range_picker.dart';
 import 'package:dgu_mobile/core/theme/app_text_styles.dart';
 import 'package:dgu_mobile/data/models/absences_detail.dart';
@@ -11,7 +12,6 @@ import 'package:dgu_mobile/features/grades/presentation/widgets/grade_item_tile.
 import 'package:dgu_mobile/features/grades/presentation/widgets/grades_list_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../../shared/widgets/app_header.dart';
 
@@ -65,7 +65,12 @@ class _AbsencesPageState extends State<AbsencesPage> with SingleTickerProviderSt
   /// Подтянуть журнал и обновить `grades:my` (как в prefetch), иначе список пустой.
   Future<void> _refreshGradesCache() async {
     try {
-      final bundle = await AppContainer.gradesApi.loadMyGrades();
+      int? sid;
+      if (ParentChildName.isParentRole()) {
+        sid = await ParentChildName.ensureChildStudentIdLoaded();
+        if (sid == null) return;
+      }
+      final bundle = await AppContainer.gradesApi.loadMyGrades(studentIdOverride: sid);
       await AppContainer.jsonCache.setJson(
         _cacheKeyGrades,
         [
@@ -260,7 +265,20 @@ class _AbsencesPageState extends State<AbsencesPage> with SingleTickerProviderSt
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
-      final d = await AppContainer.profile1cApi.getAbsencesDetail();
+      int? sid;
+      if (ParentChildName.isParentRole()) {
+        sid = await ParentChildName.ensureChildStudentIdLoaded();
+        if (sid == null) {
+          if (mounted) {
+            setState(() {
+              _detail = const AbsencesDetail(semesters: []);
+              _clampIndices();
+            });
+          }
+          return;
+        }
+      }
+      final d = await AppContainer.profile1cApi.getAbsencesDetail(studentId: sid);
       if (mounted) {
         setState(() {
           _detail = d ?? const AbsencesDetail(semesters: []);
@@ -421,27 +439,8 @@ class _AbsencesPageState extends State<AbsencesPage> with SingleTickerProviderSt
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppHeader(
-        leadingLeftPadding: 6,
-        leading: GestureDetector(
-          onTap: () => context.pop(),
-          behavior: HitTestBehavior.opaque,
-          child: const Center(
-            child: Icon(
-              Icons.arrow_back_ios_new,
-              size: 20,
-              color: AppColors.textPrimary,
-            ),
-          ),
-        ),
-        headerTitle: Text(
-          'Пропуски',
-          style: AppTextStyle.inter(
-            fontWeight: FontWeight.w700,
-            fontSize: 18,
-            height: 24 / 18,
-            color: AppColors.textPrimary,
-          ),
-        ),
+        leading: appHeaderNestedBackLeading(context),
+        headerTitle: Text('Пропуски', style: appHeaderNestedTitleStyle),
       ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

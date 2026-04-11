@@ -1,7 +1,32 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_ui.dart';
+import '../../core/theme/app_text_styles.dart';
+
+/// Кнопка «назад» для вложенных экранов — тот же вид, что на «Настройки».
+Widget appHeaderNestedBackLeading(BuildContext context) {
+  return GestureDetector(
+    onTap: () => Navigator.of(context).maybePop(),
+    behavior: HitTestBehavior.opaque,
+    child: const Center(
+      child: Icon(
+        Icons.arrow_back_ios_new,
+        size: 20,
+        color: AppColors.textPrimary,
+      ),
+    ),
+  );
+}
+
+/// Стиль заголовка [AppHeader] для вложенных экранов (как «Настройки»).
+TextStyle get appHeaderNestedTitleStyle => AppTextStyle.inter(
+      fontWeight: FontWeight.w700,
+      fontSize: 18,
+      height: 24 / 18,
+      color: AppColors.textPrimary,
+    );
 
 class AppHeader extends StatelessWidget implements PreferredSizeWidget {
   const AppHeader({
@@ -9,8 +34,6 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
     this.onPressed,
     required this.headerTitle,
     this.leading,
-    /// Отступ слева до [leading]. По умолчанию [AppUi.appBarPaddingH].
-    this.leadingLeftPadding,
     this.showNotificationIcon = false,
     this.actions,
   });
@@ -19,7 +42,6 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
   final Widget headerTitle;
   /// Если задан, показывается слева (например, стрелка назад). Иконка уведомлений при этом в правой части по [showNotificationIcon].
   final Widget? leading;
-  final double? leadingLeftPadding;
   /// Показывать ли иконку уведомления справа в AppBar.
   final bool showNotificationIcon;
   final List<Widget>? actions;
@@ -27,20 +49,14 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) {
     final hasLeading = leading != null;
-    final leadPad = leadingLeftPadding ?? AppUi.appBarPaddingH;
     return AppBar(
       automaticallyImplyLeading: false,
       backgroundColor: Colors.white,
       elevation: 0,
       scrolledUnderElevation: 0,
       surfaceTintColor: Colors.transparent,
-      leading: hasLeading
-          ? Padding(
-              padding: EdgeInsets.only(left: leadPad),
-              child: leading,
-            )
-          : null,
-      leadingWidth: hasLeading ? leadPad + 56 : null,
+      leading: hasLeading ? leading : null,
+      leadingWidth: hasLeading ? kToolbarHeight : null,
       titleSpacing: 0,
       title: Padding(
         padding: EdgeInsets.only(

@@ -6,8 +6,15 @@ import '../../core/constants/api_constants.dart';
 import 'api_client.dart';
 import 'api_error_parser.dart';
 import 'api_exception.dart';
+import 'auth_api_outcomes.dart';
 import '../models/user_model.dart';
 import '../services/token_storage.dart';
+
+int? _readOtpSeconds(dynamic v) {
+  if (v is int) return v;
+  if (v is num) return v.toInt();
+  return int.tryParse('$v'.trim());
+}
 
 class StudentVerify1cResult {
   const StudentVerify1cResult({this.registrationToken});
@@ -61,24 +68,61 @@ class AuthApi {
     }
   }
 
-  /// POST /api/auth/login — username (email или номер зачётки), password.
-  /// Токен и пользователь приходят в заголовках Authorization, X-User-Data.
-  Future<UserModel> login({required String username, required String password}) async {
+  /// POST /api/auth/login — form: username, password; при OTP — второй запрос с `otp_code`.
+  /// Ответ `200` + `requires_otp: true` — без JWT; иначе токен в заголовках (§5.3).
+  Future<AuthApiLoginOutcome> login({
+    required String username,
+    required String password,
+    String? otpCode,
+  }) async {
     try {
       final response = await _api.dio.post<dynamic>(
         ApiConstants.authLoginPath,
-        data: <String, String>{'username': username, 'password': password},
+        data: <String, String>{
+          'username': username.trim(),
+          'password': password,
+          if (otpCode != null && otpCode.trim().isNotEmpty) 'otp_code': otpCode.trim(),
+        },
         options: Options(
           contentType: Headers.formUrlEncodedContentType,
           validateStatus: (s) => s != null && s < 500,
         ),
       );
 
-      if (response.statusCode != 200) {
-        throw ApiException(ApiErrorParser.fromResponseData(response.data) ?? 'Ошибка', response.statusCode);
+      final code = response.statusCode ?? 0;
+      if (code == 429) {
+        throw ApiException(
+          ApiErrorParser.fromResponseData(response.data) ??
+              'Слишком частые запросы. Подождите немного.',
+          429,
+        );
+      }
+      if (code == 401 || code == 403) {
+        throw ApiException(
+          ApiErrorParser.fromResponseData(response.data) ?? 'Ошибка входа',
+          code,
+        );
+      }
+      if (code != 200) {
+        throw ApiException(
+          ApiErrorParser.fromResponseData(response.data) ?? 'Ошибка',
+          code,
+        );
       }
 
-      return _saveAuthFromHeadersOrFetchMe(response);
+      final body = response.data;
+      if (body is Map) {
+        final map = Map<String, dynamic>.from(body);
+        if (map['requires_otp'] == true) {
+          return AuthApiLoginOtpRequired(
+            message: (map['message'] ?? 'Введите код из письма.').toString(),
+            emailMasked: map['email_masked']?.toString(),
+            resendAfterSeconds: _readOtpSeconds(map['resend_after_seconds']) ?? 30,
+          );
+        }
+      }
+
+      return AuthApiLoginSuccess(await _saveAuthFromHeadersOrFetchMe(response));
     } on DioException catch (e) {
       throw ApiException.fromDio(e);
     }
@@ -117,13 +161,14 @@ class AuthApi {
     }
   }
 
-  /// POST /api/auth/student/register — регистрация студента (возвращает токен в заголовках).
-  Future<UserModel> registerStudent({
+  /// POST /api/auth/student/register — при OTP первый ответ `200` + `requires_otp`, второй `201` + JWT.
+  Future<AuthApiRegisterOutcome> registerStudent({
     required String fullName,
     required String studentBookNumber,
     required String email,
     required String password,
     String? registrationToken,
+    String? otpCode,
   }) async {
     try {
       final response = await _api.dio.post<dynamic>(
@@ -135,16 +180,49 @@ class AuthApi {
           'password': password,
           if (registrationToken != null && registrationToken.trim().isNotEmpty)
             'registration_token': registrationToken.trim(),
+          if (otpCode != null && otpCode.trim().isNotEmpty) 'otp_code': otpCode.trim(),
         },
         options: Options(validateStatus: (s) => s != null && s < 500),
       );
-      if (response.statusCode != 201) {
+
+      final code = response.statusCode ?? 0;
+      if (code == 429) {
         throw ApiException(
-          ApiErrorParser.fromResponseData(response.data) ?? 'Ошибка',
-          response.statusCode,
+          ApiErrorParser.fromResponseData(response.data) ??
+              'Слишком частые запросы. Подождите немного.',
+          429,
         );
       }
-      return _saveAuthFromHeadersOrFetchMe(response);
+      if (code == 401 || code == 403) {
+        throw ApiException(
+          ApiErrorParser.fromResponseData(response.data) ?? 'Ошибка',
+          code,
+        );
+      }
+      if (code == 200) {
+        final body = response.data;
+        if (body is Map) {
+          final map = Map<String, dynamic>.from(body);
+          if (map['requires_otp'] == true) {
+            return AuthApiRegisterOtpRequired(
+              message: (map['message'] ?? 'Введите код из письма.').toString(),
+              emailMasked: map['email_masked']?.toString(),
+              resendAfterSeconds: _readOtpSeconds(map['resend_after_seconds']) ?? 30,
+            );
+          }
+        }
+        throw ApiException(
+          ApiErrorParser.fromResponseData(response.data) ?? 'Ошибка регистрации',
+          200,
+        );
+      }
+      if (code == 201) {
+        return AuthApiRegisterSuccess(await _saveAuthFromHeadersOrFetchMe(response));
+      }
+      throw ApiException(
+        ApiErrorParser.fromResponseData(response.data) ?? 'Ошибка',
+        code,
+      );
     } on DioException catch (e) {
       throw ApiException.fromDio(e);
     }

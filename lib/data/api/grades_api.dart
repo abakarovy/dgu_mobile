@@ -38,6 +38,17 @@ class GradesApi {
     return null;
   }
 
+  Future<bool> _isParentRoleFromToken() async {
+    final raw = await _tokenStorage.getUserDataJson();
+    if (raw == null || raw.isEmpty) return false;
+    try {
+      final m = jsonDecode(raw) as Map<String, dynamic>;
+      return (m['role'] ?? '').toString().trim().toLowerCase() == 'parent';
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// Сначала `GET /api/1c/sync-grades` (руководство backend), иначе журнал.
   Future<List<GradeEntity>> getMyGrades() async {
     final b = await loadMyGrades();
@@ -45,8 +56,14 @@ class GradesApi {
   }
 
   /// Как [getMyGrades], но дополнительно отдаёт порядок семестров из тела `sync-grades`.
-  Future<GradesBundle> loadMyGrades() async {
-    final sid = await _studentIdFromToken();
+  ///
+  /// [studentIdOverride] — ID ребёнка для роли `parent` (иначе из токена — сам пользователь).
+  Future<GradesBundle> loadMyGrades({int? studentIdOverride}) async {
+    // Родитель без явного id ребёнка не должен бить 1С с `student_id` из JWT (id родителя → 400).
+    if (studentIdOverride == null && await _isParentRoleFromToken()) {
+      return const GradesBundle(grades: <GradeEntity>[], semesters: <String>[]);
+    }
+    final sid = studentIdOverride ?? await _studentIdFromToken();
     if (sid != null) {
       try {
         final res = await _api.dio.get<dynamic>(
@@ -70,6 +87,10 @@ class GradesApi {
       } on DioException {
         // fallback ниже
       }
+    }
+    if (studentIdOverride != null) {
+      // Родитель: журнал `grades/my` недоступен (403).
+      return const GradesBundle(grades: <GradeEntity>[], semesters: <String>[]);
     }
     final journal = await _getJournalGradesMy();
     return GradesBundle(

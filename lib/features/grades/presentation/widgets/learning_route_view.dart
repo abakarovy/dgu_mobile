@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:dgu_mobile/core/di/app_container.dart';
+import 'package:dgu_mobile/core/utils/parent_child_name.dart';
 import 'package:dgu_mobile/core/theme/app_text_styles.dart';
 import 'package:flutter/material.dart';
 
@@ -25,7 +26,15 @@ class _LearningRouteViewState extends State<LearningRouteView> {
     if (_loading) return;
     setState(() => _loading = true);
     try {
-      final raw = await AppContainer.profile1cApi.getCurriculum();
+      int? sid;
+      if (ParentChildName.isParentRole()) {
+        sid = await ParentChildName.ensureChildStudentIdLoaded();
+        if (sid == null) {
+          if (mounted) setState(() => _loading = false);
+          return;
+        }
+      }
+      final raw = await AppContainer.profile1cApi.getCurriculum(studentId: sid);
       if (raw == null) {
         if (mounted) setState(() => _loading = false);
         return;

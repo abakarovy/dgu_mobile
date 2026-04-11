@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../core/constants/api_constants.dart';
@@ -172,26 +171,30 @@ class _StudentIdPageState extends State<StudentIdPage> {
   }
 
   Future<void> _loadMeAsync() async {
+    UserModel? me = _me;
     try {
       final fresh = await AppContainer.authApi
           .getMe()
           .timeout(ApiConstants.prefetchRequestTimeout);
       await AppContainer.jsonCache.setJson('auth:me', fresh.toJson());
+      me = fresh;
       if (mounted) setState(() => _me = fresh);
     } catch (_) {
       // остаётся кэш или пусто
     }
-    try {
-      final t = await AppContainer.studentTicketApi
-          .getMyTicket()
-          .timeout(ApiConstants.prefetchRequestTimeout);
-      await AppContainer.jsonCache.setJson('mobile:student-ticket', t.toJsonMap());
-      if (mounted) setState(() => _ticket = t);
-    } catch (_) {
-      // остаётся кэш или пусто
-    } finally {
-      if (mounted) setState(() => _meLoading = false);
+    final isParent = (me?.role ?? '').trim().toLowerCase() == 'parent';
+    if (!isParent) {
+      try {
+        final t = await AppContainer.studentTicketApi
+            .getMyTicket()
+            .timeout(ApiConstants.prefetchRequestTimeout);
+        await AppContainer.jsonCache.setJson('mobile:student-ticket', t.toJsonMap());
+        if (mounted) setState(() => _ticket = t);
+      } catch (_) {
+        // остаётся кэш или пусто
+      }
     }
+    if (mounted) setState(() => _meLoading = false);
   }
 
   @override
@@ -322,28 +325,12 @@ class _StudentIdPageState extends State<StudentIdPage> {
       child: Scaffold(
         backgroundColor: Colors.white,
         appBar: AppHeader(
-        leadingLeftPadding: 6,
-        leading: GestureDetector(
-          onTap: () => context.pop(),
-          behavior: HitTestBehavior.opaque,
-          child: const Center(
-            child: Icon(
-              Icons.arrow_back_ios_new,
-              size: 20,
-              color: AppColors.textPrimary,
-            ),
+          leading: appHeaderNestedBackLeading(context),
+          headerTitle: Text(
+            'Студенческий билет',
+            style: appHeaderNestedTitleStyle,
           ),
         ),
-        headerTitle: Text(
-          'Студенческий билет',
-          style: AppTextStyle.inter(
-            fontWeight: FontWeight.w700,
-            fontSize: 18,
-            height: 24 / 18,
-            color: AppColors.textPrimary,
-          ),
-        ),
-      ),
       body: Stack(
         fit: StackFit.expand,
         children: [

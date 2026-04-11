@@ -83,7 +83,11 @@ List<ScheduleLesson> lessonsForSelectedCalendarDay(
 List<ScheduleLesson> _fallbackWeekdayOnly(List<ScheduleLesson> all, int todayIdx) {
   final filtered = all.where((e) => e.weekdayIndex == todayIdx).toList();
   if (filtered.isNotEmpty) return _sortedByPair(filtered);
-  if (all.isNotEmpty && all.every((e) => e.weekdayIndex == null)) {
+  // Раньше при полном отсутствии weekdayIndex отдавали весь список — на воскресенье без пар
+  // это показывало «все пары недели». Оставляем запасной путь только для коротких ответов без индексов.
+  if (all.isNotEmpty &&
+      all.length <= 24 &&
+      all.every((e) => e.weekdayIndex == null)) {
     return _sortedByPair(all.toList());
   }
   return filtered;

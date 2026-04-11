@@ -7,7 +7,7 @@ import '../../data/api/account_api.dart';
 import '../../data/api/documents_api.dart';
 import '../../data/api/assignments_api.dart';
 import '../../data/api/events_api.dart';
-import '../../data/api/grades_api.dart';
+import '../../data/api/grades_api.dart' show GradesApi, GradesBundle;
 import '../../data/api/groups_api.dart';
 import '../../data/api/mobile_help_api.dart';
 import '../../data/api/news_api.dart';
@@ -204,6 +204,12 @@ abstract final class AppContainer {
     final meOk = await _timedPrefetch(t, _prefetchMe);
     if (!meOk) return false;
 
+    final me = jsonCache.getJsonMap('auth:me');
+    final role = (me?['role'] ?? '').toString().trim().toLowerCase();
+    if (role == 'parent') {
+      return _prefetchAllParent(t);
+    }
+
     final results = await Future.wait<bool>([
       _timedPrefetch(t, _prefetchGroup),
       _timedPrefetch(t, _prefetchGrades),
@@ -221,6 +227,58 @@ abstract final class AppContainer {
     await _timedPrefetch(
       ApiConstants.scheduleReceiveTimeout,
       _prefetchCurriculum,
+    );
+    return results.every((ok) => ok);
+  }
+
+  /// Родитель: сначала `GET /api/parents/student-data`, затем 1С с `student_id` ребёнка
+  /// (иначе бэк отвечает 400 «Родитель должен указать student_id»).
+  static Future<bool> _prefetchAllParent(Duration t) async {
+    Map<String, dynamic>? parentPayload;
+    try {
+      parentPayload = await accountApi.getParentsStudentData().timeout(t);
+      await jsonCache.setJson('parents:student-data', parentPayload);
+    } catch (_) {
+      return false;
+    }
+
+    int? childId;
+    final st = parentPayload['student'];
+    if (st is Map) {
+      final id = st['id'];
+      if (id is int) {
+        childId = id;
+      } else if (id is num) {
+        childId = id.toInt();
+      }
+    }
+
+    if (childId == null) {
+      final results = await Future.wait<bool>([
+        _timedPrefetch(t, _prefetchGroup),
+        _timedPrefetch(t, _prefetchNews),
+        _timedPrefetch(t, _prefetchEvents),
+        _timedPrefetch(t, _prefetchHelp),
+        _timedPrefetch(t, _prefetchNotificationPreferences),
+      ]);
+      return results.every((ok) => ok);
+    }
+
+    final cid = childId;
+    final results = await Future.wait<bool>([
+      _timedPrefetch(t, _prefetchGroup),
+      _timedPrefetch(t, () => _prefetchGradesForStudent(cid)),
+      _timedPrefetch(t, _prefetchNews),
+      _timedPrefetch(t, _prefetchEvents),
+      _timedPrefetch(t, _prefetchHelp),
+      _timedPrefetch(t, _prefetchNotificationPreferences),
+      _timedPrefetch(ApiConstants.scheduleReceiveTimeout, () => _prefetchOneCProfileForStudent(cid)),
+      _timedPrefetch(ApiConstants.prefetchScheduleTimeout, () => _prefetchScheduleCachesForStudent(cid)),
+    ]);
+    await _timedPrefetch(t, () => _prefetchProfileAbsencesLabelForStudent(cid));
+    await _timedPrefetch(
+      ApiConstants.scheduleReceiveTimeout,
+      () => _prefetchCurriculumForStudent(cid),
     );
     return results.every((ok) => ok);
   }
@@ -260,6 +318,15 @@ abstract final class AppContainer {
 
   static Future<void> _prefetchGrades() async {
     final bundle = await gradesApi.loadMyGrades();
+    await _cacheGradesBundle(bundle);
+  }
+
+  static Future<void> _prefetchGradesForStudent(int studentId) async {
+    final bundle = await gradesApi.loadMyGrades(studentIdOverride: studentId);
+    await _cacheGradesBundle(bundle);
+  }
+
+  static Future<void> _cacheGradesBundle(GradesBundle bundle) async {
     await jsonCache.setJson(
       'grades:my',
       [
@@ -331,11 +398,32 @@ abstract final class AppContainer {
     await jsonCache.setJson('1c:my-profile', p.toJsonMap());
   }
 
+  static Future<void> _prefetchOneCProfileForStudent(int studentId) async {
+    final p = await profile1cApi.getMyProfile(studentId: studentId);
+    await jsonCache.setJson('1c:my-profile', p.toJsonMap());
+  }
+
   /// Неделя (7 запросов по дням) + срез «сегодня» для главной.
   static Future<void> _prefetchScheduleCaches() async {
     final week = await scheduleApi.getWeekForCalendar(DateTime.now());
     await jsonCache.setJson(
-      'schedule:week:v2',
+      ScheduleApi.weekCalendarCacheKey(DateTime.now()),
+      [for (final l in week) l.toJsonMap()],
+    );
+    final today = filterScheduleForCalendarToday(week);
+    await jsonCache.setJson(
+      'schedule:today',
+      [for (final l in today) l.toJsonMap()],
+    );
+  }
+
+  static Future<void> _prefetchScheduleCachesForStudent(int studentId) async {
+    final week = await scheduleApi.getWeekForCalendar(
+      DateTime.now(),
+      studentId: studentId,
+    );
+    await jsonCache.setJson(
+      ScheduleApi.weekCalendarCacheKey(DateTime.now()),
       [for (final l in week) l.toJsonMap()],
     );
     final today = filterScheduleForCalendarToday(week);
@@ -361,12 +449,36 @@ abstract final class AppContainer {
     }
   }
 
+  static Future<void> _prefetchCurriculumForStudent(int studentId) async {
+    final raw = await profile1cApi.getCurriculum(studentId: studentId);
+    if (raw == null) return;
+    if (raw is List) {
+      await jsonCache.setJson(curriculumCacheKey, raw);
+    } else if (raw is Map) {
+      await jsonCache.setJson(
+        curriculumCacheKey,
+        Map<String, dynamic>.from(raw),
+      );
+    }
+  }
+
   /// Кэш подписи «N пропусков» для профиля (как `news:list`).
   static const String profileAbsencesLabelCacheKey = 'profile:absences-label';
 
   static Future<void> _prefetchProfileAbsencesLabel() async {
     final sem = _semesterLabelFromGradesCache(jsonCache.getJsonList('grades:my'));
     final label = await profile1cApi.getAbsencesDisplayLabel(currentSemester: sem);
+    if (label != null) {
+      await jsonCache.setJson(profileAbsencesLabelCacheKey, {'label': label});
+    }
+  }
+
+  static Future<void> _prefetchProfileAbsencesLabelForStudent(int studentId) async {
+    final sem = _semesterLabelFromGradesCache(jsonCache.getJsonList('grades:my'));
+    final label = await profile1cApi.getAbsencesDisplayLabel(
+      currentSemester: sem,
+      studentId: studentId,
+    );
     if (label != null) {
       await jsonCache.setJson(profileAbsencesLabelCacheKey, {'label': label});
     }

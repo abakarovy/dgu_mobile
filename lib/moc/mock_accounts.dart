@@ -4,10 +4,17 @@ abstract final class MockAccounts {
   /// Единственный мок-пользователь: Али Ягияев (как в логах).
   static const int aliId = 28;
 
+  /// Родитель, привязанный к тому же студенту [aliId] (мок).
+  static const int parentId = 29;
+
   static const String aliEmail = 'ali.yagiyaev@yandex.ru';
   static const String aliPassword = 'Test1234';
 
+  static const String parentEmail = 'parent.mock@example.com';
+  static const String parentPassword = 'Test1234';
+
   static Map<String, dynamic> userJsonById(int id) {
+    if (id == parentId) return _parentUser;
     return _aliUser;
   }
 
@@ -26,6 +33,9 @@ abstract final class MockAccounts {
     final p = password;
     if (u == aliEmail.toLowerCase() && p == aliPassword) {
       return MockLoginResult(userJson: _aliUser, userId: aliId);
+    }
+    if (u == parentEmail.toLowerCase() && p == parentPassword) {
+      return MockLoginResult(userJson: _parentUser, userId: parentId);
     }
     return null;
   }
@@ -52,6 +62,23 @@ abstract final class MockAccounts {
     'is_active': true,
     'force_password_change': false,
     'created_at': '2026-03-30T15:37:15.799890',
+  };
+
+  static final Map<String, dynamic> _parentUser = {
+    'id': parentId,
+    'email': parentEmail,
+    'full_name': 'Родитель — Ягияев Али Тажутдинович',
+    'role': 'parent',
+    'student_book_number': null,
+    'parent_email': null,
+    'course': null,
+    'direction': null,
+    'group_id': null,
+    'department': null,
+    'bio': null,
+    'is_active': true,
+    'force_password_change': false,
+    'created_at': '2026-03-30T15:37:21.003677',
   };
 }
 

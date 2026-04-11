@@ -4,6 +4,7 @@ import 'package:dgu_mobile/core/constants/app_colors.dart';
 import 'package:dgu_mobile/core/platform/native_date_range_picker.dart';
 import 'package:dgu_mobile/core/theme/app_text_styles.dart';
 import 'package:dgu_mobile/core/di/app_container.dart';
+import 'package:dgu_mobile/core/utils/parent_child_name.dart';
 import 'package:flutter/material.dart';
 
 import '../models/session_grade_breakdown.dart';
@@ -525,7 +526,15 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
     if (_refreshing) return;
     setState(() => _refreshing = true);
     try {
-      final bundle = await AppContainer.gradesApi.loadMyGrades();
+      int? sid;
+      if (ParentChildName.isParentRole()) {
+        sid = await ParentChildName.ensureChildStudentIdLoaded();
+        if (sid == null) {
+          if (mounted) setState(() => _refreshing = false);
+          return;
+        }
+      }
+      final bundle = await AppContainer.gradesApi.loadMyGrades(studentIdOverride: sid);
       final cached = _decodeCachedGrades();
       final cachedSems = _decodeCachedSemesters();
       final fresh = bundle.grades;
