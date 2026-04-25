@@ -1,14 +1,17 @@
 import 'dart:async';
+import 'dart:convert' show jsonDecode, jsonEncode;
 import 'dart:io';
 import 'dart:math' show min;
 
 import 'package:dgu_mobile/core/constants/api_constants.dart';
+import 'package:dgu_mobile/core/constants/app_colors.dart';
 import 'package:dgu_mobile/core/constants/app_constants.dart';
 import 'package:dgu_mobile/core/di/app_container.dart';
 import 'package:dgu_mobile/core/utils/parent_child_name.dart';
 import 'package:dgu_mobile/core/theme/app_text_styles.dart';
 import 'package:dgu_mobile/data/api/api_exception.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:path_provider/path_provider.dart';
@@ -37,6 +40,10 @@ class _ProfilePageState extends State<ProfilePage> {
   OneCMyProfile? _oneC;
   /// Подпись пропусков с `GET /api/1c/absences` (после загрузки).
   String? _absenceHoursText;
+  /// Родитель принял приглашение (для бейджа на кнопке).
+  bool? _parentConnected;
+  /// Приглашение отправлено, ждём подтверждения на стороне родителя.
+  bool _parentPending = false;
   @override
   void initState() {
     super.initState();
@@ -67,6 +74,40 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   void dispose() {
     super.dispose();
+  }
+
+  void _applyParentStatus(Map<String, dynamic> s) {
+    final connected = s['linked'] == true;
+    final st = (s['link_status'] ?? '').toString().toLowerCase().trim();
+    final pending = !connected &&
+        (st == 'pending' ||
+            st == 'invited' ||
+            st == 'awaiting' ||
+            st == 'awaiting_parent' ||
+            s['invite_pending'] == true);
+    _parentConnected = connected;
+    _parentPending = pending;
+  }
+
+  Future<void> _hydrateParentStatusFromPrefs() async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      final raw = p.getString(AppConstants.profileLastParentStatusJsonKey);
+      if (raw == null || raw.isEmpty) return;
+      final m = jsonDecode(raw) as Map<String, dynamic>;
+      if (!mounted) return;
+      setState(() => _applyParentStatus(m));
+    } catch (_) {}
+  }
+
+  Future<void> _saveParentStatusToPrefs(Map<String, dynamic> s) async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      await p.setString(
+        AppConstants.profileLastParentStatusJsonKey,
+        jsonEncode(s),
+      );
+    } catch (_) {}
   }
 
   UserModel? _readCachedMe() {
@@ -219,6 +260,19 @@ class _ProfilePageState extends State<ProfilePage> {
             _oneC = p;
           });
         }
+      }
+    } catch (_) {}
+
+    try {
+      if ((me?.role ?? '').trim().toLowerCase() != 'parent') {
+        await _hydrateParentStatusFromPrefs();
+        final s = await AppContainer.accountApi
+            .getParentStatus()
+            .timeout(ApiConstants.prefetchRequestTimeout);
+        if (mounted) {
+          setState(() => _applyParentStatus(s));
+        }
+        await _saveParentStatusToPrefs(s);
       }
     } catch (_) {}
 
@@ -428,6 +482,28 @@ class _ProfilePageState extends State<ProfilePage> {
     return n.isEmpty ? '—' : n;
   }
 
+  void _showAppSnackBar(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).clearSnackBars();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        backgroundColor: AppColors.surfaceLight,
+        elevation: 3,
+        content: Text(
+          message,
+          style: AppTextStyle.inter(
+            fontWeight: FontWeight.w600,
+            fontSize: 14,
+            height: 1.3,
+            color: AppColors.textPrimary,
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final me = _me;
@@ -453,8 +529,13 @@ class _ProfilePageState extends State<ProfilePage> {
     final minProfileCardHeight = 100 * layoutScale;
     final hPad = 12 * layoutScale;
     final gapM = 16 * layoutScale;
-    // Единый вертикальный отступ между кнопками/карточками внизу профиля.
-    final actionGap = 6 * layoutScale;
+    // Две кнопки справа — как раньше по высоте (minProfileCardHeight), между ними 7 лог. px.
+    final ticketAbsenceH = minProfileCardHeight;
+    final stackGap = 7 * layoutScale;
+    final courseLeftHeight = ticketAbsenceH * 2 + stackGap;
+    // Отступы секции «Действия».
+    const actionsTitleFs = 11.63;
+    const actionsTitleHeight = 17.44;
 
     return ColoredBox(
       color: Colors.white,
@@ -469,56 +550,77 @@ class _ProfilePageState extends State<ProfilePage> {
             SizedBox(height: gapM),
             Padding(
               padding: EdgeInsets.symmetric(horizontal: hPad),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: minProfileCardHeight),
-                child: _courseCard(
-                  layoutScale: layoutScale,
-                  courseText: course.isEmpty ? '—' : '$course курс',
-                  directionText: direction.isEmpty ? '—' : direction,
-                  groupText: groupLine.isEmpty ? null : groupLine,
-                ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: _courseCard(
+                      layoutScale: layoutScale,
+                      courseText: course.isEmpty ? '—' : '$course курс',
+                      directionText: direction.isEmpty ? '—' : direction,
+                      groupText: groupLine.isEmpty ? null : groupLine,
+                      fixedHeight: courseLeftHeight,
+                    ),
+                  ),
+                  SizedBox(width: gapM),
+                  Expanded(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(
+                          height: ticketAbsenceH,
+                          width: double.infinity,
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () => context.push('/app/profile/student-id'),
+                            child: _studentTicketCard(
+                              layoutScale: layoutScale,
+                              ticketNumber: ticketNo,
+                              onCopy: () async {
+                                await Clipboard.setData(ClipboardData(text: ticketNo));
+                                if (!context.mounted) return;
+                                _showAppSnackBar(context, 'Номер скопирован');
+                              },
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: stackGap),
+                        SizedBox(
+                          height: ticketAbsenceH,
+                          width: double.infinity,
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () => context.push('/app/profile/absences'),
+                            child: _absencesCard(
+                              layoutScale: layoutScale,
+                              hoursLabel: absenceLabel,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
-            SizedBox(height: gapM),
+            SizedBox(height: 24 * layoutScale),
             Padding(
               padding: EdgeInsets.symmetric(horizontal: hPad),
-              child: IntrinsicHeight(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Expanded(
-                      child: ConstrainedBox(
-                        constraints: BoxConstraints(minHeight: minProfileCardHeight),
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: () => context.push('/app/profile/student-id'),
-                          child: _studentTicketCard(
-                            layoutScale: layoutScale,
-                            ticketNumber: ticketNo,
-                          ),
-                        ),
-                      ),
-                    ),
-                    SizedBox(width: gapM),
-                    Expanded(
-                      child: ConstrainedBox(
-                        constraints: BoxConstraints(minHeight: minProfileCardHeight),
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: () => context.push('/app/profile/absences'),
-                          child: _absencesCard(
-                            layoutScale: layoutScale,
-                            hoursLabel: absenceLabel,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Действия',
+                  textAlign: TextAlign.left,
+                  style: AppTextStyle.inter(
+                    fontWeight: FontWeight.w600,
+                    fontSize: actionsTitleFs * layoutScale,
+                    height: actionsTitleHeight / actionsTitleFs,
+                    color: const Color(0xFF000000),
+                  ),
                 ),
               ),
             ),
-            // Отступ как между верхними карточками.
-            SizedBox(height: gapM),
+            SizedBox(height: 12 * layoutScale),
             Padding(
               padding: EdgeInsets.symmetric(horizontal: hPad),
               child: Column(
@@ -528,351 +630,48 @@ class _ProfilePageState extends State<ProfilePage> {
                     GestureDetector(
                       behavior: HitTestBehavior.opaque,
                       onTap: () {
-                      final emailCtrl = TextEditingController();
-                      bool busy = false;
-                      String? errorText;
-                      Map<String, dynamic>? parentStatus;
-                      bool statusLoaded = false;
-                      bool statusLoading = false;
-                      showDialog<void>(
-                        context: context,
-                        barrierColor: Colors.black.withValues(alpha: 0.35),
-                        builder: (context) {
-                          return StatefulBuilder(
-                            builder: (context, setLocal) {
-                              final linked = (parentStatus?['linked'] == true);
-                              final masked =
-                                  (parentStatus?['parent_email_masked'] ?? '').toString().trim();
-                              final linkStatus =
-                                  (parentStatus?['link_status'] ?? '').toString().trim();
-                              final isActive = linkStatus.toLowerCase() == 'active';
-                              if (!statusLoaded && !statusLoading) {
-                                statusLoading = true;
-                                unawaited(() async {
-                                  try {
-                                    final s = await AppContainer.accountApi.getParentStatus();
-                                    if (context.mounted) {
-                                      setLocal(() {
-                                        parentStatus = s;
-                                        statusLoaded = true;
-                                        statusLoading = false;
-                                      });
-                                    }
-                                  } catch (_) {
-                                    if (context.mounted) {
-                                      setLocal(() {
-                                        statusLoaded = true;
-                                        statusLoading = false;
-                                      });
-                                    }
-                                  }
-                                }());
-                              }
-
-                              Future<void> submit() async {
-                                final parentEmail = emailCtrl.text.trim();
-                                if (busy) return;
-                                if (linked) {
-                                  setLocal(() {
-                                    errorText = masked.isNotEmpty
-                                        ? 'Родитель уже приглашён: $masked'
-                                        : 'Родитель уже приглашён';
-                                  });
-                                  return;
-                                }
-                                if (parentEmail.isEmpty) {
-                                  setLocal(() => errorText = 'Введите e-mail родителя');
-                                  return;
-                                }
-                                setLocal(() {
-                                  busy = true;
-                                  errorText = null;
-                                });
-                                try {
-                                  await AppContainer.accountApi.inviteParent(
-                                    parentEmail: parentEmail,
-                                  );
-                                  if (context.mounted) Navigator.of(context).pop();
-                                  if (mounted) {
-                                    ScaffoldMessenger.of(this.context).showSnackBar(
-                                      SnackBar(
-                                        content: Text('Приглашение отправили на $parentEmail'),
-                                      ),
-                                    );
-                                  }
-                                } catch (e) {
-                                  final msg = (e is ApiException && e.message.trim().isNotEmpty)
-                                      ? e.message.trim()
-                                      : 'Не удалось отправить приглашение';
-                                  setLocal(() => errorText = msg);
-                                } finally {
-                                  if (context.mounted) setLocal(() => busy = false);
-                                }
-                              }
-
-                              return Dialog(
-                                backgroundColor: Colors.transparent,
-                                elevation: 0,
-                                insetPadding: const EdgeInsets.symmetric(horizontal: 16),
-                                child: Container(
-                                  width: double.infinity,
-                                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                                    children: [
-                                      Text(
-                                        'Приглашение родителя',
-                                        style: AppTextStyle.inter(
-                                          fontWeight: FontWeight.w700,
-                                          fontSize: 18,
-                                          height: 24 / 18,
-                                          color: const Color(0xFF000000),
-                                        ),
-                                      ),
-                                      const SizedBox(height: 10),
-                                      Text(
-                                        'Укажите e-mail родителя — мы отправим письмо с приглашением и ссылкой для подключения.',
-                                        style: AppTextStyle.inter(
-                                          fontWeight: FontWeight.w700,
-                                          fontSize: 13,
-                                          height: 1.2,
-                                          color: const Color(0xFF000000),
-                                        ),
-                                      ),
-                                      if (statusLoading) ...[
-                                        const SizedBox(height: 10),
-                                        const LinearProgressIndicator(minHeight: 2),
-                                      ] else if (linked) ...[
-                                        const SizedBox(height: 10),
-                                        Text(
-                                          masked.isNotEmpty
-                                              ? 'Статус: ${linkStatus.isEmpty ? 'pending' : linkStatus}. Email: $masked'
-                                              : 'Статус: ${linkStatus.isEmpty ? 'pending' : linkStatus}',
-                                          style: AppTextStyle.inter(
-                                            fontWeight: FontWeight.w700,
-                                            fontSize: 11,
-                                            height: 1.2,
-                                            color: const Color(0xFF2E63D5),
-                                          ),
-                                        ),
-                                      ],
-                                      if (isActive) ...[
-                                        const SizedBox(height: 16),
-                                        SizedBox(
-                                          height: 35,
-                                          child: ElevatedButton(
-                                            onPressed: () => Navigator.of(context).pop(),
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor: const Color(0xFF2E63D5),
-                                              shape: RoundedRectangleBorder(
-                                                borderRadius: BorderRadius.circular(15),
-                                              ),
-                                              elevation: 0,
-                                            ),
-                                            child: Text(
-                                              'Закрыть',
-                                              style: AppTextStyle.inter(
-                                                fontWeight: FontWeight.w700,
-                                                fontSize: 13,
-                                                height: 1.0,
-                                                color: Colors.white,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ] else ...[
-                                        const SizedBox(height: 12),
-                                        SizedBox(
-                                          height: 44,
-                                          child: Container(
-                                            width: double.infinity,
-                                            padding:
-                                                const EdgeInsets.symmetric(horizontal: 12),
-                                            decoration: BoxDecoration(
-                                              color: Colors.transparent,
-                                              borderRadius: BorderRadius.circular(8),
-                                              border: Border.all(
-                                                color: (errorText == null)
-                                                    ? const Color(0xFF000000)
-                                                    : const Color(0xFFE11D48),
-                                                width: 1.5,
-                                              ),
-                                            ),
-                                            alignment: Alignment.centerLeft,
-                                            child: TextField(
-                                              controller: emailCtrl,
-                                              keyboardType: TextInputType.emailAddress,
-                                              textInputAction: TextInputAction.done,
-                                              onSubmitted: (_) => submit(),
-                                              maxLines: 1,
-                                              enabled: !busy && !linked,
-                                              decoration: const InputDecoration(
-                                                isDense: true,
-                                                contentPadding:
-                                                    EdgeInsets.symmetric(vertical: 14),
-                                                border: InputBorder.none,
-                                                hintText: 'parent@email.ru',
-                                              ),
-                                              style: AppTextStyle.inter(
-                                                fontWeight: FontWeight.w600,
-                                                fontSize: 12,
-                                                height: 1.0,
-                                                color: const Color(0xFF000000),
-                                              ),
-                                              onChanged: (_) {
-                                                if (errorText != null) {
-                                                  setLocal(() => errorText = null);
-                                                }
-                                              },
-                                            ),
-                                          ),
-                                        ),
-                                        if (errorText != null) ...[
-                                          const SizedBox(height: 6),
-                                          Text(
-                                            errorText!,
-                                            style: AppTextStyle.inter(
-                                              fontWeight: FontWeight.w600,
-                                              fontSize: 12,
-                                              height: 1.1,
-                                              color: const Color(0xFFE11D48),
-                                            ),
-                                          ),
-                                        ],
-                                        const SizedBox(height: 12),
-                                        Row(
-                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                          children: [
-                                            Expanded(
-                                              child: SizedBox(
-                                                height: 30,
-                                                child: GestureDetector(
-                                                  behavior: HitTestBehavior.opaque,
-                                                  onTap: busy ? null : submit,
-                                                  child: Container(
-                                                    decoration: BoxDecoration(
-                                                      color: busy
-                                                          ? const Color(0xFF2E63D5)
-                                                              .withValues(alpha: 0.4)
-                                                          : const Color(0xFF2E63D5),
-                                                      borderRadius:
-                                                          BorderRadius.circular(15),
-                                                    ),
-                                                    alignment: Alignment.center,
-                                                    child: busy
-                                                        ? const SizedBox(
-                                                            width: 16,
-                                                            height: 16,
-                                                            child:
-                                                                CircularProgressIndicator(
-                                                              strokeWidth: 2,
-                                                              valueColor:
-                                                                  AlwaysStoppedAnimation<
-                                                                      Color>(
-                                                                Colors.white,
-                                                              ),
-                                                            ),
-                                                          )
-                                                        : Text(
-                                                            'Отправить приглашение',
-                                                            textAlign: TextAlign.center,
-                                                            maxLines: 1,
-                                                            overflow: TextOverflow.ellipsis,
-                                                            style: AppTextStyle.inter(
-                                                              fontWeight:
-                                                                  FontWeight.w700,
-                                                              fontSize: 12,
-                                                              height: 1.0,
-                                                              color: Colors.white,
-                                                            ),
-                                                          ),
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                            const SizedBox(width: 10),
-                                            SizedBox(
-                                              width: 110,
-                                              height: 30,
-                                              child: GestureDetector(
-                                                behavior: HitTestBehavior.opaque,
-                                                onTap: () => Navigator.of(context).pop(),
-                                                child: Container(
-                                                  decoration: BoxDecoration(
-                                                    color: Colors.transparent,
-                                                    borderRadius:
-                                                        BorderRadius.circular(15),
-                                                    border: Border.all(
-                                                      color:
-                                                          const Color(0xFF2E63D5),
-                                                      width: 1,
-                                                    ),
-                                                  ),
-                                                  alignment: Alignment.center,
-                                                  child: Text(
-                                                    'Отмена',
-                                                    maxLines: 1,
-                                                    overflow: TextOverflow.ellipsis,
-                                                    style: AppTextStyle.inter(
-                                                      fontWeight: FontWeight.w700,
-                                                      fontSize: 12,
-                                                      height: 1.0,
-                                                      color:
-                                                          const Color(0xFF2E63D5),
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                    ],
-                                  ),
-                                ),
+                        showDialog<void>(
+                          context: context,
+                          barrierColor: Colors.black.withValues(alpha: 0.35),
+                          builder: (dialogContext) => _InviteParentDialog(
+                            onInvited: (parentEmail) {
+                              if (!mounted) return;
+                              setState(() {
+                                _parentConnected = false;
+                                _parentPending = true;
+                              });
+                              unawaited(
+                                _saveParentStatusToPrefs({
+                                  'linked': false,
+                                  'link_status': 'pending',
+                                  'parent_email_masked': null,
+                                }),
+                              );
+                              _showAppSnackBar(
+                                context,
+                                'Приглашение отправили на $parentEmail',
                               );
                             },
-                          );
-                        },
-                      ).whenComplete(emailCtrl.dispose);
+                          ),
+                        );
                       },
-                      child: _primaryActionCard(
+                      child: _inviteParentActionCard(
                         layoutScale: layoutScale,
-                        title: 'Пригласить родителя',
-                        subtitle: 'Родитель получит доступ к вашим данным об успеваемости',
+                        parentConnected: _parentConnected == true,
+                        parentPending: _parentPending,
                       ),
                     ),
-                  SizedBox(height: actionGap),
+                  SizedBox(height: 8 * layoutScale),
                   GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onTap: () {
                       context.push('/account/certificate-order');
                     },
-                    child: _secondaryActionCard(
+                    child: _certificateActionCard(
                       layoutScale: layoutScale,
                       title: 'Заказать справку с места учебы',
                     ),
                   ),
-                  SizedBox(height: actionGap),
-                  _mailCard(
-                    layoutScale: layoutScale,
-                    email: () {
-                      final e = (me?.email ?? '').trim();
-                      return e.isEmpty ? '—' : e;
-                    }(),
-                    onChangePassword: (me?.role ?? '').trim().toLowerCase() == 'parent'
-                        ? null
-                        : () => context.push('/account/password-reset'),
-                    onChangeEmail: (me?.role ?? '').trim().toLowerCase() == 'parent'
-                        ? null
-                        : () => context.push('/account/email-change'),
-                  ),
-                  SizedBox(height: actionGap),
                 ],
               ),
             ),
@@ -882,52 +681,151 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  Widget _primaryActionCard({
+  static const Color _kActionShadow = Color(0x40000000);
+
+  BoxShadow _inviteCertificateShadow(double layoutScale) => BoxShadow(
+        color: _kActionShadow,
+        offset: Offset(2.04 * layoutScale, 0),
+        blurRadius: 14.09 * layoutScale,
+        spreadRadius: 0,
+      );
+
+  static const double _actionTextScale = 1.2;
+
+  /// Кнопка «Пригласить родителя» (макет 402×874, масштаб [layoutScale]).
+  ///
+  /// Бейдж статуса масштабируется в 1.2× относительно базовой сетки (как визуальный
+  /// акцент к заголовку). Ширина бейджа — по содержимому; заголовок и бейдж в [Wrap],
+  /// при нехватке ширины бейдж уходит на следующую строку.
+  Widget _inviteParentActionCard({
     required double layoutScale,
-    required String title,
-    required String subtitle,
+    required bool parentConnected,
+    required bool parentPending,
   }) {
-    final r = 26.4 * layoutScale;
-    // 53px по макету
-    final h = 70 * layoutScale;
-    final titleFs = 11.53 * layoutScale * 1.5 / 1.2;
-    final subFs = 8.56 * layoutScale * 1.5 / 1.2;
-    return SizedBox(
-      height: h,
+    const statusBadgeEmphasis = 1.2;
+    final r = 10 * layoutScale;
+    final padH = 19 * layoutScale;
+    final padV = 12 * layoutScale;
+    final titleFs = 13.08 * _actionTextScale;
+    final subFs = 7.89 * _actionTextScale;
+    final badgeFs = 5.75 * _actionTextScale;
+    final iconS = 28.0 * _actionTextScale * layoutScale;
+    final minH = 55.0 * _actionTextScale * layoutScale;
+    final hasStatusChip = parentConnected || parentPending;
+    final s = hasStatusChip ? statusBadgeEmphasis : 1.0;
+    final titleStyle = AppTextStyle.inter(
+      fontWeight: FontWeight.w800,
+      fontSize: titleFs * layoutScale,
+      height: 19.63 / 13.08,
+      color: const Color(0xFF000000),
+    );
+    return ConstrainedBox(
+      constraints: BoxConstraints(minHeight: minH),
       child: Container(
+        width: double.infinity,
+        clipBehavior: Clip.hardEdge,
+        padding: EdgeInsets.fromLTRB(padH, padV, padH, padV),
         decoration: BoxDecoration(
-          color: const Color(0xFF0267FB),
+          color: Colors.white,
           borderRadius: BorderRadius.circular(r),
-          boxShadow: _shadowProfile(layoutScale),
+          boxShadow: [_inviteCertificateShadow(layoutScale)],
         ),
-        padding: EdgeInsets.symmetric(
-          horizontal: 14.4 * layoutScale,
-          vertical: 6 * layoutScale,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.center,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Text(
-              title,
-              style: AppTextStyle.inter(
-                fontWeight: FontWeight.w800,
-                fontSize: titleFs,
-                height: 1.0,
-                color: Colors.white,
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Wrap(
+                    spacing: 3.6 * layoutScale * _actionTextScale * s,
+                    runSpacing: 4 * layoutScale * _actionTextScale,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Text(
+                        'Пригласить родителя',
+                        textAlign: TextAlign.left,
+                        maxLines: 2,
+                        softWrap: true,
+                        textWidthBasis: TextWidthBasis.longestLine,
+                        overflow: TextOverflow.ellipsis,
+                        style: titleStyle,
+                      ),
+                      if (parentConnected)
+                        Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 7 * layoutScale * _actionTextScale * s,
+                            vertical: 3 * layoutScale * s,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0x2910B981),
+                            borderRadius: BorderRadius.circular(6 * layoutScale * s),
+                          ),
+                          child: Text(
+                            'Родитель подключен',
+                            maxLines: 1,
+                            softWrap: false,
+                            textAlign: TextAlign.center,
+                            style: AppTextStyle.inter(
+                              fontWeight: FontWeight.w600,
+                              fontSize: badgeFs * layoutScale * s,
+                              height: 8.62 / 5.75,
+                              color: const Color(0xFF10B981),
+                            ),
+                          ),
+                        )
+                      else if (parentPending)
+                        Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 7 * layoutScale * _actionTextScale * s,
+                            vertical: 3 * layoutScale * s,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0x29D97706),
+                            borderRadius: BorderRadius.circular(6 * layoutScale * s),
+                          ),
+                          child: Text(
+                            'Ожидает подтверждения',
+                            maxLines: 2,
+                            softWrap: true,
+                            textAlign: TextAlign.left,
+                            style: AppTextStyle.inter(
+                              fontWeight: FontWeight.w600,
+                              fontSize: badgeFs * layoutScale * s,
+                              height: 1.1,
+                              color: const Color(0xFFD97706),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  SizedBox(height: 2 * layoutScale * _actionTextScale),
+                  Text(
+                    parentConnected
+                        ? 'Для смены или отключения почты родителя подойдите к администратору'
+                        : parentPending
+                            ? 'Письмо с приглашением отправлено. Родитель подтвердит по ссылке из письма.'
+                            : 'Родитель получит доступ к вашим данным об успеваемости',
+                    textAlign: TextAlign.left,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTextStyle.inter(
+                      fontWeight: FontWeight.w600,
+                      fontSize: subFs * layoutScale,
+                      height: 11.84 / 7.89,
+                      color: const Color(0xB3000000),
+                    ),
+                  ),
+                ],
               ),
             ),
-            SizedBox(height: 2 * layoutScale),
-            Text(
-              subtitle,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: AppTextStyle.inter(
-                fontWeight: FontWeight.w600,
-                fontSize: subFs,
-                height: 1.1,
-                color: const Color(0x70FFFFFF),
-              ),
+            SizedBox(width: 8 * layoutScale * _actionTextScale),
+            SvgPicture.asset(
+              'assets/icons/rod.svg',
+              width: iconS,
+              height: iconS,
             ),
           ],
         ),
@@ -935,183 +833,55 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  Widget _secondaryActionCard({
+  /// Кнопка «Заказать справку…» — тот же контейнер, иконка справа.
+  Widget _certificateActionCard({
     required double layoutScale,
     required String title,
   }) {
-    final r = 26.4 * layoutScale;
-    // Такой же размер, как у "Пригласить родителя".
-    final titleFs = 11.53 * layoutScale * 1.5 / 1.2;
-    final h = 70 * layoutScale;
-    return SizedBox(
-      height: h,
+    final titleFs = 13.08 * _actionTextScale;
+    final r = 10 * layoutScale;
+    final padH = 19 * layoutScale;
+    final padV = 12 * layoutScale;
+    final iconS = 28.0 * _actionTextScale * layoutScale;
+    final minH = 55.0 * _actionTextScale * layoutScale;
+    return ConstrainedBox(
+      constraints: BoxConstraints(minHeight: minH),
       child: Container(
+        width: double.infinity,
+        clipBehavior: Clip.hardEdge,
+        padding: EdgeInsets.fromLTRB(padH, padV, padH, padV),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(r),
-          border: Border.all(color: const Color(0x24000000), width: 1),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x40000000),
-              offset: Offset(2, 0),
-              blurRadius: 13.8,
-              spreadRadius: 0,
-            ),
-          ],
+          boxShadow: [_inviteCertificateShadow(layoutScale)],
         ),
-        padding: EdgeInsets.symmetric(horizontal: 14.4 * layoutScale),
-        alignment: Alignment.centerLeft,
-        child: Text(
-          title,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: AppTextStyle.inter(
-            fontWeight: FontWeight.w800,
-            fontSize: titleFs,
-            height: 1.05,
-            color: const Color(0xFF000000),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _mailCard({
-    required double layoutScale,
-    required String email,
-    VoidCallback? onChangePassword,
-    VoidCallback? onChangeEmail,
-  }) {
-    final r = 26.4 * layoutScale;
-    final titleFs = 14.4 * layoutScale;
-    final valueFs = 10.8 * layoutScale;
-    final iconW = 120 * layoutScale;
-    final h = 118 * layoutScale;
-
-    final miniR = 14 * layoutScale;
-    final miniPad = 10 * layoutScale;
-    final miniFs = 10.8 * layoutScale;
-
-    return SizedBox(
-      height: h,
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(r),
-          border: Border.all(color: const Color(0x24000000), width: 1),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x40000000),
-              offset: Offset(2, 0),
-              blurRadius: 13.8,
-              spreadRadius: 0,
-            ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(r),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              Positioned(
-                left: 0,
-                top: 0,
-                bottom: 0,
-                child: Image.asset(
-                  'assets/images/profile_image.png',
-                  width: iconW,
-                  fit: BoxFit.contain,
-                  alignment: Alignment.centerLeft,
-                  color: const Color(0x52000000), // #00000052
-                  colorBlendMode: BlendMode.srcIn,
-                  errorBuilder: (_, _, _) => const SizedBox.shrink(),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  title,
+                  textAlign: TextAlign.left,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTextStyle.inter(
+                    fontWeight: FontWeight.w800,
+                    fontSize: titleFs * layoutScale,
+                    height: 19.63 / 13.08,
+                    color: const Color(0xFF000000),
+                  ),
                 ),
               ),
-              Padding(
-                padding: EdgeInsets.all(14.4 * layoutScale),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Почта',
-                      style: AppTextStyle.inter(
-                        fontWeight: FontWeight.w800,
-                        fontSize: titleFs,
-                        height: 1.0,
-                        color: const Color(0xFF000000),
-                      ),
-                    ),
-                    SizedBox(height: 8 * layoutScale),
-                    Text(
-                      email,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppTextStyle.inter(
-                        fontWeight: FontWeight.w600,
-                        fontSize: valueFs,
-                        height: 1.15,
-                        color: const Color(0x4D000000),
-                      ),
-                    ),
-                    const Spacer(),
-                    Align(
-                      alignment: Alignment.bottomRight,
-                      child: (onChangePassword == null && onChangeEmail == null)
-                          ? const SizedBox.shrink()
-                          : Wrap(
-                              spacing: (8 * layoutScale) / 4,
-                              runSpacing: (8 * layoutScale) / 4,
-                              children: [
-                                if (onChangePassword != null)
-                                  GestureDetector(
-                                    behavior: HitTestBehavior.opaque,
-                                    onTap: onChangePassword,
-                                    child: Container(
-                                      padding: EdgeInsets.all(miniPad),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFF000000),
-                                        borderRadius: BorderRadius.circular(miniR),
-                                      ),
-                                      child: Text(
-                                        'Поменять пароль',
-                                        style: AppTextStyle.inter(
-                                          fontWeight: FontWeight.w600,
-                                          fontSize: miniFs,
-                                          height: 1.0,
-                                          color: Colors.white,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                if (onChangeEmail != null)
-                                  GestureDetector(
-                                    behavior: HitTestBehavior.opaque,
-                                    onTap: onChangeEmail,
-                                    child: Container(
-                                      padding: EdgeInsets.all(miniPad),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFF000000),
-                                        borderRadius: BorderRadius.circular(miniR),
-                                      ),
-                                      child: Text(
-                                        'Поменять e-mail',
-                                        style: AppTextStyle.inter(
-                                          fontWeight: FontWeight.w600,
-                                          fontSize: miniFs,
-                                          height: 1.0,
-                                          color: Colors.white,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+            ),
+            SizedBox(width: 8 * layoutScale * _actionTextScale),
+            SvgPicture.asset(
+              'assets/icons/spravka.svg',
+              width: iconS,
+              height: iconS,
+            ),
+          ],
         ),
       ),
     );
@@ -1257,14 +1027,86 @@ class _ProfilePageState extends State<ProfilePage> {
     required String courseText,
     required String directionText,
     String? groupText,
+    /// Если задана, карточка курса фиксированной высоты (слева от столбца билет/пропуски).
+    double? fixedHeight,
   }) {
     final r = 22 * layoutScale;
     final padL = 16 * layoutScale;
     final padV = 14 * layoutScale;
     final courseFs = 17.2 * layoutScale;
     final subFs = 13.0 * layoutScale;
-    final decoW = 96 * layoutScale;
+    final textColumn = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          courseText,
+          style: AppTextStyle.inter(
+            fontWeight: FontWeight.w800,
+            fontSize: courseFs,
+            height: 1.15,
+            color: Colors.white,
+          ),
+        ),
+        SizedBox(height: 8 * layoutScale),
+        Text(
+          directionText,
+          style: AppTextStyle.inter(
+            fontWeight: FontWeight.w600,
+            fontSize: subFs,
+            height: 1.25,
+            color: const Color(0xFF94A3B8),
+          ),
+        ),
+        if (groupText != null && groupText.trim().isNotEmpty) ...[
+          SizedBox(height: 6 * layoutScale),
+          Text(
+            groupText.trim(),
+            style: AppTextStyle.inter(
+              fontWeight: FontWeight.w600,
+              fontSize: subFs,
+              height: 1.25,
+              color: const Color(0xFF94A3B8),
+            ),
+          ),
+        ],
+      ],
+    );
+
+    final inner = Stack(
+      clipBehavior: Clip.hardEdge,
+      fit: fixedHeight != null ? StackFit.expand : StackFit.loose,
+      children: [
+        Positioned.fill(
+          child: IgnorePointer(
+            child: SvgPicture.asset(
+              'assets/icons/uspex.svg',
+              fit: BoxFit.cover,
+              alignment: Alignment.center,
+              colorFilter: const ColorFilter.mode(
+                Color(0x1AFFFFFF),
+                BlendMode.srcIn,
+              ),
+            ),
+          ),
+        ),
+        if (fixedHeight != null)
+          Positioned.fill(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(padL, padV, padL, padV),
+              child: textColumn,
+            ),
+          )
+        else
+          Padding(
+            padding: EdgeInsets.fromLTRB(padL, padV, padL, padV),
+            child: textColumn,
+          ),
+      ],
+    );
+
     return Container(
+      height: fixedHeight,
       decoration: BoxDecoration(
         color: Colors.black,
         borderRadius: BorderRadius.circular(r),
@@ -1279,73 +1121,7 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(r),
-        // StackFit.loose: карточка курса в прокрутке с неограниченной высотой.
-        // Без LayoutBuilder — иначе ломается IntrinsicHeight у ряда студбилет/пропуски.
-        child: Stack(
-          clipBehavior: Clip.hardEdge,
-          fit: StackFit.loose,
-          children: [
-            Positioned(
-              right: -6 * layoutScale,
-              top: 0,
-              bottom: 0,
-              width: decoW,
-              child: IgnorePointer(
-                child: SizedBox.expand(
-                  child: SvgPicture.asset(
-                    'assets/icons/uspex.svg',
-                    fit: BoxFit.contain,
-                    alignment: Alignment.centerRight,
-                    colorFilter: const ColorFilter.mode(
-                      Color(0x1AFFFFFF),
-                      BlendMode.srcIn,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            Padding(
-              padding: EdgeInsets.fromLTRB(padL, padV, padL, padV),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    courseText,
-                    style: AppTextStyle.inter(
-                      fontWeight: FontWeight.w800,
-                      fontSize: courseFs,
-                      height: 1.15,
-                      color: Colors.white,
-                    ),
-                  ),
-                  SizedBox(height: 8 * layoutScale),
-                  Text(
-                    directionText,
-                    style: AppTextStyle.inter(
-                      fontWeight: FontWeight.w600,
-                      fontSize: subFs,
-                      height: 1.25,
-                      color: const Color(0xFF94A3B8),
-                    ),
-                  ),
-                  if (groupText != null && groupText.trim().isNotEmpty) ...[
-                    SizedBox(height: 6 * layoutScale),
-                    Text(
-                      groupText.trim(),
-                      style: AppTextStyle.inter(
-                        fontWeight: FontWeight.w600,
-                        fontSize: subFs,
-                        height: 1.25,
-                        color: const Color(0xFF94A3B8),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ],
-        ),
+        child: inner,
       ),
     );
   }
@@ -1362,43 +1138,90 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget _studentTicketCard({
     required double layoutScale,
     required String ticketNumber,
+    required VoidCallback onCopy,
   }) {
-    final r = 26.4 * layoutScale;
-    final titleFs = 14.5 * layoutScale;
-    final valueFs = 14.0 * layoutScale;
+    const titleColor = Color(0xFF2563EB);
+    final r = 13 * layoutScale;
+    final titleFs = 13 * layoutScale;
+    final valueFs = 12 * layoutScale;
+    final pad = 12 * layoutScale;
+    final iconStr = 10 * layoutScale;
+    final iconCopy = 16 * layoutScale;
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(r),
         boxShadow: _shadowProfile(layoutScale),
       ),
-      padding: EdgeInsets.all(16 * layoutScale),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            'Студенческий билет',
-            style: AppTextStyle.inter(
-              fontWeight: FontWeight.w800,
-              fontSize: titleFs,
-              height: 1.1,
-              color: const Color(0xFF000000),
-            ),
-          ),
-          Align(
-            alignment: Alignment.bottomRight,
-            child: Text(
-              ticketNumber,
-              style: AppTextStyle.inter(
-                fontWeight: FontWeight.w600,
-                fontSize: valueFs,
-                height: 1.1,
-                color: const Color(0xFF999999),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(r),
+        child: Stack(
+          clipBehavior: Clip.hardEdge,
+          children: [
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                pad,
+                pad,
+                pad + iconStr,
+                pad,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Студенческий билет',
+                    style: AppTextStyle.inter(
+                      fontWeight: FontWeight.w800,
+                      fontSize: titleFs,
+                      height: 1.1,
+                      color: titleColor,
+                    ),
+                  ),
+                  SizedBox(height: 2 * layoutScale),
+                  Padding(
+                    padding: EdgeInsets.only(right: iconCopy + 4 * layoutScale),
+                    child: Text(
+                      ticketNumber,
+                      style: AppTextStyle.inter(
+                        fontWeight: FontWeight.w600,
+                        fontSize: valueFs,
+                        height: 1.15,
+                        color: const Color(0xFF000000),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-          ),
-        ],
+            Positioned(
+              right: pad,
+              top: pad,
+              child: SvgPicture.asset(
+                'assets/icons/str.svg',
+                width: iconStr,
+                height: iconStr,
+                colorFilter: const ColorFilter.mode(
+                  titleColor,
+                  BlendMode.srcIn,
+                ),
+              ),
+            ),
+            Positioned(
+              right: pad,
+              bottom: pad,
+              child: GestureDetector(
+                onTap: onCopy,
+                behavior: HitTestBehavior.opaque,
+                child: SvgPicture.asset(
+                  'assets/icons/copy.svg',
+                  width: iconCopy,
+                  height: iconCopy,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1407,10 +1230,11 @@ class _ProfilePageState extends State<ProfilePage> {
     required double layoutScale,
     required String hoursLabel,
   }) {
-    final pad = 16 * layoutScale;
-    final r = 26.4 * layoutScale;
-    final titleFs = 14.5 * layoutScale;
-    final valueFs = 11.5 * layoutScale;
+    const titleColor = Color(0xFFFFFFFF);
+    final r = 13 * layoutScale;
+    final titleFs = 13 * layoutScale;
+    final valueFs = 12 * layoutScale;
+    final pad = 12 * layoutScale;
     final decoW = 88 * layoutScale;
     return Container(
       decoration: BoxDecoration(
@@ -1420,7 +1244,6 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(r),
-        // expand: в ряду со студбилетом высота задана растягиванием; без LayoutBuilder — см. IntrinsicHeight выше.
         child: Stack(
           clipBehavior: Clip.hardEdge,
           fit: StackFit.expand,
@@ -1447,34 +1270,457 @@ class _ProfilePageState extends State<ProfilePage> {
             Positioned.fill(
               child: Padding(
                 padding: EdgeInsets.all(pad),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Пропуски',
-                      style: AppTextStyle.inter(
-                        fontWeight: FontWeight.w800,
-                        fontSize: titleFs,
-                        height: 1.1,
-                        color: Colors.white,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'Пропуски',
+                            style: AppTextStyle.inter(
+                              fontWeight: FontWeight.w800,
+                              fontSize: titleFs,
+                              height: 1.1,
+                              color: titleColor,
+                            ),
+                          ),
+                          SizedBox(height: 2 * layoutScale),
+                          Text(
+                            hoursLabel,
+                            style: AppTextStyle.inter(
+                              fontWeight: FontWeight.w600,
+                              fontSize: valueFs,
+                              height: 1.15,
+                              color: titleColor,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    SizedBox(height: 8 * layoutScale),
-                    const Spacer(),
-                    Text(
-                      hoursLabel,
-                      textAlign: TextAlign.right,
-                      style: AppTextStyle.inter(
-                        fontWeight: FontWeight.w600,
-                        fontSize: valueFs,
-                        height: 1.2,
-                        color: Colors.white,
+                    SvgPicture.asset(
+                      'assets/icons/str.svg',
+                      width: 10 * layoutScale,
+                      height: 10 * layoutScale,
+                      colorFilter: const ColorFilter.mode(
+                        titleColor,
+                        BlendMode.srcIn,
                       ),
                     ),
                   ],
                 ),
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _InviteParentDialog extends StatefulWidget {
+  const _InviteParentDialog({required this.onInvited});
+
+  final void Function(String parentEmail) onInvited;
+
+  @override
+  State<_InviteParentDialog> createState() => _InviteParentDialogState();
+}
+
+class _InviteParentDialogState extends State<_InviteParentDialog> {
+  late final TextEditingController _emailCtrl;
+  bool _busy = false;
+  String? _errorText;
+  Map<String, dynamic>? _parentStatus;
+  bool _statusLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _emailCtrl = TextEditingController();
+    unawaited(_loadStatus());
+  }
+
+  Future<void> _loadStatus() async {
+    try {
+      final s = await AppContainer.accountApi.getParentStatus();
+      if (!mounted) return;
+      setState(() {
+        _parentStatus = s;
+        _statusLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _statusLoading = false;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _emailCtrl.dispose();
+    super.dispose();
+  }
+
+  bool get _serverLinked => _parentStatus?['linked'] == true;
+
+  bool get _serverPending {
+    if (_serverLinked) return false;
+    final st = (_parentStatus?['link_status'] ?? '').toString().toLowerCase().trim();
+    return st == 'pending' ||
+        st == 'invited' ||
+        st == 'awaiting' ||
+        st == 'awaiting_parent' ||
+        _parentStatus?['invite_pending'] == true;
+  }
+
+  Future<void> _submit() async {
+    final parentEmail = _emailCtrl.text.trim();
+    if (_busy) return;
+    final masked = (_parentStatus?['parent_email_masked'] ?? '').toString().trim();
+    if (_serverLinked) {
+      setState(() {
+        _errorText = masked.isNotEmpty
+            ? 'Родитель уже приглашён: $masked'
+            : 'Родитель уже приглашён';
+      });
+      return;
+    }
+    if (_serverPending) {
+      setState(() => _errorText = 'Уже ожидает подтверждения у родителя');
+      return;
+    }
+    if (parentEmail.isEmpty) {
+      setState(() => _errorText = 'Введите e-mail родителя');
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _errorText = null;
+    });
+    var didPop = false;
+    try {
+      await AppContainer.accountApi.inviteParent(parentEmail: parentEmail);
+      if (!mounted) return;
+      didPop = true;
+      Navigator.of(context).pop();
+      widget.onInvited(parentEmail);
+    } catch (e) {
+      final msg = (e is ApiException && e.message.trim().isNotEmpty)
+          ? e.message.trim()
+          : 'Не удалось отправить приглашение';
+      if (mounted) setState(() => _errorText = msg);
+    } finally {
+      if (mounted && !didPop) {
+        setState(() => _busy = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final masked = (_parentStatus?['parent_email_masked'] ?? '').toString().trim();
+    final linkStatus = (_parentStatus?['link_status'] ?? '').toString().trim();
+    final isActive = linkStatus.toLowerCase() == 'active';
+
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Приглашение родителя',
+              style: AppTextStyle.inter(
+                fontWeight: FontWeight.w700,
+                fontSize: 18,
+                height: 24 / 18,
+                color: const Color(0xFF000000),
+              ),
+            ),
+            const SizedBox(height: 10),
+            if (!_statusLoading && !_serverPending && !_serverLinked) ...[
+              Text(
+                'Укажите e-mail родителя — мы отправим письмо с приглашением и ссылкой для подключения.',
+                style: AppTextStyle.inter(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                  height: 1.2,
+                  color: const Color(0xFF000000),
+                ),
+              ),
+            ],
+            if (_statusLoading) ...[
+              const SizedBox(height: 10),
+              const LinearProgressIndicator(minHeight: 2),
+            ] else if (_serverLinked && isActive) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Родитель подключён к аккаунту.',
+                style: AppTextStyle.inter(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                  height: 1.2,
+                  color: const Color(0xFF0F766E),
+                ),
+              ),
+            ] else if (_serverLinked) ...[
+              const SizedBox(height: 8),
+              Text(
+                masked.isNotEmpty
+                    ? 'Статус: ${linkStatus.isEmpty ? 'ожидание' : linkStatus}. E-mail: $masked'
+                    : 'Статус: ${linkStatus.isEmpty ? 'ожидание' : linkStatus}',
+                style: AppTextStyle.inter(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 11,
+                  height: 1.2,
+                  color: const Color(0xFF2E63D5),
+                ),
+              ),
+            ] else if (_serverPending) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Ожидает подтверждения',
+                style: AppTextStyle.inter(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 14,
+                  height: 1.25,
+                  color: const Color(0xFFD97706),
+                ),
+              ),
+              if (masked.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Text(
+                  'Письмо на: $masked',
+                  style: AppTextStyle.inter(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                    height: 1.2,
+                    color: const Color(0xB3000000),
+                  ),
+                ),
+              ],
+            ],
+            if (!_statusLoading && _serverLinked && isActive) ...[
+              const SizedBox(height: 16),
+              SizedBox(
+                height: 35,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF2E63D5),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: Text(
+                    'Закрыть',
+                    style: AppTextStyle.inter(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                      height: 1.0,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ] else if (!_statusLoading && _serverLinked && !isActive) ...[
+              const SizedBox(height: 16),
+              SizedBox(
+                height: 35,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF2E63D5),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: Text(
+                    'Закрыть',
+                    style: AppTextStyle.inter(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                      height: 1.0,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ] else if (!_statusLoading && _serverPending) ...[
+              const SizedBox(height: 16),
+              SizedBox(
+                height: 35,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF2E63D5),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: Text(
+                    'Закрыть',
+                    style: AppTextStyle.inter(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                      height: 1.0,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ] else if (!_statusLoading) ...[
+              const SizedBox(height: 12),
+              SizedBox(
+                height: 44,
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.transparent,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: (_errorText == null)
+                          ? const Color(0xFF000000)
+                          : const Color(0xFFE11D48),
+                      width: 1.5,
+                    ),
+                  ),
+                  alignment: Alignment.centerLeft,
+                  child: TextField(
+                    controller: _emailCtrl,
+                    keyboardType: TextInputType.emailAddress,
+                    textInputAction: TextInputAction.done,
+                    onSubmitted: (_) => _submit(),
+                    maxLines: 1,
+                    enabled: !_busy && !_serverLinked,
+                    decoration: const InputDecoration(
+                      isDense: true,
+                      contentPadding: EdgeInsets.symmetric(vertical: 14),
+                      border: InputBorder.none,
+                      hintText: 'parent@email.ru',
+                    ),
+                    style: AppTextStyle.inter(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 12,
+                      height: 1.0,
+                      color: const Color(0xFF000000),
+                    ),
+                    onChanged: (_) {
+                      if (_errorText != null) {
+                        setState(() => _errorText = null);
+                      }
+                    },
+                  ),
+                ),
+              ),
+              if (_errorText != null) ...[
+                const SizedBox(height: 6),
+                Text(
+                  _errorText!,
+                  style: AppTextStyle.inter(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                    height: 1.1,
+                    color: const Color(0xFFE11D48),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: SizedBox(
+                      height: 30,
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: _busy ? null : _submit,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: _busy
+                                ? const Color(0xFF2E63D5).withValues(alpha: 0.4)
+                                : const Color(0xFF2E63D5),
+                            borderRadius: BorderRadius.circular(15),
+                          ),
+                          alignment: Alignment.center,
+                          child: _busy
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      Colors.white,
+                                    ),
+                                  ),
+                                )
+                              : Text(
+                                  'Отправить приглашение',
+                                  textAlign: TextAlign.center,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: AppTextStyle.inter(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 12,
+                                    height: 1.0,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  SizedBox(
+                    width: 110,
+                    height: 30,
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => Navigator.of(context).pop(),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.transparent,
+                          borderRadius: BorderRadius.circular(15),
+                          border: Border.all(
+                            color: const Color(0xFF2E63D5),
+                            width: 1,
+                          ),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          'Отмена',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTextStyle.inter(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 12,
+                            height: 1.0,
+                            color: const Color(0xFF2E63D5),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ],
         ),
       ),

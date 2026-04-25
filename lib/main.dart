@@ -14,6 +14,7 @@ import 'core/di/app_container.dart';
 import 'moc/mock_data_loader.dart';
 import 'moc/mock_logger.dart';
 import 'moc/mock_mode.dart';
+import 'moc/mock_parent_invite_persistence.dart';
 import 'core/logging/app_log_file.dart';
 import 'core/push/push_registrar.dart';
 import 'core/realtime/realtime_ws_client.dart';
@@ -58,6 +59,7 @@ void main() async {
   if (useMockBackend) {
     await MockDataLoader.load();
     MockLogger.log('MockDataLoader.load завершён isLoaded=${MockDataLoader.isLoaded}');
+    await MockParentInvitePersistence.hydrateSession();
   }
 
   // Firebase is optional for backend API, but enable when configured.

@@ -17,4 +17,7 @@ abstract final class AppConstants {
 
   /// Локальные черновики заказов справок ([CertificateOrderPage]).
   static const String certificateOrdersPrefsKey = 'profile:certificate_orders_v3';
+
+  /// Последний JSON ответа `GET /api/students/me/parent-status` (восстановление бейджа после перезапуска).
+  static const String profileLastParentStatusJsonKey = 'profile:last_parent_status_json';
 }

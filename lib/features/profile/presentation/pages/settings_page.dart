@@ -16,6 +16,7 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../shared/widgets/app_header.dart';
+import '../widgets/profile_mail_card.dart';
 
 /// Настройки: шапка как у вложенных экранов профиля, блок как на профиле, уведомления, выход и поддержка.
 class SettingsPage extends StatefulWidget {
@@ -199,6 +200,7 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   Widget build(BuildContext context) {
     final me = _me;
+    final isParent = (me?.role ?? '').trim().toLowerCase() == 'parent';
     final fullName = _settingsHeroName(me);
     final p = _prefs ??
         const NotificationPreferencesModel(
@@ -329,6 +331,21 @@ class _SettingsPageState extends State<SettingsPage> {
                 onChanged: (v) => _patch(p.copyWith(pushCollegeNews: v)),
               ),
             ),
+            if (!isParent) ...[
+              SizedBox(height: gapToggle),
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: hPad),
+                child: ProfileMailCard(
+                  layoutScale: layoutScale,
+                  email: () {
+                    final e = (me?.email ?? '').trim();
+                    return e.isEmpty ? '—' : e;
+                  }(),
+                  onChangePassword: () => context.push('/account/password-reset'),
+                  onChangeEmail: () => context.push('/account/email-change'),
+                ),
+              ),
+            ],
             SizedBox(height: gapSection),
             Padding(
               padding: EdgeInsets.symmetric(horizontal: hPad),

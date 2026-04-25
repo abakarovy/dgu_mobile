@@ -5,4 +5,7 @@ class MockSession {
 
   /// Последний успешный мок-логин (опционально, для отладки).
   static int? lastUserId;
+
+  /// Студент отправил приглашение родителю (`POST /auth/parent/invite`) — ждём ответа на почте.
+  static bool studentParentInvitePending = false;
 }

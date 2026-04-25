@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:dio/dio.dart';
@@ -6,6 +7,7 @@ import '../core/constants/api_constants.dart';
 import 'mock_accounts.dart';
 import 'mock_logger.dart';
 import 'mock_mode.dart';
+import 'mock_parent_invite_persistence.dart';
 import 'mock_payloads.dart';
 import 'mock_session.dart';
 
@@ -213,6 +215,21 @@ class MockDioInterceptor extends Interceptor {
         'link_status': 'linked',
       });
     }
+    if (method == 'GET' && _pathEnds(path, '/students/me/parent-status')) {
+      // Студент: привязан ли родитель (без 1С), маска e-mail, статус.
+      if (MockSession.studentParentInvitePending) {
+        return _jsonResponse(o, 200, {
+          'linked': false,
+          'parent_email_masked': 'p***@example.com',
+          'link_status': 'pending',
+        });
+      }
+      return _jsonResponse(o, 200, {
+        'linked': false,
+        'parent_email_masked': null,
+        'link_status': 'none',
+      });
+    }
     if (method == 'GET' && _pathEnds(path, ApiConstants.oneCGroupListPath)) {
       return _jsonResponse(o, 200, MockPayloads.groupList(uid));
     }
@@ -231,6 +248,7 @@ class MockDioInterceptor extends Interceptor {
     }
 
     if (method == 'POST' && _pathEnds(path, '/auth/parent/invite')) {
+      unawaited(MockParentInvitePersistence.markInviteSent());
       return _jsonResponse(o, 200, MockPayloads.parentInviteOk());
     }
     if (method == 'POST' && _pathEnds(path, '/auth/email-change/request')) {
