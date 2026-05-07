@@ -31,6 +31,7 @@ dependencies:
     path: packages/file_saver
   share_plus: ^10.0.2
   flutter_html: ^3.0.0
+  cupertino_icons: ^1.0.8
 
 dev_dependencies:
   flutter_test:
@@ -45,11 +46,11 @@ dependency_overrides:
 
 flutter:
   uses-material-design: true
+  # Не указывать `assets/fonts/` и не включать весь `assets/` целиком: те же файлы
+  # уже задаются в `fonts:` и дубли ломают сборку APK на Windows (errno 183).
   assets:
-    - assets/
     - assets/icons/
     - assets/images/
-    - assets/fonts/
     - assets/env/
   fonts:
     - family: Inter
