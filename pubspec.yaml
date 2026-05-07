@@ -28,6 +28,8 @@ dependencies:
   # Локальная копия: исправлен Dialog.swift (keyWindow deprecated на iOS 13+).
   file_saver:
     path: packages/file_saver
+  share_plus: ^13.1.0
+  flutter_html: ^3.0.0
 
 dev_dependencies:
   flutter_test:

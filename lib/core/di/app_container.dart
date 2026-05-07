@@ -16,6 +16,7 @@ import '../../data/api/profile_1c_api.dart';
 import '../../data/api/push_api.dart';
 import '../../data/api/schedule_api.dart';
 import '../../data/api/student_ticket_api.dart';
+import '../../data/api/student_services_api.dart';
 import '../../data/services/token_storage.dart';
 import '../../features/auth/data/repositories/auth_repository_impl.dart';
 import '../../features/schedule/domain/schedule_calendar_filter.dart';
@@ -23,6 +24,7 @@ import '../auth/auth_session.dart';
 import '../../core/cache/json_cache.dart';
 import '../network/app_network_banner_controller.dart';
 import '../storage/local_user_storage_wipe.dart';
+import '../student/department_announcement_prompt.dart';
 import 'package:path_provider/path_provider.dart';
 
 /// Простой DI: инициализация один раз при старте, затем доступ к репозиториям.
@@ -43,6 +45,7 @@ abstract final class AppContainer {
   static AccountApi? _accountApi;
   static DocumentsApi? _documentsApi;
   static StudentTicketApi? _studentTicketApi;
+  static StudentServicesApi? _studentServicesApi;
   static JsonCache? _jsonCache;
   static String? _appDocumentsDirPath;
 
@@ -80,6 +83,7 @@ abstract final class AppContainer {
     _accountApi = AccountApi(apiClient: apiClient);
     _documentsApi = DocumentsApi(apiClient: apiClient);
     _studentTicketApi = StudentTicketApi(apiClient: apiClient);
+    _studentServicesApi = StudentServicesApi(apiClient: apiClient);
     _jsonCache = jsonCache;
   }
 
@@ -177,6 +181,12 @@ abstract final class AppContainer {
     return a;
   }
 
+  static StudentServicesApi get studentServicesApi {
+    final a = _studentServicesApi;
+    if (a == null) throw StateError('AppContainer.init() must be called before using studentServicesApi');
+    return a;
+  }
+
   static AuthApi get authApi {
     final a = _authApi;
     if (a == null) throw StateError('AppContainer.init() must be called before using authApi');
@@ -205,6 +215,10 @@ abstract final class AppContainer {
     } catch (_) {}
     try {
       AppNetworkBannerController.instance.clearDegradation();
+    } catch (_) {}
+    try {
+      // Снова можно показать приглашение к объявлениям после следующего входа.
+      DepartmentAnnouncementPrompt.resetSessionScheduling();
     } catch (_) {}
     AuthSession.bump();
   }

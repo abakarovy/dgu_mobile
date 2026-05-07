@@ -3,6 +3,8 @@ import 'dart:typed_data';
 
 import 'mock_accounts.dart';
 import 'mock_data_loader.dart';
+import 'mock_scholarship_catalog_document.dart';
+import 'mock_student_portal_public.dart';
 
 /// JSON-ответы мокового API (встроены в [MockBundleEmbedded] / [MockDataLoader.payloads]).
 abstract final class MockPayloads {
@@ -327,4 +329,56 @@ abstract final class MockPayloads {
         'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMB/0p7k0kAAAAASUVORK5CYII=';
     return base64Decode(b64);
   }
+
+  // --- Студенческие модули (см. MOBILE_STUDENT_MODULES_RU) ---
+
+  static List<dynamic> lmsList() => [];
+
+  static Map<String, dynamic> lmsCredential(int id) => {
+        'id': id,
+        'service_name': id == 2 ? 'profspo' : 'urait',
+        'login': 'demo_student',
+      };
+
+  static List<dynamic> departmentAnnouncements() => [];
+
+  static Map<String, dynamic> portfolioMyComplete() => {
+        'storage': 'site_only',
+        'self_uploads': <dynamic>[],
+        'official_final_works': <dynamic>[],
+      };
+
+  static List<dynamic> portfolioMyList() {
+    final su = portfolioMyComplete()['self_uploads'];
+    return su is List ? List<dynamic>.from(su) : [];
+  }
+
+  static Map<String, dynamic> portfolioRating() => {'total_points': 0};
+
+  static Map<String, dynamic> portfolioShareStatus() => {
+        'active': true,
+        'token': 'RXviwDvcr3SRn7Tqu0S6qaw_8hN4VTERmIHc2chONYE',
+        'public_url':
+            'http://localhost:3000/portfolio/p/RXviwDvcr3SRn7Tqu0S6qaw_8hN4VTERmIHc2chONYE',
+      };
+
+  static Map<String, dynamic> studentPortalPublic() => Map<String, dynamic>.from(
+        mockStudentPortalPublicSnapshot(),
+      );
+
+  static Map<String, dynamic> scholarshipCatalogDocument() => mockScholarshipCatalogDocument();
+
+  static Map<String, dynamic> scholarshipSummary() => {
+        'academic_year': '2025-2026',
+        'semester': 2,
+        'category_totals': {
+          'study': 0.0,
+          'science': 0.0,
+          'society': 0.0,
+          'culture': 0.0,
+          'sport': 0.0,
+        },
+        'total_approved': 0.0,
+        'entries': <dynamic>[],
+      };
 }

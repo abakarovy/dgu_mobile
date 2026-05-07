@@ -149,8 +149,9 @@ class Profile1cApi {
     }
   }
 
-  /// Учебный план: `GET /api/1c/curriculum?student_id=` (см. руководство мобильного клиента).
-  /// [studentId] — для родителя: ID ребёнка; иначе берётся из токена.
+  /// Учебный план (РУП): `GET /api/1c/curriculum` — по зачётной книжке пользователя;
+  /// тело вида `{ "curriculum": ..., "is_cached": bool }` (MOBILE_STUDENT_MODULES_RU §1.3).
+  /// Query `student_id` — как ожидает текущий бэкенд; для родителя — ID ребёнка, иначе из токена.
   Future<Object?> getCurriculum({int? studentId}) async {
     final sid = studentId ?? await _studentIdFromToken();
     if (sid == null) return null;

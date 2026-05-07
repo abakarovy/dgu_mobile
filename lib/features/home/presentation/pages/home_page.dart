@@ -512,6 +512,16 @@ class _HomePageState extends State<HomePage> {
                 MediaQuery.sizeOf(context).height / 874,
               )),
               _actionsSection(sf: sf),
+              if (_isStudent(_banner)) ...[
+                SizedBox(
+                  height: 12 *
+                      min(
+                        MediaQuery.sizeOf(context).width / 402,
+                        MediaQuery.sizeOf(context).height / 874,
+                      ),
+                ),
+                _studentHubCard(context, sf: sf),
+              ],
               SizedBox(height: 40 * sf),
               _todayLessonsSection(sf: sf),
             ],
@@ -812,6 +822,26 @@ class _HomePageState extends State<HomePage> {
       labelColor: iconColor,
       labelFontSize: 11.72,
       onPressed: () => context.push('/app/schedule'),
+    );
+  }
+
+  bool _isStudent(_BannerData b) =>
+      (b.me?.role ?? '').trim().toLowerCase() == 'student';
+
+  Widget _studentHubCard(BuildContext context, {required double sf}) {
+    return _homeActionCard(
+      sf: sf,
+      background: const Color(0xFFF5F3FF),
+      withShadow: true,
+      iconBg: const Color(0xFFEDE9FE),
+      iconColor: const Color(0xFF7C3AED),
+      iconAsset: 'assets/icons/book_icon.svg',
+      iconW: 14.749685287475586,
+      iconH: 18.437108993530273,
+      label: 'Сервисы студента',
+      labelColor: const Color(0xFF5B21B6),
+      labelFontSize: 11.72,
+      onPressed: () => context.push('/app/student'),
     );
   }
 

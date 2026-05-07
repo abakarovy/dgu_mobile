@@ -267,6 +267,75 @@ class MockDioInterceptor extends Interceptor {
       return _jsonResponse(o, 200, MockPayloads.emptyOk());
     }
 
+    // MOBILE_STUDENT_MODULES_RU — LMS, объявления, портфолио, рейтинг, портал.
+    if (method == 'GET' && _pathEnds(path, '/lms')) {
+      return _jsonResponse(o, 200, MockPayloads.lmsList());
+    }
+    if (method == 'POST' && _pathEnds(path, '/lms')) {
+      return _jsonResponse(o, 201, {'id': 99, 'service_name': 'saved'});
+    }
+    if (method == 'GET' && path.startsWith('/lms/') && path != '/lms/') {
+      final seg = path.substring('/lms/'.length).split('/').first;
+      final id = int.tryParse(seg);
+      if (id != null) {
+        return _jsonResponse(o, 200, MockPayloads.lmsCredential(id));
+      }
+    }
+    if (method == 'GET' && _pathEnds(path, '/students/department-announcements/my')) {
+      return _jsonResponse(o, 200, MockPayloads.departmentAnnouncements());
+    }
+    if (method == 'GET' && _pathEnds(path, '/portfolio/my')) {
+      return _jsonResponse(o, 200, MockPayloads.portfolioMyList());
+    }
+    if (method == 'GET' && _pathEnds(path, '/portfolio/my-complete')) {
+      return _jsonResponse(o, 200, MockPayloads.portfolioMyComplete());
+    }
+    if (method == 'GET' && _pathEnds(path, '/portfolio/rating')) {
+      return _jsonResponse(o, 200, MockPayloads.portfolioRating());
+    }
+    if (method == 'GET' && _pathEnds(path, '/portfolio/share')) {
+      return _jsonResponse(o, 200, MockPayloads.portfolioShareStatus());
+    }
+    if (method == 'POST' && _pathEnds(path, '/portfolio/share/enable')) {
+      return _jsonResponse(o, 200, {
+        'active': true,
+        'token': 'RXviwDvcr3SRn7Tqu0S6qaw_8hN4VTERmIHc2chONYE',
+        'public_url':
+            'http://localhost:3000/portfolio/p/RXviwDvcr3SRn7Tqu0S6qaw_8hN4VTERmIHc2chONYE',
+      });
+    }
+    if (method == 'POST' && _pathEnds(path, '/portfolio/share/regenerate')) {
+      return _jsonResponse(o, 200, {
+        'active': true,
+        'token': 'mock-share-token-2',
+        'public_url': 'http://localhost:3000/portfolio/p/mock-share-token-2',
+      });
+    }
+    if (method == 'DELETE' && _pathEnds(path, '/portfolio/share')) {
+      return Response(requestOptions: o, statusCode: 204, data: null);
+    }
+    if (method == 'POST' && _pathEnds(path, '/portfolio/upload')) {
+      return _jsonResponse(o, 201, {'id': 777, 'file_url': '/uploads/uploaded-mock.bin'});
+    }
+    if (method == 'DELETE' && path.startsWith('/portfolio/my/')) {
+      return Response(requestOptions: o, statusCode: 204, data: null);
+    }
+    if (method == 'GET' && _pathEnds(path, '/scholarship-rating/catalog')) {
+      return _jsonResponse(o, 200, MockPayloads.scholarshipCatalogDocument());
+    }
+    if (method == 'GET' && _pathEnds(path, '/scholarship-rating/my/summary')) {
+      return _jsonResponse(o, 200, MockPayloads.scholarshipSummary());
+    }
+    if (method == 'POST' && _pathEnds(path, '/scholarship-rating/my/upload')) {
+      return _jsonResponse(o, 201, {'id': 888});
+    }
+    if (method == 'DELETE' && path.startsWith('/scholarship-rating/my/')) {
+      return Response(requestOptions: o, statusCode: 204, data: null);
+    }
+    if (method == 'GET' && _pathEnds(path, '/student-portal')) {
+      return _jsonResponse(o, 200, MockPayloads.studentPortalPublic());
+    }
+
     if (method == 'GET' && _pathEnds(path, ApiConstants.healthPath)) {
       return _jsonResponse(o, 200, {'status': 'ok', 'mock': true});
     }

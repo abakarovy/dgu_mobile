@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart' show Scaffold, Center, Text;
 import 'package:go_router/go_router.dart';
 
 import '../bootstrap/bootstrap_page.dart';
@@ -27,6 +28,13 @@ import '../../features/shell/presentation/pages/app_shell_page.dart';
 import '../../features/account/presentation/pages/email_change_page.dart';
 import '../../features/account/presentation/pages/password_reset_page.dart';
 import '../../features/profile/presentation/pages/certificate_order_page.dart';
+import '../../features/student/presentation/pages/student_hub_page.dart';
+import '../../features/student/presentation/pages/lms_page.dart';
+import '../../features/student/presentation/pages/department_announcements_page.dart';
+import '../../features/student/presentation/pages/portfolio_page.dart';
+import '../../features/student/presentation/pages/scholarship_rating_page.dart';
+import '../../features/student/presentation/pages/scholarship_section_page.dart';
+import '../../features/student/presentation/pages/student_portal_page.dart';
 
 /// Полноэкранные подмаршруты с кнопкой «назад»: [CupertinoPage] даёт свайп с края (iOS).
 Page<void> _cupertinoSubpage({
@@ -228,6 +236,79 @@ final GoRouter appRouter = GoRouter(
         name: state.name,
         child: const CertificateOrderPage(),
       ),
+    ),
+    GoRoute(
+      path: '/app/student',
+      name: 'studentHub',
+      pageBuilder: (context, state) => _cupertinoSubpage(
+        key: state.pageKey,
+        name: state.name,
+        child: const StudentHubPage(),
+      ),
+      routes: [
+        GoRoute(
+          path: 'lms',
+          name: 'studentLms',
+          pageBuilder: (c, s) => _cupertinoSubpage(
+            key: s.pageKey,
+            name: s.name,
+            child: const LmsCredentialsPage(),
+          ),
+        ),
+        GoRoute(
+          path: 'announcements',
+          name: 'studentAnnouncements',
+          pageBuilder: (c, s) => _cupertinoSubpage(
+            key: s.pageKey,
+            name: s.name,
+            child: const DepartmentAnnouncementsPage(),
+          ),
+        ),
+        GoRoute(
+          path: 'portfolio',
+          name: 'studentPortfolio',
+          pageBuilder: (c, s) => _cupertinoSubpage(
+            key: s.pageKey,
+            name: s.name,
+            child: const PortfolioPage(),
+          ),
+        ),
+        GoRoute(
+          path: 'scholarship',
+          name: 'studentScholarship',
+          pageBuilder: (c, s) => _cupertinoSubpage(
+            key: s.pageKey,
+            name: s.name,
+            child: const ScholarshipRatingPage(),
+          ),
+          routes: [
+            GoRoute(
+              path: 'section',
+              name: 'studentScholarshipSection',
+              pageBuilder: (c, s) {
+                final extra = s.extra;
+                final child = extra is ScholarshipSectionExtra
+                    ? ScholarshipSectionPage(extra: extra)
+                    : const Scaffold(body: Center(child: Text('Нет данных раздела')));
+                return _cupertinoSubpage(
+                  key: s.pageKey,
+                  name: s.name,
+                  child: child,
+                );
+              },
+            ),
+          ],
+        ),
+        GoRoute(
+          path: 'portal',
+          name: 'studentPortal',
+          pageBuilder: (c, s) => _cupertinoSubpage(
+            key: s.pageKey,
+            name: s.name,
+            child: const StudentPortalPage(),
+          ),
+        ),
+      ],
     ),
     GoRoute(
       path: '/app/tasks',

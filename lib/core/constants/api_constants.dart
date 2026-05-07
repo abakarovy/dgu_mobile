@@ -43,7 +43,8 @@ abstract final class ApiConstants {
   /// Пропуски: `GET /api/1c/absences?student_id=&start=&end=`
   static const String oneCAbsencesPath = '/1c/absences';
 
-  /// Учебный план: `GET /api/1c/curriculum?student_id=`
+  /// Учебный план (РУП): `GET /api/1c/curriculum` — см. MOBILE_STUDENT_MODULES_RU §1.3;
+  /// на бэке часто передаётся `?student_id=`.
   static const String oneCCurriculumPath = '/1c/curriculum';
 
   /// Состав группы: `GET /api/1c/group-list?student_id=`
@@ -68,4 +69,45 @@ abstract final class ApiConstants {
 
   /// `GET /api/documents/certificate-orders` — история заказов
   static const String documentsCertificateOrdersPath = '/documents/certificate-orders';
+
+  /// Склеивает хост без суффикса `/api` с относительным `file_url` (`/uploads/...`).
+  static String resolvePublicFileUrl(String fileUrl) {
+    final u = fileUrl.trim();
+    if (u.isEmpty) return u;
+    if (u.startsWith('http://') || u.startsWith('https://')) return u;
+    final base = baseUrl.trim();
+    final origin = base.replaceFirst(RegExp(r'/api/?$'), '');
+    if (u.startsWith('/')) return '$origin$u';
+    return '$origin/$u';
+  }
+
+  /// Внешний каталог LMS (Урайт и т.п.), если задаётся в `.env`.
+  static String get externalLmsCatalogUrl {
+    final v = dotenv.env['EXTERNAL_LMS_CATALOG_URL'];
+    if (v != null && v.trim().isNotEmpty) return v.trim();
+    const fromDefine = String.fromEnvironment('EXTERNAL_LMS_CATALOG_URL', defaultValue: '');
+    return fromDefine.trim();
+  }
+
+  /// Базовый сайт для относительных ссылок портала «Студентам» (`/svedeniya/...`).
+  /// По умолчанию — основной сайт ДГУ.
+  static String get portalSiteOrigin {
+    final v = dotenv.env['PORTAL_SITE_ORIGIN'];
+    if (v != null && v.trim().isNotEmpty) return _trimTrailingSlash(v.trim());
+    const fromDefine = String.fromEnvironment('PORTAL_SITE_ORIGIN', defaultValue: '');
+    if (fromDefine.trim().isNotEmpty) return _trimTrailingSlash(fromDefine.trim());
+    return 'https://dgu.ru';
+  }
+
+  static String _trimTrailingSlash(String s) => s.replaceAll(RegExp(r'/+$'), '');
+
+  /// Разрешает `href` из API портала (относительный путь или полный URL).
+  static String resolvePortalHref(String href) {
+    final h = href.trim();
+    if (h.isEmpty) return h;
+    if (h.startsWith('http://') || h.startsWith('https://')) return h;
+    final origin = portalSiteOrigin;
+    if (h.startsWith('/')) return '$origin$h';
+    return '$origin/$h';
+  }
 }

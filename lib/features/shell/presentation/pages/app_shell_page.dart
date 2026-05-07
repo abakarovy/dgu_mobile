@@ -7,6 +7,7 @@ import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/navigation/home_refresh_host.dart';
 import '../../../../core/navigation/news_header_host.dart';
 import '../../../../core/navigation/news_refresh_host.dart';
+import '../../../../core/student/department_announcement_prompt.dart';
 import '../../../../features/home/presentation/widgets/home_header_title.dart';
 import '../../../../shared/widgets/app_header.dart';
 import '../../../../shared/widgets/network_degraded_banner.dart';
@@ -51,6 +52,7 @@ class _AppShellPageState extends State<AppShellPage> {
   @override
   void initState() {
     super.initState();
+    DepartmentAnnouncementPrompt.scheduleForShell(context);
   }
 
   @override
