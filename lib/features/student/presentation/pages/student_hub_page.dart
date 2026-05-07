@@ -1,5 +1,6 @@
 import 'package:dgu_mobile/core/constants/app_colors.dart';
 import 'package:dgu_mobile/core/di/app_container.dart';
+import 'package:dgu_mobile/core/realtime/student_modules_refresh.dart';
 import 'package:dgu_mobile/core/student/academic_period.dart';
 import 'package:dgu_mobile/core/theme/app_text_styles.dart';
 import 'package:dgu_mobile/features/student/presentation/widgets/student_module_tile.dart';
@@ -24,6 +25,7 @@ class StudentHubPage extends StatefulWidget {
 
 class _StudentHubPageState extends State<StudentHubPage> {
   late AcademicPeriod _period;
+  late final VoidCallback _scholarshipWsListener;
   bool _schLoading = true;
   Map<String, dynamic> _schSummary = {};
 
@@ -48,7 +50,17 @@ class _StudentHubPageState extends State<StudentHubPage> {
   void initState() {
     super.initState();
     _period = AcademicPeriod.current();
+    _scholarshipWsListener = () {
+      if (mounted) _loadScholarshipSummary();
+    };
+    StudentModulesRefreshBus.scholarshipRatingTick.addListener(_scholarshipWsListener);
     _loadScholarshipSummary();
+  }
+
+  @override
+  void dispose() {
+    StudentModulesRefreshBus.scholarshipRatingTick.removeListener(_scholarshipWsListener);
+    super.dispose();
   }
 
   Future<void> _loadScholarshipSummary() async {
@@ -56,7 +68,7 @@ class _StudentHubPageState extends State<StudentHubPage> {
     try {
       final s = await AppContainer.studentServicesApi.scholarshipMySummary(
         academicYear: _period.academicYear,
-        semester: _period.semester,
+        semester: _period.normalizedSemester,
       );
       if (mounted) setState(() => _schSummary = s);
     } catch (_) {

@@ -237,20 +237,20 @@ final GoRouter appRouter = GoRouter(
         child: const CertificateOrderPage(),
       ),
     ),
-    GoRoute(
-      path: '/app/student',
-      name: 'studentHub',
-      pageBuilder: (context, state) => _cupertinoSubpage(
-        key: state.pageKey,
-        name: state.name,
-        child: const StudentHubPage(),
-      ),
+        GoRoute(
+          path: '/app/student',
+          name: 'studentHub',
+          pageBuilder: (context, state) => _cupertinoSubpage(
+            key: ValueKey<String>('studentHub|${state.uri}'),
+            name: state.name,
+            child: const StudentHubPage(),
+          ),
       routes: [
         GoRoute(
           path: 'lms',
           name: 'studentLms',
           pageBuilder: (c, s) => _cupertinoSubpage(
-            key: s.pageKey,
+            key: ValueKey<String>('studentLms|${s.uri}'),
             name: s.name,
             child: const LmsCredentialsPage(),
           ),
@@ -259,7 +259,7 @@ final GoRouter appRouter = GoRouter(
           path: 'announcements',
           name: 'studentAnnouncements',
           pageBuilder: (c, s) => _cupertinoSubpage(
-            key: s.pageKey,
+            key: ValueKey<String>('studentAnnouncements|${s.uri}'),
             name: s.name,
             child: const DepartmentAnnouncementsPage(),
           ),
@@ -268,7 +268,7 @@ final GoRouter appRouter = GoRouter(
           path: 'portfolio',
           name: 'studentPortfolio',
           pageBuilder: (c, s) => _cupertinoSubpage(
-            key: s.pageKey,
+            key: ValueKey<String>('studentPortfolio|${s.uri}'),
             name: s.name,
             child: const PortfolioPage(),
           ),
@@ -277,7 +277,7 @@ final GoRouter appRouter = GoRouter(
           path: 'scholarship',
           name: 'studentScholarship',
           pageBuilder: (c, s) => _cupertinoSubpage(
-            key: s.pageKey,
+            key: ValueKey<String>('studentScholarship|${s.uri}'),
             name: s.name,
             child: const ScholarshipRatingPage(),
           ),
@@ -290,8 +290,15 @@ final GoRouter appRouter = GoRouter(
                 final child = extra is ScholarshipSectionExtra
                     ? ScholarshipSectionPage(extra: extra)
                     : const Scaffold(body: Center(child: Text('Нет данных раздела')));
+                // `s.pageKey` для этого маршрута одинаков при любом `extra` — при втором push в стеке
+                // Navigator получает дублирующийся ключ. Ключ включает раздел/год/семестр.
+                final LocalKey pageKey = extra is ScholarshipSectionExtra
+                    ? ValueKey<String>(
+                        'studentScholarshipSection|${extra.sectionRef}|${extra.academicYear}|${extra.semester}|${identityHashCode(extra.navigationToken)}',
+                      )
+                    : ValueKey<String>('studentScholarshipSection|fallback|${identityHashCode(s)}');
                 return _cupertinoSubpage(
-                  key: s.pageKey,
+                  key: pageKey,
                   name: s.name,
                   child: child,
                 );
@@ -303,7 +310,7 @@ final GoRouter appRouter = GoRouter(
           path: 'portal',
           name: 'studentPortal',
           pageBuilder: (c, s) => _cupertinoSubpage(
-            key: s.pageKey,
+            key: ValueKey<String>('studentPortal|${s.uri}'),
             name: s.name,
             child: const StudentPortalPage(),
           ),

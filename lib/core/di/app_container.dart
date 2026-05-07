@@ -1,4 +1,8 @@
+import 'dart:convert' show jsonEncode;
+import 'dart:io';
+
 import '../../core/constants/api_constants.dart';
+import '../../core/constants/app_constants.dart';
 import '../../features/auth/domain/repositories/auth_repository.dart';
 import '../../data/api/api_client.dart';
 import '../../data/api/auth_api.dart';
@@ -26,6 +30,7 @@ import '../network/app_network_banner_controller.dart';
 import '../storage/local_user_storage_wipe.dart';
 import '../student/department_announcement_prompt.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Простой DI: инициализация один раз при старте, затем доступ к репозиториям.
 abstract final class AppContainer {
@@ -258,6 +263,14 @@ abstract final class AppContainer {
       ApiConstants.scheduleReceiveTimeout,
       _prefetchCurriculum,
     );
+    // Профиль: статус родителя и фото 1С — чтобы не запрашивать только при открытии вкладки.
+    await Future.wait<void>([
+      _timedPrefetch(t, _prefetchParentStatusForStudent),
+      _timedPrefetch(
+        ApiConstants.receiveTimeout,
+        () => _prefetchStudent1cPhotoToDisk(studentId: null),
+      ),
+    ]);
     return results.every((ok) => ok);
   }
 
@@ -309,6 +322,10 @@ abstract final class AppContainer {
     await _timedPrefetch(
       ApiConstants.scheduleReceiveTimeout,
       () => _prefetchCurriculumForStudent(cid),
+    );
+    await _timedPrefetch(
+      ApiConstants.receiveTimeout,
+      () => _prefetchStudent1cPhotoToDisk(studentId: cid),
     );
     return results.every((ok) => ok);
   }
@@ -558,5 +575,48 @@ abstract final class AppContainer {
       }
     }
     return bestLabel;
+  }
+
+  /// Сохраняет ответ `GET /students/me/parent-status` в SharedPreferences (как экран профиля).
+  static Future<void> _prefetchParentStatusForStudent() async {
+    try {
+      final s = await accountApi.getParentStatus();
+      final p = await SharedPreferences.getInstance();
+      await p.setString(
+        AppConstants.profileLastParentStatusJsonKey,
+        jsonEncode(s),
+      );
+    } catch (_) {}
+  }
+
+  /// Кэширует фото из 1С на диск, если файла ещё нет (без лишней загрузки при каждом старте).
+  static Future<void> _prefetchStudent1cPhotoToDisk({int? studentId}) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final existingPath = prefs.getString(AppConstants.profile1cPhotoPathKey);
+      if (existingPath != null && existingPath.trim().isNotEmpty) {
+        final f = File(existingPath);
+        if (await f.exists()) {
+          final len = await f.length();
+          if (len > 0) return;
+        }
+      }
+
+      final dirPath = appDocumentsDirPath ??
+          (await getApplicationDocumentsDirectory()).path;
+      final file = File('$dirPath/${AppConstants.profile1cPhotoFileName}');
+      if (await file.exists()) {
+        final len = await file.length();
+        if (len > 0) {
+          await prefs.setString(AppConstants.profile1cPhotoPathKey, file.path);
+          return;
+        }
+      }
+
+      final bytes = await profile1cApi.getStudentPhotoBytes(studentId: studentId);
+      if (bytes == null || bytes.isEmpty) return;
+      await file.writeAsBytes(bytes, flush: true);
+      await prefs.setString(AppConstants.profile1cPhotoPathKey, file.path);
+    } catch (_) {}
   }
 }

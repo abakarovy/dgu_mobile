@@ -14,6 +14,7 @@ List<Map<String, dynamic>> flattenScholarshipRatingCatalog(dynamic data) {
   for (final cat in categories) {
     if (cat is! Map) continue;
     final catMap = Map<String, dynamic>.from(cat);
+    final catId = '${catMap['id'] ?? catMap['category_id'] ?? ''}'.trim();
     final catShort = '${catMap['short'] ?? catMap['label'] ?? ''}'.trim();
     final sections = catMap['sections'];
     if (sections is! List) continue;
@@ -32,6 +33,8 @@ List<Map<String, dynamic>> flattenScholarshipRatingCatalog(dynamic data) {
         final ref = '$rawId';
         out.add({
           'id': seq,
+          'category_id': catId,
+          'category_label': catShort,
           'section_ref': sectionRef,
           'section_title': secTitle,
           'criterion_ref': ref,
@@ -40,6 +43,7 @@ List<Map<String, dynamic>> flattenScholarshipRatingCatalog(dynamic data) {
               .join('. '),
           'max_points': c['points'] ?? c['max_points'],
           'allow_upload': c['allow_upload'] == true,
+          'divide_by_coauthors': c['divide_by_coauthors'] == true,
           'options': c['options'] is List ? List<dynamic>.from(c['options'] as List) : const <dynamic>[],
         });
       }

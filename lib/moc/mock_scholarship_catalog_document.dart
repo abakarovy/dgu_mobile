@@ -118,6 +118,7 @@ Map<String, dynamic> mockScholarshipCatalogDocument() => {
                   'id': '2.1.1',
                   'label': 'Публикация / участие в НИР (мок, до 10 баллов)',
                   'allow_upload': true,
+                  'divide_by_coauthors': true,
                   'points': 10,
                 },
               ],

@@ -1,14 +1,96 @@
 import 'package:dgu_mobile/core/constants/api_constants.dart';
 import 'package:dgu_mobile/core/constants/app_colors.dart';
 import 'package:dgu_mobile/core/di/app_container.dart';
+import 'package:dgu_mobile/core/realtime/student_modules_refresh.dart';
 import 'package:dgu_mobile/core/theme/app_text_styles.dart';
 import 'package:dgu_mobile/shared/widgets/app_header.dart';
 import 'package:dgu_mobile/shared/widgets/network_degraded_banner.dart';
+import 'package:dio/dio.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:file_saver/file_saver.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
+
+/// Раздел загрузки (`section`) из API — подпись для списка.
+String portfolioSectionLabelRu(Object? raw) {
+  switch ('${raw ?? ''}'.trim().toLowerCase()) {
+    case 'general':
+      return 'Прочее';
+    case 'certificate':
+      return 'Сертификаты';
+    case 'diploma':
+      return 'Дипломы и грамоты';
+    case 'course':
+      return 'Курсы';
+    default:
+      final s = '${raw ?? ''}'.trim();
+      return s.isEmpty ? 'Раздел' : s;
+  }
+}
+
+/// Статус модерации самозагрузки.
+String portfolioUploadStatusRu(Object? raw) {
+  switch ('${raw ?? ''}'.trim().toLowerCase()) {
+    case 'pending':
+      return 'На проверке';
+    case 'approved':
+      return 'Одобрено';
+    case 'rejected':
+      return 'Отклонено';
+    default:
+      final s = '${raw ?? ''}'.trim();
+      return s.isEmpty ? '—' : s;
+  }
+}
+
+bool _isPortfolioImageRef(String? ref, [String? fileName]) {
+  bool ext(String? s) {
+    if (s == null || s.isEmpty) return false;
+    final q = s.toLowerCase().split('?').first;
+    return q.endsWith('.jpg') ||
+        q.endsWith('.jpeg') ||
+        q.endsWith('.png') ||
+        q.endsWith('.gif') ||
+        q.endsWith('.webp');
+  }
+
+  return ext(ref) || ext(fileName);
+}
+
+String _portfolioImageExtension(String? fileName, String url) {
+  String fromPath(String? s) {
+    if (s == null || s.isEmpty) return '';
+    final base = s.toLowerCase().split('?').first.split('/').last;
+    final dot = base.lastIndexOf('.');
+    if (dot <= 0 || dot == base.length - 1) return '';
+    return base.substring(dot + 1);
+  }
+
+  var e = fromPath(fileName);
+  if (e.isEmpty) e = fromPath(url);
+  e = e.toLowerCase();
+  if (e == 'jpg') return 'jpeg';
+  if (e == 'jpeg' || e == 'png' || e == 'gif' || e == 'webp') return e;
+  return 'png';
+}
+
+MimeType _mimeForImageExt(String ext) {
+  switch (ext) {
+    case 'jpeg':
+    case 'jpg':
+      return MimeType.jpeg;
+    case 'gif':
+      return MimeType.gif;
+    case 'webp':
+      return MimeType.webp;
+    case 'png':
+    default:
+      return MimeType.png;
+  }
+}
 
 class PortfolioPage extends StatefulWidget {
   const PortfolioPage({super.key});
@@ -19,8 +101,9 @@ class PortfolioPage extends StatefulWidget {
 
 class _PortfolioPageState extends State<PortfolioPage> with SingleTickerProviderStateMixin {
   late TabController _tab;
+  late final VoidCallback _portfolioWsListener;
   bool _loading = true;
-  double _points = 0;
+  int _points = 0;
   Map<String, dynamic> _complete = {};
   bool _shareBusy = false;
   Map<String, dynamic>? _shareInfo;
@@ -29,11 +112,19 @@ class _PortfolioPageState extends State<PortfolioPage> with SingleTickerProvider
   void initState() {
     super.initState();
     _tab = TabController(length: 2, vsync: this);
+    _tab.addListener(() {
+      if (mounted) setState(() {});
+    });
+    _portfolioWsListener = () {
+      if (mounted) _load();
+    };
+    StudentModulesRefreshBus.portfolioTick.addListener(_portfolioWsListener);
     _load();
   }
 
   @override
   void dispose() {
+    StudentModulesRefreshBus.portfolioTick.removeListener(_portfolioWsListener);
     _tab.dispose();
     super.dispose();
   }
@@ -125,7 +216,7 @@ class _PortfolioPageState extends State<PortfolioPage> with SingleTickerProvider
                 const SizedBox(height: 8),
                 OutlinedButton.icon(
                   onPressed: () async {
-                    await SharePlus.instance.share(ShareParams(text: url));
+                    await Share.share(url);
                   },
                   icon: const Icon(Icons.share_outlined),
                   label: const Text('Поделиться…'),
@@ -190,10 +281,72 @@ class _PortfolioPageState extends State<PortfolioPage> with SingleTickerProvider
     }
   }
 
+  String _workTypeLabelRu(String? code) {
+    switch ((code ?? '').trim()) {
+      case 'coursework':
+        return 'Курсовая работа';
+      case 'diploma':
+        return 'Дипломная работа';
+      case 'individual_project':
+        return 'Индивидуальный проект';
+      default:
+        return code?.trim().isNotEmpty == true ? code! : 'Итоговая работа';
+    }
+  }
+
+  String? _fileRefFrom(Map<String, dynamic> m) {
+    final u = m['file_url']?.toString().trim();
+    if (u != null && u.isNotEmpty) return u;
+    final p = m['file_path']?.toString().trim();
+    if (p != null && p.isNotEmpty) return p;
+    return null;
+  }
+
   Future<void> _pickAndUpload() async {
-    final pick = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 88);
-    if (pick == null) return;
     if (!mounted) return;
+    final source = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.photo_library_outlined),
+                title: const Text('Фото из галереи'),
+                onTap: () => Navigator.pop(ctx, 'gallery'),
+              ),
+              ListTile(
+                leading: const Icon(Icons.attach_file),
+                title: const Text('Файл (PDF, DOC, изображение…)'),
+                onTap: () => Navigator.pop(ctx, 'file'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    if (source == null) return;
+
+    String? path;
+    String? filename;
+    if (source == 'gallery') {
+      final pick = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 88);
+      path = pick?.path;
+      filename = pick?.name;
+    } else if (source == 'file') {
+      final r = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: const ['jpg', 'jpeg', 'png', 'gif', 'webp', 'pdf', 'doc', 'docx'],
+        withData: false,
+      );
+      path = r?.files.single.path;
+      filename = r?.files.single.name;
+    }
+    if (path == null) return;
+    if (!mounted) return;
+
     final section = await showDialog<String>(
       context: context,
       builder: (c) => AlertDialog(
@@ -230,8 +383,8 @@ class _PortfolioPageState extends State<PortfolioPage> with SingleTickerProvider
     if (section == null) return;
     try {
       await AppContainer.studentServicesApi.portfolioUpload(
-        filePath: pick.path,
-        filename: pick.name,
+        filePath: path,
+        filename: filename,
         section: section,
       );
       if (mounted) {
@@ -251,6 +404,159 @@ class _PortfolioPageState extends State<PortfolioPage> with SingleTickerProvider
     if (await canLaunchUrl(u)) {
       await launchUrl(u, mode: LaunchMode.externalApplication);
     }
+  }
+
+  Future<void> _saveImageFromPublicUrl(String url, {String? fileName}) async {
+    try {
+      final dio = Dio();
+      final res = await dio.get<List<int>>(
+        url,
+        options: Options(responseType: ResponseType.bytes),
+      );
+      final raw = res.data;
+      if (raw == null || raw.isEmpty) {
+        throw StateError('Пустой ответ');
+      }
+      final bytes = Uint8List.fromList(raw);
+      final ext = _portfolioImageExtension(fileName, url);
+      final mime = _mimeForImageExt(ext);
+      var base = (fileName ?? 'portfolio_image').trim();
+      if (base.toLowerCase().endsWith('.$ext')) {
+        base = base.substring(0, base.length - ext.length - 1);
+      } else if (base.contains('.')) {
+        base = base.split('.').first;
+      }
+      if (base.isEmpty) base = 'portfolio_image';
+      try {
+        await FileSaver.instance.saveAs(
+          name: base,
+          bytes: bytes,
+          fileExtension: ext,
+          mimeType: mime,
+        );
+      } on UnimplementedError {
+        await FileSaver.instance.saveFile(
+          name: base,
+          bytes: bytes,
+          fileExtension: ext,
+          mimeType: mime,
+        );
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Файл сохранён')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Не удалось сохранить: $e')),
+      );
+    }
+  }
+
+  Future<void> _openSelfItemPreview(String? ref, {String? fileName}) async {
+    if (ref == null || ref.isEmpty) return;
+    if (!_isPortfolioImageRef(ref, fileName)) {
+      await _openFileUrl(ref);
+      return;
+    }
+    if (!mounted) return;
+    final url = ApiConstants.resolvePublicFileUrl(ref);
+    await showDialog<void>(
+      context: context,
+      barrierColor: Colors.black87,
+      builder: (ctx) {
+        final h = MediaQuery.sizeOf(ctx).height * 0.85;
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 24),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Stack(
+              alignment: Alignment.topRight,
+              children: [
+                SizedBox(
+                  width: double.maxFinite,
+                  height: h,
+                  child: ColoredBox(
+                    color: Colors.black,
+                    child: InteractiveViewer(
+                      minScale: 0.5,
+                      maxScale: 4,
+                      child: Center(
+                        child: Image.network(
+                          url,
+                          fit: BoxFit.contain,
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return const Padding(
+                              padding: EdgeInsets.all(48),
+                              child: CircularProgressIndicator(color: Colors.white),
+                            );
+                          },
+                          errorBuilder: (context, error, stackTrace) => Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Text(
+                              'Не удалось показать изображение',
+                              textAlign: TextAlign.center,
+                              style: AppTextStyle.inter(color: Colors.white70, fontSize: 14),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  top: 8,
+                  left: 8,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Material(
+                        color: Colors.black45,
+                        shape: const CircleBorder(),
+                        clipBehavior: Clip.antiAlias,
+                        child: IconButton(
+                          icon: const Icon(Icons.download_rounded, color: Colors.white),
+                          tooltip: 'Сохранить изображение',
+                          onPressed: () => _saveImageFromPublicUrl(url, fileName: fileName),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Material(
+                        color: Colors.black45,
+                        shape: const CircleBorder(),
+                        clipBehavior: Clip.antiAlias,
+                        child: IconButton(
+                          icon: const Icon(Icons.share_rounded, color: Colors.white),
+                          tooltip: 'Поделиться ссылкой',
+                          onPressed: () async {
+                            await Share.share(url, subject: fileName ?? 'Портфолио');
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Material(
+                    color: Colors.black45,
+                    shape: const CircleBorder(),
+                    clipBehavior: Clip.antiAlias,
+                    child: IconButton(
+                      icon: const Icon(Icons.close_rounded, color: Colors.white),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _deletePending(int id) async {
@@ -366,17 +672,7 @@ class _PortfolioPageState extends State<PortfolioPage> with SingleTickerProvider
             backgroundColor: AppColors.surfaceLight,
             appBar: AppHeader(
               leading: appHeaderNestedBackLeading(context),
-              headerTitle: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text('Портфолио', style: appHeaderNestedTitleStyle),
-                  Text(
-                    'Баллы: ${_points.toStringAsFixed(1)}',
-                    style: AppTextStyle.inter(fontSize: 11, color: AppColors.notificationSubtitle),
-                  ),
-                ],
-              ),
+              headerTitle: Text('Портфолио', style: appHeaderNestedTitleStyle),
               actions: [
                 if (_shareBusy)
                   const Padding(
@@ -395,7 +691,7 @@ class _PortfolioPageState extends State<PortfolioPage> with SingleTickerProvider
               onPressed: _pickAndUpload,
               backgroundColor: const Color(0xFF0891B2),
               foregroundColor: Colors.white,
-              icon: const Icon(Icons.add_photo_alternate_outlined),
+              icon: const Icon(Icons.upload_file_rounded),
               label: const Text('Загрузить'),
             ),
             body: Column(
@@ -406,11 +702,43 @@ class _PortfolioPageState extends State<PortfolioPage> with SingleTickerProvider
                     controller: _tab,
                     labelColor: const Color(0xFF0891B2),
                     unselectedLabelColor: AppColors.notificationSubtitle,
+                    labelStyle: AppTextStyle.inter(fontWeight: FontWeight.w700, fontSize: 13),
+                    unselectedLabelStyle: AppTextStyle.inter(fontWeight: FontWeight.w600, fontSize: 13),
+                    indicatorColor: const Color(0xFF0891B2),
                     tabs: const [
                       Tab(text: 'Мои файлы'),
                       Tab(text: 'Официальные'),
                     ],
                   ),
+                ),
+                AnimatedSize(
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeInOut,
+                  child: _tab.index == 0
+                      ? Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Text(
+                                'Баллы портфолио: $_points (одобренные самозагрузки)',
+                                textAlign: TextAlign.center,
+                                style: AppTextStyle.inter(
+                                  fontSize: 12,
+                                  height: 1.25,
+                                  color: AppColors.notificationSubtitle,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Не стипендиальный рейтинг',
+                                textAlign: TextAlign.center,
+                                style: AppTextStyle.inter(fontSize: 11, color: AppColors.grey, height: 1.2),
+                              ),
+                            ],
+                          ),
+                        )
+                      : const SizedBox.shrink(),
                 ),
                 Expanded(
                   child: _loading && selfList.isEmpty && offList.isEmpty
@@ -481,8 +809,12 @@ class _PortfolioPageState extends State<PortfolioPage> with SingleTickerProvider
 
   Widget _tileSelf(Map<String, dynamic> m) {
     final title = '${m['file_name'] ?? m['description'] ?? 'Файл'}';
-    final st = '${m['status'] ?? 'pending'}';
-    final id = m['id'];
+    final statusRaw = '${m['status'] ?? 'pending'}'.trim().toLowerCase();
+    final stLabel = portfolioUploadStatusRu(m['status']);
+    final secLabel = portfolioSectionLabelRu(m['section']);
+    final rawId = m['id'];
+    final id = rawId is int ? rawId : int.tryParse('$rawId');
+    final ref = _fileRefFrom(m);
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
       elevation: 0,
@@ -491,27 +823,36 @@ class _PortfolioPageState extends State<PortfolioPage> with SingleTickerProvider
         side: BorderSide(color: AppColors.lightGrey.withValues(alpha: 0.6)),
       ),
       child: ListTile(
+        onTap: () => _openSelfItemPreview(ref, fileName: m['file_name']?.toString()),
         title: Text(title, style: AppTextStyle.inter(fontWeight: FontWeight.w600)),
-        subtitle: Text('${m['section'] ?? ''} · $st', style: AppTextStyle.inter(fontSize: 12)),
+        subtitle: Text(
+          '$secLabel · $stLabel',
+          style: AppTextStyle.inter(fontSize: 12),
+        ),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
-                color: _statusColor(st).withValues(alpha: 0.15),
+                color: _statusColor(statusRaw).withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Text(
-                st,
-                style: AppTextStyle.inter(fontSize: 10, fontWeight: FontWeight.w700, color: _statusColor(st)),
+                stLabel,
+                style: AppTextStyle.inter(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  color: _statusColor(statusRaw),
+                ),
               ),
             ),
             IconButton(
               icon: const Icon(Icons.open_in_new, size: 20),
-              onPressed: () => _openFileUrl(m['file_url']?.toString()),
+              tooltip: 'Открыть во внешнем приложении',
+              onPressed: () => _openFileUrl(ref),
             ),
-            if (st == 'pending' && id is int)
+            if (statusRaw == 'pending' && id != null)
               IconButton(
                 icon: const Icon(Icons.delete_outline, size: 20),
                 onPressed: () => _deletePending(id),
@@ -523,7 +864,17 @@ class _PortfolioPageState extends State<PortfolioPage> with SingleTickerProvider
   }
 
   Widget _tileOfficial(Map<String, dynamic> m) {
-    final title = '${m['title'] ?? 'Документ'}';
+    final subject = '${m['subject_name'] ?? ''}'.trim();
+    final wt = _workTypeLabelRu(m['work_type']?.toString());
+    final title = subject.isNotEmpty ? subject : (m['original_filename'] ?? m['title'] ?? 'Документ').toString();
+    final deadline = m['upload_deadline_at']?.toString();
+    final past = m['is_past_deadline'] == true;
+    final ref = _fileRefFrom(m);
+    final subtitle = StringBuffer(wt);
+    if (deadline != null && deadline.isNotEmpty) {
+      subtitle.write(' · дедлайн: $deadline');
+    }
+    if (past) subtitle.write(' · просрочено');
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
       elevation: 0,
@@ -532,10 +883,17 @@ class _PortfolioPageState extends State<PortfolioPage> with SingleTickerProvider
         side: BorderSide(color: AppColors.lightGrey.withValues(alpha: 0.6)),
       ),
       child: ListTile(
-        leading: const CircleAvatar(child: Icon(Icons.picture_as_pdf_outlined, size: 20)),
+        leading: CircleAvatar(
+          backgroundColor: const Color(0xFF0891B2).withValues(alpha: 0.12),
+          child: const Icon(Icons.picture_as_pdf_outlined, size: 20, color: Color(0xFF0891B2)),
+        ),
         title: Text(title, style: AppTextStyle.inter(fontWeight: FontWeight.w600)),
+        subtitle: Text(
+          subtitle.toString(),
+          style: AppTextStyle.inter(fontSize: 12, color: past ? AppColors.grade2Text : AppColors.notificationSubtitle),
+        ),
         trailing: const Icon(Icons.chevron_right),
-        onTap: () => _openFileUrl(m['file_url']?.toString()),
+        onTap: () => _openFileUrl(ref),
       ),
     );
   }

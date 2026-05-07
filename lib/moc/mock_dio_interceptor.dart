@@ -324,7 +324,9 @@ class MockDioInterceptor extends Interceptor {
       return _jsonResponse(o, 200, MockPayloads.scholarshipCatalogDocument());
     }
     if (method == 'GET' && _pathEnds(path, '/scholarship-rating/my/summary')) {
-      return _jsonResponse(o, 200, MockPayloads.scholarshipSummary());
+      final sem = (o.uri.queryParameters['semester'] ?? 'spring').toLowerCase();
+      final normalized = sem == 'fall' || sem == '1' || sem == 'осень' ? 'fall' : 'spring';
+      return _jsonResponse(o, 200, MockPayloads.scholarshipSummary(semester: normalized));
     }
     if (method == 'POST' && _pathEnds(path, '/scholarship-rating/my/upload')) {
       return _jsonResponse(o, 201, {'id': 888});

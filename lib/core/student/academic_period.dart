@@ -1,21 +1,36 @@
 /// Учебный год и семестр для стипендиального рейтинга
 /// (`GET /scholarship-rating/my/summary`, `POST .../my/upload`).
 ///
-/// В API передаётся **`semester`** как строка **`1`** или **`2`** (как на действующем бэкенде колледжа).
+/// В query **`semester`** передаётся строка **`fall`** или **`spring`** (см. MOBILE_SCHOLARSHIP_RATING_CATALOG_RU).
 class AcademicPeriod {
   const AcademicPeriod({required this.academicYear, required this.semester});
 
   final String academicYear;
 
-  /// Значение для query: `1` или `2`.
+  /// В приложении хранится как **`1`** (осень) или **`2`** (весна). Для API см. [normalizedSemester].
   final String semester;
 
+  /// Семестр для query API: `1`/`2` → `fall`/`spring` (см. MOBILE_SCHOLARSHIP_RATING_CATALOG_RU).
+  String get normalizedSemester {
+    switch (semester) {
+      case '1':
+        return 'fall';
+      case '2':
+        return 'spring';
+      case 'fall':
+      case 'spring':
+        return semester;
+      default:
+        return semester;
+    }
+  }
+
   /// Подпись в карточках (рус.).
-  String get semesterLabelRu => semester == '1'
-      ? '1-й'
-      : semester == '2'
-          ? '2-й'
-          : semester;
+  String get semesterLabelRu => switch (semester) {
+        '1' || 'fall' => 'осенний',
+        '2' || 'spring' => 'весенний',
+        _ => semester,
+      };
 
   static AcademicPeriod current({DateTime? at}) {
     final now = at ?? DateTime.now();
@@ -29,7 +44,7 @@ class AcademicPeriod {
       academicYear = '${y - 1}-$y';
     }
 
-    // Сентябрь–январь — 1-й семестр; февраль–август — 2-й.
+    // Сентябрь–январь — 1-й семестр (осень); февраль–август — 2-й (весна). В API уходит как fall/spring.
     final String semester;
     if (m >= 9 || m == 1) {
       semester = '1';

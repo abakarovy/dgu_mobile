@@ -99,15 +99,16 @@ class StudentServicesApi {
     }
   }
 
-  Future<double> portfolioRatingTotal() async {
+  Future<int> portfolioRatingTotal() async {
     try {
       final res = await _api.dio.get<dynamic>('/portfolio/rating', options: _json200);
       if (res.statusCode != 200) throw _bad(res);
       final data = res.data;
       if (data is Map && data['total_points'] != null) {
         final v = data['total_points'];
-        if (v is num) return v.toDouble();
-        return double.tryParse('$v') ?? 0;
+        if (v is int) return v;
+        if (v is num) return v.round();
+        return int.tryParse('$v') ?? 0;
       }
       return 0;
     } on DioException catch (e) {
@@ -214,7 +215,7 @@ class StudentServicesApi {
     }
   }
 
-  /// [semester] — номер семестра в API (`1` / `2`), строкой в query.
+  /// [semester] — семестр в query: **`fall`** / **`spring`** (см. MOBILE_SCHOLARSHIP_RATING_CATALOG_RU).
   Future<Map<String, dynamic>> scholarshipMySummary({
     required String academicYear,
     required String semester,
@@ -233,6 +234,7 @@ class StudentServicesApi {
     }
   }
 
+  /// [semester]: **`fall`** / **`spring`**. Поля формы: `criterion_id`, `option_key`, `authors_count`, `notes`, `file`.
   Future<void> scholarshipUpload({
     required String academicYear,
     required String semester,

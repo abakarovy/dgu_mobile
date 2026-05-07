@@ -54,6 +54,9 @@ class _ProfilePageState extends State<ProfilePage> {
     _saved1cPhotoPath = _bestLocal1cPhotoPathSync();
     _maybeHydrateParentTicketFromOneC();
     _loadAvatarPath();
+    if ((_me?.role ?? '').trim().toLowerCase() != 'parent') {
+      unawaited(_hydrateParentStatusFromPrefs());
+    }
     _refreshMeInBackground();
   }
 

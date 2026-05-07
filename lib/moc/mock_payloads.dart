@@ -340,12 +340,85 @@ abstract final class MockPayloads {
         'login': 'demo_student',
       };
 
-  static List<dynamic> departmentAnnouncements() => [];
+  static List<dynamic> departmentAnnouncements() => [
+        {
+          'id': 9001,
+          'title': 'График приёма документов (мок)',
+          'body':
+              'Уважаемые студенты! В мае приём справок ведётся по средам 14:00–17:00. Это демонстрационное объявление в режиме мок-бэкенда.',
+          'created_at': '2026-05-01T09:00:00+03:00',
+          'group_code': 'DEMO-GROUP',
+        },
+      ];
 
   static Map<String, dynamic> portfolioMyComplete() => {
         'storage': 'site_only',
-        'self_uploads': <dynamic>[],
-        'official_final_works': <dynamic>[],
+        'self_uploads': <dynamic>[
+          {
+            'id': 1,
+            'file_url': '/uploads/mock/portfolio_certificate.png',
+            'file_name': 'Сертификат_курса.png',
+            'description': null,
+            'status': 'approved',
+            'points': 10,
+            'created_at': '2026-05-01T12:00:00+03:00',
+            'kind': 'student_upload',
+            'section': 'certificate',
+          },
+          {
+            'id': 2,
+            'file_url': '/uploads/mock/portfolio_diploma.jpg',
+            'file_name': 'Грамота_олимпиады.jpg',
+            'description': 'Региональный этап',
+            'status': 'approved',
+            'points': 5,
+            'created_at': '2026-05-02T14:30:00+03:00',
+            'kind': 'student_upload',
+            'section': 'diploma',
+          },
+          {
+            'id': 3,
+            'file_url': '/uploads/mock/portfolio_pending.pdf',
+            'file_name': 'Справка.pdf',
+            'description': null,
+            'status': 'pending',
+            'points': null,
+            'created_at': '2026-05-06T10:00:00+03:00',
+            'kind': 'student_upload',
+            'section': 'general',
+          },
+          {
+            'id': 4,
+            'file_url': '/uploads/mock/portfolio_reject.docx',
+            'file_name': 'Черновик.docx',
+            'description': null,
+            'status': 'rejected',
+            'points': null,
+            'created_at': '2026-04-20T09:00:00+03:00',
+            'kind': 'student_upload',
+            'section': 'course',
+          },
+        ],
+        'official_final_works': <dynamic>[
+          {
+            'id': 101,
+            'subject_name': 'Техническая защита информации',
+            'work_type': 'coursework',
+            'original_filename': 'Курсовая_ТЗИ.pdf',
+            'file_url': '/uploads/mock/official_coursework.pdf',
+            'upload_deadline_at': '2026-06-15',
+            'is_past_deadline': false,
+          },
+          {
+            'id': 102,
+            'subject_name': 'Сети и системы передачи информации',
+            'work_type': 'diploma',
+            'original_filename': null,
+            'file_url': '/uploads/mock/official_diploma.pdf',
+            'upload_deadline_at': '2026-05-01',
+            'is_past_deadline': true,
+          },
+        ],
       };
 
   static List<dynamic> portfolioMyList() {
@@ -353,7 +426,8 @@ abstract final class MockPayloads {
     return su is List ? List<dynamic>.from(su) : [];
   }
 
-  static Map<String, dynamic> portfolioRating() => {'total_points': 0};
+  /// Сумма `points` по одобренным самозагрузкам из [portfolioMyComplete].
+  static Map<String, dynamic> portfolioRating() => {'total_points': 15};
 
   static Map<String, dynamic> portfolioShareStatus() => {
         'active': true,
@@ -368,17 +442,114 @@ abstract final class MockPayloads {
 
   static Map<String, dynamic> scholarshipCatalogDocument() => mockScholarshipCatalogDocument();
 
-  static Map<String, dynamic> scholarshipSummary() => {
+  /// Сводка стипендиального рейтинга (семестр в query: `fall` / `spring`).
+  static Map<String, dynamic> scholarshipSummary({required String semester}) {
+    if (semester == 'fall') {
+      return {
         'academic_year': '2025-2026',
-        'semester': 2,
+        'semester': 'fall',
         'category_totals': {
-          'study': 0.0,
+          'study': 22.0,
           'science': 0.0,
           'society': 0.0,
           'culture': 0.0,
           'sport': 0.0,
         },
-        'total_approved': 0.0,
-        'entries': <dynamic>[],
+        'total_approved': 22.0,
+        'entries': <dynamic>[
+          {
+            'id': 3,
+            'academic_year': '2025-2026',
+            'semester': 'fall',
+            'criterion_id': '1.2.1',
+            'criterion_label': 'Международный уровень',
+            'category_id': 'study',
+            'option_key': null,
+            'authors_count': 1,
+            'notes': null,
+            'file_url': '/uploads/mock/scholarship_mock.pdf',
+            'file_name': 'Документ_критерия.pdf',
+            'suggested_points': 20,
+            'status': 'approved',
+            'approved_points': 22,
+            'reviewer_comment': null,
+            'created_at': '2026-05-06T09:24:04+03:00',
+            'reviewed_at': '2026-05-06T09:24:36+03:00',
+          },
+          {
+            'id': 4,
+            'academic_year': '2025-2026',
+            'semester': 'fall',
+            'criterion_id': '1.3.2',
+            'criterion_label': 'Всероссийский уровень',
+            'category_id': 'study',
+            'option_key': 'prize',
+            'authors_count': 2,
+            'notes': 'Соавтор: Иванов И.И.',
+            'file_url': '/uploads/mock/scholarship_scan.png',
+            'file_name': 'Диплом_призёр.png',
+            'suggested_points': 14,
+            'status': 'pending',
+            'approved_points': null,
+            'reviewer_comment': null,
+            'created_at': '2026-05-07T11:00:00+03:00',
+            'reviewed_at': null,
+          },
+        ],
       };
+    }
+
+    return {
+      'academic_year': '2025-2026',
+      'semester': 'spring',
+      'category_totals': {
+        'study': 11.0,
+        'science': 5.0,
+        'society': 0.0,
+        'culture': 0.0,
+        'sport': 0.0,
+      },
+      'total_approved': 16.0,
+      'entries': <dynamic>[
+        {
+          'id': 5,
+          'academic_year': '2025-2026',
+          'semester': 'spring',
+          'criterion_id': '2.1.1',
+          'criterion_label': 'Публикация (пример)',
+          'category_id': 'science',
+          'option_key': null,
+          'authors_count': 1,
+          'notes': null,
+          'file_url': '/uploads/mock/article.pdf',
+          'file_name': 'Статья_VAK.pdf',
+          'suggested_points': 5,
+          'status': 'approved',
+          'approved_points': 5,
+          'reviewer_comment': null,
+          'created_at': '2026-05-05T10:00:00+03:00',
+          'reviewed_at': '2026-05-05T12:00:00+03:00',
+        },
+        {
+          'id': 6,
+          'academic_year': '2025-2026',
+          'semester': 'spring',
+          'criterion_id': '1.2.3',
+          'criterion_label': 'Региональный уровень',
+          'category_id': 'study',
+          'option_key': null,
+          'authors_count': 1,
+          'notes': 'Неверный скан',
+          'file_url': '/uploads/mock/bad_scan.pdf',
+          'file_name': 'Скан.pdf',
+          'suggested_points': 10,
+          'status': 'rejected',
+          'approved_points': null,
+          'reviewer_comment': 'Нечитаемый документ',
+          'created_at': '2026-05-04T09:00:00+03:00',
+          'reviewed_at': '2026-05-04T15:00:00+03:00',
+        },
+      ],
+    };
+  }
 }

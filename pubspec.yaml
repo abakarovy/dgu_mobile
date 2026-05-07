@@ -13,6 +13,7 @@ dependencies:
   go_router: ^17.1.0
   flutter_svg: ^2.2.3
   image_picker: ^1.0.7
+  file_picker: ^8.1.7
   path_provider: ^2.1.2
   shared_preferences: ^2.2.2
   url_launcher: ^6.2.5
@@ -28,7 +29,7 @@ dependencies:
   # Локальная копия: исправлен Dialog.swift (keyWindow deprecated на iOS 13+).
   file_saver:
     path: packages/file_saver
-  share_plus: ^13.1.0
+  share_plus: ^10.0.2
   flutter_html: ^3.0.0
 
 dev_dependencies:

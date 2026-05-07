@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:collection/collection.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
@@ -6,6 +7,7 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 import '../constants/api_constants.dart';
 import '../di/app_container.dart';
 import '../logging/app_log_file.dart';
+import 'student_modules_refresh.dart';
 import '../../moc/mock_mode.dart';
 
 class RealtimeWsClient {
@@ -86,9 +88,28 @@ class RealtimeWsClient {
     if (s.trim().isEmpty) return;
     AppLogFile.writeln('[WS] message: $s');
 
+    try {
+      final decoded = jsonDecode(s);
+      if (decoded is Map) {
+        final map = Map<String, dynamic>.from(decoded);
+        final type = map['type']?.toString();
+        final resource = map['resource']?.toString();
+        if (type == 'data_changed') {
+          if (resource == 'portfolio') {
+            StudentModulesRefreshBus.bumpPortfolio();
+            return;
+          }
+          if (resource == 'scholarship_rating') {
+            StudentModulesRefreshBus.bumpScholarshipRating();
+            return;
+          }
+        }
+      }
+    } catch (_) {}
+
     // Expected payload:
     // { "v": 1, "type": "data_changed", "resource": "news", "id": 123 }
-    // Keep parsing cheap: look for resource substring, then refresh minimal caches.
+    // Fallback: substring match for legacy/minified payloads.
     final lower = s.toLowerCase();
     final resource = ['news', 'events', 'assignments']
         .firstWhereOrNull((r) => lower.contains('"resource"') && lower.contains(r));

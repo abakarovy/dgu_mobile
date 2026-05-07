@@ -1,5 +1,6 @@
 import 'package:dgu_mobile/core/constants/app_colors.dart';
 import 'package:dgu_mobile/core/di/app_container.dart';
+import 'package:dgu_mobile/core/realtime/student_modules_refresh.dart';
 import 'package:dgu_mobile/core/student/academic_period.dart';
 import 'package:dgu_mobile/core/theme/app_text_styles.dart';
 import 'package:dgu_mobile/features/student/presentation/pages/scholarship_section_page.dart';
@@ -8,6 +9,26 @@ import 'package:dgu_mobile/shared/widgets/app_header.dart';
 import 'package:dgu_mobile/shared/widgets/network_degraded_banner.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+
+/// Подпись статуса заявки стипендиального рейтинга для UI (API отдаёт латиницей).
+String scholarshipRatingEntryStatusRu(Object? raw) {
+  if (raw == null) return '—';
+  final s = raw.toString().trim().toLowerCase();
+  if (s.isEmpty) return '—';
+  return switch (s) {
+    'approved' => 'Одобрено',
+    'pending' => 'На рассмотрении',
+    'rejected' => 'Отклонено',
+    'draft' => 'Черновик',
+    'cancelled' || 'canceled' => 'Отменено',
+    'submitted' => 'Подана',
+    'processing' || 'in_progress' => 'В обработке',
+    'under_review' || 'in_review' || 'review' => 'На проверке',
+    'need_revision' || 'revision_requested' => 'Нужны уточнения',
+    'withdrawn' => 'Отозвана',
+    _ => raw.toString().trim(),
+  };
+}
 
 class ScholarshipRatingPage extends StatefulWidget {
   const ScholarshipRatingPage({super.key});
@@ -23,13 +44,28 @@ class _ScholarshipRatingPageState extends State<ScholarshipRatingPage> {
   String _year = '2025-2026';
   String _sem = '1';
 
+  late final VoidCallback _scholarshipWsListener;
+
+  String get _semesterForApi =>
+      AcademicPeriod(academicYear: _year, semester: _sem).normalizedSemester;
+
   @override
   void initState() {
     super.initState();
     final p = AcademicPeriod.current();
     _year = p.academicYear;
     _sem = p.semester;
+    _scholarshipWsListener = () {
+      if (mounted) _load();
+    };
+    StudentModulesRefreshBus.scholarshipRatingTick.addListener(_scholarshipWsListener);
     _load();
+  }
+
+  @override
+  void dispose() {
+    StudentModulesRefreshBus.scholarshipRatingTick.removeListener(_scholarshipWsListener);
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -38,7 +74,7 @@ class _ScholarshipRatingPageState extends State<ScholarshipRatingPage> {
       final c = await AppContainer.studentServicesApi.scholarshipCatalog();
       final s = await AppContainer.studentServicesApi.scholarshipMySummary(
         academicYear: _year,
-        semester: _sem,
+        semester: _semesterForApi,
       );
       if (mounted) {
         setState(() {
@@ -94,6 +130,7 @@ class _ScholarshipRatingPageState extends State<ScholarshipRatingPage> {
         );
 
     final grouped = groupScholarshipCatalog(_catalog);
+    final byCategory = scholarshipCatalogByCategory(grouped);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -192,78 +229,76 @@ class _ScholarshipRatingPageState extends State<ScholarshipRatingPage> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Выберите раздел (например 1.1), чтобы открыть список критериев',
+                      'Сначала раскройте категорию (например «1. Учёба»), затем выберите подраздел',
                       style: AppTextStyle.inter(fontSize: 12, color: AppColors.notificationSubtitle, height: 1.35),
                     ),
                     const SizedBox(height: 12),
-                    for (final g in grouped)
+                    for (final block in byCategory)
                       Padding(
                         padding: const EdgeInsets.only(bottom: 10),
                         child: Material(
-                          color: Colors.transparent,
-                          borderRadius: BorderRadius.circular(14),
+                          color: Colors.white,
                           clipBehavior: Clip.antiAlias,
-                          child: InkWell(
-                            onTap: () => _openSection(g),
-                            child: Ink(
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(14),
-                                border: Border.all(color: AppColors.lightGrey.withValues(alpha: 0.6)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            side: BorderSide(color: AppColors.lightGrey.withValues(alpha: 0.6)),
+                          ),
+                          child: Theme(
+                            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                            child: ExpansionTile(
+                              tilePadding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+                              childrenPadding: EdgeInsets.zero,
+                              shape: const Border(),
+                              collapsedShape: const Border(),
+                              iconColor: const Color(0xFF2563EB),
+                              collapsedIconColor: AppColors.notificationSubtitle,
+                              title: Text(
+                                '${block.ordinal}. ${block.categoryLabel}',
+                                style: AppTextStyle.inter(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 15,
+                                  color: AppColors.textPrimary,
+                                ),
                               ),
-                              child: Padding(
-                                padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            g.ref.isNotEmpty ? g.ref : 'Критерии',
-                                            style: AppTextStyle.inter(
-                                              fontWeight: FontWeight.w800,
-                                              fontSize: 16,
-                                              color: AppColors.textPrimary,
-                                            ),
-                                          ),
-                                          if (g.title.isNotEmpty) ...[
-                                            const SizedBox(height: 6),
-                                            Text(
-                                              g.title,
-                                              maxLines: 3,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: AppTextStyle.inter(
-                                                fontSize: 12,
-                                                height: 1.35,
-                                                color: AppColors.notificationSubtitle,
+                              children: [
+                                for (var i = 0; i < block.sections.length; i++) ...[
+                                  if (i > 0)
+                                    Divider(height: 1, thickness: 1, color: AppColors.lightGrey.withValues(alpha: 0.45)),
+                                  Material(
+                                    color: Colors.transparent,
+                                    child: InkWell(
+                                      onTap: () => _openSection(block.sections[i]),
+                                      child: Padding(
+                                        padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
+                                        child: Row(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Expanded(
+                                              child: Text(
+                                                block.sections[i].title.isNotEmpty
+                                                    ? block.sections[i].title
+                                                    : (block.sections[i].ref.isNotEmpty
+                                                        ? block.sections[i].ref
+                                                        : 'Критерии'),
+                                                maxLines: 4,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: AppTextStyle.inter(
+                                                  fontWeight: FontWeight.w600,
+                                                  fontSize: 14,
+                                                  height: 1.35,
+                                                  color: AppColors.textPrimary,
+                                                ),
                                               ),
                                             ),
+                                            Icon(Icons.chevron_right_rounded,
+                                                color: AppColors.chevronRight, size: 24),
                                           ],
-                                        ],
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFFFFF7ED),
-                                        borderRadius: BorderRadius.circular(20),
-                                      ),
-                                      child: Text(
-                                        '${g.items.length}',
-                                        style: AppTextStyle.inter(
-                                          fontWeight: FontWeight.w700,
-                                          fontSize: 13,
-                                          color: Color(0xFFEA580C),
                                         ),
                                       ),
                                     ),
-                                    Icon(Icons.chevron_right_rounded, color: AppColors.chevronRight, size: 26),
-                                  ],
-                                ),
-                              ),
+                                  ),
+                                ],
+                              ],
                             ),
                           ),
                         ),
@@ -287,7 +322,7 @@ class _ScholarshipRatingPageState extends State<ScholarshipRatingPage> {
                         child: ListTile(
                           title: Text('Заявка #${m['id']}', style: AppTextStyle.inter(fontWeight: FontWeight.w600)),
                           subtitle: Text(
-                            'Статус: ${m['status'] ?? '—'} · Баллы: ${m['approved_points'] ?? m['suggested_points'] ?? '—'}',
+                            'Статус: ${scholarshipRatingEntryStatusRu(m['status'])} · Баллы: ${m['approved_points'] ?? m['suggested_points'] ?? '—'}',
                             style: AppTextStyle.inter(fontSize: 13, color: AppColors.notificationSubtitle),
                           ),
                         ),
