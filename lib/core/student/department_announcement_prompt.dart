@@ -43,7 +43,7 @@ class DepartmentAnnouncementPrompt {
       final prefs = await SharedPreferences.getInstance();
       final lastSeenMax = prefs.getInt(_kPrefsLastSeenDeptAnnMaxId) ?? 0;
 
-      final raw = await AppContainer.studentServicesApi.departmentAnnouncementsMy();
+      final raw = await AppContainer.studentServicesApi.departmentAnnouncementsMy(archive: false);
       if (raw.isEmpty) return;
       if (!context.mounted) return;
 

@@ -43,5 +43,27 @@ class NewsApi {
       throw ApiException.fromDio(e);
     }
   }
+
+  /// Одна новость по id (для push / глубоких ссылок). Пробует `GET /news/{id}`, затем поиск в списке.
+  Future<NewsModel?> getNewsById(int id) async {
+    try {
+      final res = await _api.dio.get<dynamic>(
+        '/news/$id',
+        options: Options(validateStatus: (s) => s != null && s < 500),
+      );
+      if (res.statusCode == 200 && res.data is Map) {
+        return NewsModel.fromJson(Map<String, dynamic>.from(res.data as Map));
+      }
+    } on DioException {
+      // список ниже
+    }
+    try {
+      final list = await getNews(limit: 100);
+      for (final n in list) {
+        if (n.id == id) return n;
+      }
+    } catch (_) {}
+    return null;
+  }
 }
 

@@ -83,6 +83,24 @@ class MockDioInterceptor extends Interceptor {
       return _getMe(o);
     }
 
+    if (method == 'GET') {
+      final newsId = _newsDetailId(path);
+      if (newsId != null) {
+        for (final raw in MockPayloads.newsList(uid)) {
+          if (raw is Map) {
+            final idRaw = raw['id'];
+            final n = idRaw is int
+                ? idRaw
+                : idRaw is num
+                    ? idRaw.toInt()
+                    : int.tryParse('$idRaw') ?? 0;
+            if (n == newsId) return _jsonResponse(o, 200, raw);
+          }
+        }
+        return _jsonResponse(o, 404, {'detail': 'Новость не найдена (мок)'});
+      }
+    }
+
     if (method == 'GET' && _pathEnds(path, '/news')) {
       return _jsonResponse(o, 200, MockPayloads.newsList(uid));
     }
@@ -282,6 +300,18 @@ class MockDioInterceptor extends Interceptor {
       }
     }
     if (method == 'GET' && _pathEnds(path, '/students/department-announcements/my')) {
+      final arch = o.uri.queryParameters['archive']?.toLowerCase();
+      if (arch == 'true' || arch == '1') {
+        return _jsonResponse(o, 200, [
+          {
+            'id': 8999,
+            'title': 'Архив: прошлый период (мок)',
+            'body': 'Завершённое объявление для проверки query archive=true.',
+            'created_at': '2024-12-15T10:00:00+03:00',
+            'group_code': 'ARCHIVE',
+          },
+        ]);
+      }
       return _jsonResponse(o, 200, MockPayloads.departmentAnnouncements());
     }
     if (method == 'GET' && _pathEnds(path, '/portfolio/my')) {
@@ -487,6 +517,13 @@ class MockDioInterceptor extends Interceptor {
     // Запасной вариант (редкие прокси / объединение baseUrl).
     final tail = s.startsWith('/') ? s.substring(1) : s;
     return p.endsWith(tail) || path.contains('/$tail');
+  }
+
+  static int? _newsDetailId(String path) {
+    final p = _normalizedPath(path);
+    final m = RegExp(r'/news/(\d+)$').firstMatch(p);
+    if (m == null) return null;
+    return int.tryParse(m.group(1) ?? '');
   }
 
   static Map<String, String> _parseForm(dynamic data) {

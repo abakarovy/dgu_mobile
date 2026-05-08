@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart' show Scaffold, Center, Text;
+import 'package:flutter/material.dart' show Scaffold, Center, Text, GlobalKey, NavigatorState;
+
 import 'package:go_router/go_router.dart';
 
 import '../bootstrap/bootstrap_page.dart';
@@ -49,9 +50,14 @@ Page<void> _cupertinoSubpage({
   );
 }
 
+/// Ключ корневого навигатора: push-навигация и [GoRouter] после cold start.
+final GlobalKey<NavigatorState> appRootNavigatorKey =
+    GlobalKey<NavigatorState>(debugLabel: 'appRoot');
+
 /// Конфигурация маршрутизации приложения.
 /// StatefulShellRoute.indexedStack устраняет дублирование GlobalKey при переключении вкладок.
 final GoRouter appRouter = GoRouter(
+  navigatorKey: appRootNavigatorKey,
   initialLocation: '/bootstrap',
   routes: [
     GoRoute(
@@ -145,9 +151,19 @@ final GoRouter appRouter = GoRouter(
               builder: (context, state) {
                 final tabParam = state.uri.queryParameters['tab'];
                 final tab = int.tryParse(tabParam ?? '')?.clamp(0, 2) ?? 0;
+                final focusRaw =
+                    state.uri.queryParameters['focusDate'] ?? state.uri.queryParameters['date'];
+                DateTime? focusDate;
+                if (focusRaw != null && focusRaw.trim().isNotEmpty) {
+                  final p = DateTime.tryParse(focusRaw.trim());
+                  if (p != null) {
+                    focusDate = DateTime(p.year, p.month, p.day);
+                  }
+                }
                 return GradesPage(
                   key: ValueKey('grades-${AuthSession.epoch}-${state.uri}'),
                   initialTabIndex: tab,
+                  focusGradeDate: focusDate,
                 );
               },
             ),

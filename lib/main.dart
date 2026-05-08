@@ -16,6 +16,7 @@ import 'moc/mock_logger.dart';
 import 'moc/mock_mode.dart';
 import 'moc/mock_parent_invite_persistence.dart';
 import 'core/logging/app_log_file.dart';
+import 'core/push/push_navigation.dart';
 import 'core/push/push_registrar.dart';
 import 'core/realtime/realtime_ws_client.dart';
 import 'firebase_options.dart';
@@ -62,12 +63,21 @@ void main() async {
     await MockParentInvitePersistence.hydrateSession();
   }
 
-  // Firebase is optional for backend API, but enable when configured.
+  // Firebase опционален (Windows/Web без конфига — без FCM, без падений).
+  var firebaseReady = false;
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
-  } catch (_) {}
+    firebaseReady = true;
+    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+    PushNavigation.holdTerminatedLaunchMessage(
+      await FirebaseMessaging.instance.getInitialMessage(),
+    );
+  } catch (e, st) {
+    AppLogFile.writeln('Firebase init пропущен: $e');
+    AppLogFile.writeln('$st');
+  }
 
   // DI for backend (Dio/AuthApi/TokenStorage).
   await AppContainer.init();
@@ -79,12 +89,14 @@ void main() async {
     appRouter.go('/login');
   });
 
-  await _requestNotificationsPermissionIfNeeded();
+  await _requestNotificationsPermissionIfNeeded(firebaseReady: firebaseReady);
 
   // Сеть после первого кадра: не блокируем старт и не шумим таймаутами до отрисовки UI.
   WidgetsBinding.instance.addPostFrameCallback((_) {
-    // Register current device token (best-effort).
-    PushRegistrar.instance.ensureRegistered();
+    if (firebaseReady) {
+      PushRegistrar.attachTokenRefreshListener();
+      PushRegistrar.instance.ensureRegistered();
+    }
     RealtimeWsClient.instance.connectIfPossible();
   });
 
@@ -108,14 +120,16 @@ bool _resolveUseMockBackend() {
   return const bool.fromEnvironment('USE_MOCK_BACKEND', defaultValue: true);
 }
 
-Future<void> _requestNotificationsPermissionIfNeeded() async {
-  try {
-    await FirebaseMessaging.instance.requestPermission(
-      alert: true,
-      badge: true,
-      sound: true,
-    );
-  } catch (_) {}
+Future<void> _requestNotificationsPermissionIfNeeded({required bool firebaseReady}) async {
+  if (firebaseReady) {
+    try {
+      await FirebaseMessaging.instance.requestPermission(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+    } catch (_) {}
+  }
 
   try {
     final status = await Permission.notification.status;

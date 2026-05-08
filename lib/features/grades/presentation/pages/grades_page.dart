@@ -17,10 +17,17 @@ import '../../../grades/domain/entities/grade_entity.dart';
 /// Вкладка «Оценки»: 3 таба (Текущие, Сессия, Учебный маршрут).
 /// Сессия: оценки за сессию (аттестации, зачёты и т.п.), переключатель семестров из 1С.
 class GradesPage extends StatefulWidget {
-  const GradesPage({super.key, this.initialTabIndex = 0});
+  const GradesPage({
+    super.key,
+    this.initialTabIndex = 0,
+    this.focusGradeDate,
+  });
 
   /// 0 — «Текущие», 1 — «Сессия», 2 — «Маршрут».
   final int initialTabIndex;
+
+  /// Из push / deep link: сузить «Текущие» до этого календарного дня и показать подсказку.
+  final DateTime? focusGradeDate;
 
   @override
   State<GradesPage> createState() => _GradesPageState();
@@ -177,6 +184,14 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
     _rangeEnd = week.end;
     _isWeekMode = true;
 
+    final focus = widget.focusGradeDate;
+    if (focus != null) {
+      final d = CalendarPeriod.dateOnly(focus);
+      _rangeStart = d;
+      _rangeEnd = d;
+      _isWeekMode = false;
+    }
+
     _grades = _decodeCachedGrades();
     _semesterOrder = _decodeCachedSemesters();
     _clampSemesterIndex();
@@ -230,6 +245,34 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
             },
           ),
         ),
+        if (widget.focusGradeDate != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: Material(
+              color: const Color(0xFFEFF6FF),
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.notifications_active_outlined, size: 20, color: Color(0xFF2563EB)),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Из уведомления: оценки за ${CalendarPeriod.formatDdMmYyyy(widget.focusGradeDate!)}',
+                        style: AppTextStyle.inter(
+                          fontSize: 13,
+                          height: 1.35,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
         Expanded(
           child: ListenableBuilder(
             listenable: _tabController,

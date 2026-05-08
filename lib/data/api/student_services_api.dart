@@ -57,12 +57,14 @@ class StudentServicesApi {
 
   // --- Объявления отделения ---
 
-  /// `StudentDepartmentAnnouncementOut`: `id`, `title`, `body`, `created_at`, `group_code`.
+  /// `StudentDepartmentAnnouncementOut`: `id`, `title`, `body`, `created_at`, `group_code` и др.
+  /// [archive]: `false` (по умолчанию) — актуальные; `true` — завершённые по дате.
   /// Пустой `[]` при 200 — норма (в т.ч. группа не сопоставлена).
-  Future<List<Map<String, dynamic>>> departmentAnnouncementsMy() async {
+  Future<List<Map<String, dynamic>>> departmentAnnouncementsMy({bool archive = false}) async {
     try {
       final res = await _api.dio.get<dynamic>(
         '/students/department-announcements/my',
+        queryParameters: {'archive': archive},
         options: _json200,
       );
       if (res.statusCode != 200) throw _bad(res);

@@ -403,15 +403,7 @@ abstract final class AppContainer {
 
   static Future<void> _prefetchHelp() async {
     final h = await mobileHelpApi.getHelp();
-    await jsonCache.setJson('mobile:help', {
-      'hotline_phone': h.hotlinePhone,
-      'email': h.email,
-      'website_url': h.websiteUrl,
-      'faq': [
-        for (final f in (h.faq ?? const []))
-          {'title': f.title, 'answer': f.answer}
-      ],
-    });
+    await jsonCache.setJson('mobile:help', h.toCacheJson());
   }
 
   static Future<void> _prefetchNotificationPreferences() async {

@@ -78,6 +78,8 @@ abstract final class MockBundleEmbedded {
   },
   "syncGradesSemester": "2 сем 2025-2026",
   "gradeRecords": [
+    {"daysAgo": 0, "subject": "Базы данных", "grade": "2", "type": "Экзамен", "teacher_name": "Иванов И.И."},
+    {"daysAgo": 0, "subject": "История России", "grade": "незач", "type": "Зачёт", "teacher_name": "Петрова А.А."},
     {"daysAgo": 9, "subject": "Электроника и схемотехника", "grade": "Н", "type": "Пропуск"},
     {"daysAgo": 4, "subject": "Сети и системы передачи информации", "grade": "Н", "type": "Пропуск"},
     {"daysAgo": 1, "subject": "Сети и системы передачи информации", "grade": "5", "type": "Ответ у доски 1 АТ", "teacher_name": "Петров Пётр Сергеевич"},
@@ -98,6 +100,23 @@ abstract final class MockBundleEmbedded {
     "hotline_phone": "+7 (8722) 67-XX-XX",
     "email": "colledgedsu@dgu.ru",
     "website_url": "https://college.dgu.ru/",
+    "disclosure_basic": {
+      "org_created_date": "01.09.1990",
+      "founders": "Министерство науки и высшего образования РФ (пример из мока).",
+      "location_branches": "г. Махачкала, … (данные из админки сведений; это демонстрационная строка).",
+      "work_schedule": "Пн–Пт 9:00–17:00, перерыв 13:00–14:00 (мок).",
+      "phones": "+7 (8722) 67-XX-XX, добавочные уточняйте в учебной части.",
+      "email": "priem@example.edu (мок для блока «основные сведения»)"
+    },
+    "management_contacts": [
+      {
+        "unit_name": "Учебный отдел (мок)",
+        "head_full_name": "Иванова Мария Сергеевна",
+        "address": "г. Махачкала, ул. Примерная, д. 1, каб. 12",
+        "site_url": "https://college.dgu.ru/",
+        "email": "ucheb@example.edu"
+      }
+    ],
     "faq": [
       {"question": "Как восстановить пароль?", "answer": "На экране входа нажмите «Забыли пароль» или обратитесь в учебный отдел колледжа."},
       {"question": "Где посмотреть расписание?", "answer": "В разделе «Расписание» мобильного приложения или на сайте колледжа в личном кабинете студента."},

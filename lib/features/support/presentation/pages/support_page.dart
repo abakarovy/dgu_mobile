@@ -51,15 +51,7 @@ class _SupportPageState extends State<SupportPage> {
     setState(() => _loading = true);
     try {
       final fresh = await AppContainer.mobileHelpApi.getHelp();
-      await AppContainer.jsonCache.setJson('mobile:help', {
-        'hotline_phone': fresh.hotlinePhone,
-        'email': fresh.email,
-        'website_url': fresh.websiteUrl,
-        'faq': [
-          for (final f in (fresh.faq ?? const []))
-            {'title': f.title, 'answer': f.answer}
-        ],
-      });
+      await AppContainer.jsonCache.setJson('mobile:help', fresh.toCacheJson());
       if (mounted) setState(() => _help = fresh);
     } catch (_) {
       // keep cache
@@ -73,7 +65,9 @@ class _SupportPageState extends State<SupportPage> {
     final phone = _help?.hotlinePhone ?? _fallbackPhoneNumber;
     final email = _help?.email ?? _fallbackEmail;
     final site = _help?.websiteUrl ?? _fallbackWebsiteUrl;
-    final faq = (_help?.faq ?? const <HelpFaqItem>[]);
+    final disc = _help?.disclosureBasic;
+    final mgmt = _help?.managementContacts ?? const <HelpManagementContact>[];
+    final faq = _help?.faq ?? const <HelpFaqItem>[];
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -102,6 +96,21 @@ class _SupportPageState extends State<SupportPage> {
                 site: site,
               ),
               const SizedBox(height: 28),
+              if (disc != null && disc.hasAnyContent) ...[
+                _buildSectionTitle('Сведения об организации'),
+                const SizedBox(height: AppUi.spacingM),
+                _buildDisclosureCard(disc),
+                const SizedBox(height: 28),
+              ],
+              if (mgmt.isNotEmpty) ...[
+                _buildSectionTitle('Структура и органы управления'),
+                const SizedBox(height: AppUi.spacingM),
+                for (int i = 0; i < mgmt.length; i++) ...[
+                  _buildManagementCard(context, mgmt[i]),
+                  if (i != mgmt.length - 1) const SizedBox(height: 12),
+                ],
+                const SizedBox(height: 28),
+              ],
               _buildSectionTitle('Частые вопросы'),
               const SizedBox(height: AppUi.spacingM),
               if (faq.isEmpty)
@@ -296,6 +305,122 @@ class _SupportPageState extends State<SupportPage> {
             showShadow: false,
             onTap: () => _launchWebsite(context, site),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDisclosureCard(HelpDisclosureBasic d) {
+    Widget row(String label, String? value) {
+      if (value == null || value.trim().isEmpty) return const SizedBox.shrink();
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              label,
+              style: AppTextStyle.inter(
+                fontWeight: FontWeight.w700,
+                fontSize: 12,
+                color: AppColors.caption,
+              ),
+            ),
+            const SizedBox(height: 4),
+            SelectableText(
+              value,
+              style: AppTextStyle.inter(
+                fontSize: 14,
+                height: 1.4,
+                color: AppColors.textPrimary,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            offset: const Offset(0, 4),
+            blurRadius: 12,
+            spreadRadius: 0,
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          row('Дата создания', d.orgCreatedDate),
+          row('Учредители', d.founders),
+          row('Место осуществления образовательной деятельности', d.locationBranches),
+          row('Режим и график работы', d.workSchedule),
+          row('Телефоны', d.phones),
+          row('Электронная почта', d.email),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildManagementCard(BuildContext context, HelpManagementContact m) {
+    final unit = m.unitName?.trim() ?? 'Подразделение';
+    final head = m.headFullName?.trim();
+    final addr = m.address?.trim();
+    final site = m.siteUrl?.trim();
+    final mail = m.email?.trim();
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.lightGrey.withValues(alpha: 0.45)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            unit,
+            style: AppTextStyle.inter(
+              fontWeight: FontWeight.w700,
+              fontSize: 15,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          if (head != null && head.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              head,
+              style: AppTextStyle.inter(fontSize: 14, height: 1.35, color: AppColors.grey),
+            ),
+          ],
+          if (addr != null && addr.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            SelectableText(
+              addr,
+              style: AppTextStyle.inter(fontSize: 13, height: 1.4, color: AppColors.notificationSubtitle),
+            ),
+          ],
+          if (site != null && site.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            TextButton.icon(
+              onPressed: () => _launchWebsite(context, site),
+              icon: const Icon(Icons.language, size: 20),
+              label: const Text('Сайт'),
+            ),
+          ],
+          if (mail != null && mail.isNotEmpty)
+            TextButton.icon(
+              onPressed: () => _launchMail(context, mail),
+              icon: const Icon(Icons.email_outlined, size: 20),
+              label: const Text('Написать'),
+            ),
         ],
       ),
     );
