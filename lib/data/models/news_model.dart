@@ -94,7 +94,7 @@ class NewsModel {
     return s;
   }
 
-  /// Локальный ассет из `pubspec` (моки: `assets/images/...`).
+  /// Путь к изображению как `assets/...` из бандла (например от бэка для офлайн-демо).
   static String? bundleAssetPath(String? path) {
     if (path == null || path.isEmpty) return null;
     final t = path.trim();

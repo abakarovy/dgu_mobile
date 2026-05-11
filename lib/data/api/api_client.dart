@@ -4,8 +4,6 @@ import 'package:flutter/foundation.dart';
 import '../../core/constants/api_constants.dart';
 import '../../core/auth/unauthorized_handler.dart';
 import '../../core/logging/app_log_file.dart';
-import '../../moc/mock_dio_interceptor.dart';
-import '../../moc/mock_mode.dart';
 import '../services/token_storage.dart';
 
 /// HTTP-клиент для College DGU API: base URL, Bearer-токен, логирование.
@@ -36,13 +34,8 @@ class ApiClient {
       },
     ));
 
-    // 2) Логирование всех вызовов (в т.ч. мок) — до мока, иначе при `resolve` не было бы строки [API] →.
+    // 2) Логирование запросов.
     _dio.interceptors.add(_ApiLogInterceptor());
-
-    // 3) Локальные ответы без HTTP (после подстановки Bearer — см. [MockDioInterceptor]).
-    if (useMockBackend) {
-      _dio.interceptors.add(MockDioInterceptor());
-    }
   }
 
   late final Dio _dio;

@@ -2,7 +2,6 @@ import 'dart:io';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../moc/mock_parent_invite_persistence.dart';
 import '../constants/app_constants.dart';
 
 /// Удаляет данные пользователя вне JSON-кэша и токена: пути к фото, черновики справок, cooldown сброса пароля.
@@ -16,7 +15,7 @@ Future<void> wipeUserLocalPreferencesAndAvatarFiles() async {
   await prefs.remove(AppConstants.passwordResetCooldownUntilMsKey);
   await prefs.remove(AppConstants.certificateOrdersPrefsKey);
   await prefs.remove(AppConstants.profileLastParentStatusJsonKey);
-  await MockParentInvitePersistence.clear();
+  await prefs.remove('mock:student_parent_invite_pending');
 
   for (final p in [avatarPath, oneCPath]) {
     if (p == null || p.trim().isEmpty) continue;

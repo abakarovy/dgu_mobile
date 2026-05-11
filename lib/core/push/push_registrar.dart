@@ -6,7 +6,6 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 
 import '../../core/logging/app_log_file.dart';
 import '../../core/di/app_container.dart';
-import '../../moc/mock_mode.dart';
 
 class PushRegistrar {
   PushRegistrar._();
@@ -17,7 +16,7 @@ class PushRegistrar {
 
   /// Повторная регистрация на бэке при смене FCM-токена.
   static void attachTokenRefreshListener() {
-    if (useMockBackend || Firebase.apps.isEmpty) return;
+    if (Firebase.apps.isEmpty) return;
     _tokenRefreshSub ??= FirebaseMessaging.instance.onTokenRefresh.listen((_) {
       instance.ensureRegistered();
     });
@@ -25,7 +24,7 @@ class PushRegistrar {
 
   /// Регистрирует текущий FCM-токен на бэке (если Firebase включён).
   Future<void> ensureRegistered() async {
-    if (useMockBackend || Firebase.apps.isEmpty) return;
+    if (Firebase.apps.isEmpty) return;
     try {
       final token = await FirebaseMessaging.instance.getToken();
       if (token == null || token.trim().isEmpty) return;
@@ -39,7 +38,7 @@ class PushRegistrar {
 
   /// Отвязывает текущий FCM-токен от пользователя на бэке.
   Future<void> unregisterCurrentDevice() async {
-    if (useMockBackend || Firebase.apps.isEmpty) return;
+    if (Firebase.apps.isEmpty) return;
     try {
       final token = await FirebaseMessaging.instance.getToken();
       if (token == null || token.trim().isEmpty) return;
