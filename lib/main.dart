@@ -11,6 +11,8 @@ import 'app/app.dart';
 import 'app/router/app_router.dart';
 import 'core/auth/unauthorized_handler.dart';
 import 'core/di/app_container.dart';
+import 'core/backend_access/backend_access_controller.dart';
+import 'core/backend_access/backend_access_websocket_sync.dart';
 import 'core/logging/app_log_file.dart';
 import 'core/push/push_navigation.dart';
 import 'core/push/push_registrar.dart';
@@ -65,8 +67,16 @@ void main() async {
     AppLogFile.writeln('$st');
   }
 
+  if (firebaseReady) {
+    await BackendAccessController.instance.initialize();
+  }
+
   // DI for backend (Dio/AuthApi/TokenStorage).
   await AppContainer.init();
+
+  await syncWebSocketWithBackendAccess(
+    BackendAccessController.instance.isBackendBlocked,
+  );
 
   UnauthorizedHandler.register(() async {
     // Можем получить 401 в bootstrap/prefetch: важно убрать splash и отправить на логин.
@@ -83,7 +93,9 @@ void main() async {
       PushRegistrar.attachTokenRefreshListener();
       PushRegistrar.instance.ensureRegistered();
     }
-    RealtimeWsClient.instance.connectIfPossible();
+    if (!BackendAccessController.instance.isBackendBlocked) {
+      RealtimeWsClient.instance.connectIfPossible();
+    }
   });
 
   // Прозрачный статус-бар: фон задаёт экран (на входе — [assets/images/photo.png]).

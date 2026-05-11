@@ -3,7 +3,9 @@ import 'package:flutter/foundation.dart';
 
 import '../../core/constants/api_constants.dart';
 import '../../core/auth/unauthorized_handler.dart';
+import '../../core/backend_access/backend_access_controller.dart';
 import '../../core/logging/app_log_file.dart';
+import 'backend_access_blocked_exception.dart';
 import '../services/token_storage.dart';
 
 /// HTTP-клиент для College DGU API: base URL, Bearer-токен, логирование.
@@ -14,6 +16,22 @@ class ApiClient {
       connectTimeout: ApiConstants.connectTimeout,
       receiveTimeout: ApiConstants.receiveTimeout,
       headers: {'Accept': 'application/json', 'Content-Type': 'application/json'},
+    ));
+
+    _dio.interceptors.add(InterceptorsWrapper(
+      onRequest: (options, handler) {
+        if (BackendAccessController.instance.shouldBlockHttpRequests) {
+          return handler.reject(
+            DioException(
+              requestOptions: options,
+              type: DioExceptionType.cancel,
+              error: const BackendAccessBlockedException(),
+              message: 'Доступ к API отключён (Firebase Remote Config)',
+            ),
+          );
+        }
+        return handler.next(options);
+      },
     ));
 
     // 1) Auth header

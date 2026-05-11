@@ -33,10 +33,10 @@ class DefaultFirebaseOptions {
           'you can reconfigure this by running the FlutterFire CLI again.',
         );
       case TargetPlatform.windows:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for windows - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        // До регистрации отдельного Windows-приложения в Firebase используем тот же
+        // объект, что и Android (один проект). Иначе init падает и Remote Config не
+        // вызывается. Надёжнее: `flutterfire configure` и своя запись для Windows.
+        return android;
       case TargetPlatform.linux:
         throw UnsupportedError(
           'DefaultFirebaseOptions have not been configured for linux - '
