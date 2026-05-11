@@ -1,13 +1,69 @@
+import 'dart:async';
 import 'dart:ui';
 
+import 'package:dgu_mobile/core/constants/api_constants.dart';
 import 'package:dgu_mobile/core/constants/app_colors.dart';
 import 'package:dgu_mobile/core/constants/app_ui.dart';
 import 'package:dgu_mobile/core/theme/app_text_styles.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_html/flutter_html.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../../../../data/models/event_model.dart';
+import '../../../../data/models/news_model.dart';
 import '../../data/event_item.dart';
+
+Future<void> _openEventContentUrl(String url) async {
+  if (url.isEmpty) return;
+  final resolved = url.startsWith('http://') || url.startsWith('https://')
+      ? url
+      : ApiConstants.resolvePublicFileUrl(url);
+  final u = Uri.tryParse(resolved);
+  if (u != null && await canLaunchUrl(u)) {
+    await launchUrl(u, mode: LaunchMode.externalApplication);
+  }
+}
+
+Widget _eventDetailHeroImage(EventItem item, double imageHeight) {
+  final placeholder = Container(
+    color: AppColors.backgroundSecondary,
+    child: const Icon(Icons.image_outlined, size: 48, color: AppColors.caption),
+  );
+  final asset = NewsModel.bundleAssetPath(item.imageUrl);
+  if (asset != null) {
+    return Image.asset(
+      asset,
+      fit: BoxFit.cover,
+      width: double.infinity,
+      height: imageHeight,
+      errorBuilder: (_, _, _) => placeholder,
+    );
+  }
+  final url = EventModel.resolveImageUrl(item.imageUrl);
+  if (url != null && url.isNotEmpty) {
+    return Image.network(
+      url,
+      fit: BoxFit.cover,
+      width: double.infinity,
+      height: imageHeight,
+      errorBuilder: (_, _, _) => placeholder,
+    );
+  }
+  if (item.imageAsset != null && item.imageAsset!.isNotEmpty) {
+    return Image.asset(
+      item.imageAsset!,
+      fit: BoxFit.cover,
+      width: double.infinity,
+      height: imageHeight,
+      errorBuilder: (_, _, _) => placeholder,
+    );
+  }
+  return placeholder;
+}
+
+bool _looksLikeHtml(String s) => s.contains('<') && s.contains('>');
 
 /// Экран детали мероприятия — по паттерну детали новости: без AppBar, картинка сверху и кнопка «назад».
 class EventDetailPage extends StatelessWidget {
@@ -36,31 +92,7 @@ class EventDetailPage extends StatelessWidget {
                 SizedBox(
                   width: double.infinity,
                   height: imageHeight,
-                  child: (item.imageUrl != null && item.imageUrl!.isNotEmpty)
-                      ? Image.network(
-                          item.imageUrl!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => Container(
-                            color: AppColors.backgroundSecondary,
-                            child: const Icon(
-                              Icons.image_outlined,
-                              size: 48,
-                              color: AppColors.caption,
-                            ),
-                          ),
-                        )
-                      : Image.asset(
-                          item.imageAsset ?? 'assets/images/img1.png',
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => Container(
-                            color: AppColors.backgroundSecondary,
-                            child: const Icon(
-                              Icons.image_outlined,
-                              size: 48,
-                              color: AppColors.caption,
-                            ),
-                          ),
-                        ),
+                  child: _eventDetailHeroImage(item, imageHeight),
                 ),
                 Positioned(
                   left: paddingH,
@@ -89,15 +121,39 @@ class EventDetailPage extends StatelessWidget {
                 const SizedBox(height: 16),
                 _MetaRow(dateRange: item.dateRange, location: item.location),
                 const SizedBox(height: 24),
-                Text(
-                  item.description,
-                  style: AppTextStyle.inter(
-                    fontWeight: FontWeight.w400,
-                    fontSize: 16,
-                    height: 26 / 16,
-                    color: AppColors.textPrimary,
+                if (_looksLikeHtml(item.description))
+                  Html(
+                    data: item.description,
+                    shrinkWrap: true,
+                    style: {
+                      'body': Style(
+                        margin: Margins.zero,
+                        padding: HtmlPaddings.zero,
+                        fontSize: FontSize(16),
+                        fontFamily: 'Inter',
+                        color: AppColors.textPrimary,
+                      ),
+                      'a': Style(color: AppColors.primaryBlue),
+                      'p': Style(margin: Margins.only(bottom: 10)),
+                      'li': Style(margin: Margins.only(bottom: 6)),
+                      'ul': Style(margin: Margins.only(bottom: 12)),
+                      'ol': Style(margin: Margins.only(bottom: 12)),
+                    },
+                    onLinkTap: (url, attrs, el) {
+                      if (url == null || url.isEmpty) return;
+                      unawaited(_openEventContentUrl(url));
+                    },
+                  )
+                else
+                  Text(
+                    item.description,
+                    style: AppTextStyle.inter(
+                      fontWeight: FontWeight.w400,
+                      fontSize: 16,
+                      height: 26 / 16,
+                      color: AppColors.textPrimary,
+                    ),
                   ),
-                ),
               ]),
             ),
           ),

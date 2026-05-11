@@ -1,3 +1,5 @@
+import '../../../data/models/event_model.dart';
+
 class EventItem {
   const EventItem({
     this.imageAsset,
@@ -16,5 +18,16 @@ class EventItem {
   final String description;
   final String dateRange;
   final String location;
+
+  factory EventItem.fromEventModel(EventModel e) {
+    return EventItem(
+      imageUrl: e.imageUrl,
+      category: (e.category?.isNotEmpty ?? false) ? e.category! : 'Мероприятие',
+      title: e.title,
+      description: e.description,
+      dateRange: e.dateRangeLabel.isNotEmpty ? e.dateRangeLabel : '—',
+      location: (e.location?.isNotEmpty ?? false) ? e.location! : '—',
+    );
+  }
 }
 

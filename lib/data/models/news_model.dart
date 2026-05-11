@@ -8,6 +8,8 @@ class NewsModel {
     this.excerpt,
     this.imageUrl,
     required this.createdAt,
+    this.updatedAt,
+    this.isPublished = true,
   });
 
   final int id;
@@ -16,6 +18,21 @@ class NewsModel {
   final String? excerpt;
   final String? imageUrl;
   final DateTime createdAt;
+  final DateTime? updatedAt;
+  /// Скрывать в ленте и по умолчанию не показывать, если `false` (см. MOBILE_NEWS_PUSH).
+  final bool isPublished;
+
+  static bool _parsePublished(dynamic v) {
+    if (v == null) return true;
+    if (v is bool) return v;
+    if (v is num) return v != 0;
+    final s = '$v'.toLowerCase().trim();
+    if (s == 'false' || s == '0' || s == 'no') return false;
+    return true;
+  }
+
+  static String? _str(dynamic v) =>
+      v == null ? null : (v is String ? v : '$v').trim();
 
   factory NewsModel.fromJson(Map<String, dynamic> json) {
     final idRaw = json['id'];
@@ -25,14 +42,19 @@ class NewsModel {
             ? idRaw.toInt()
             : int.tryParse('$idRaw') ?? 0;
 
+    final created =
+        DateTime.tryParse(_str(json['created_at']) ?? '') ??
+            DateTime.fromMillisecondsSinceEpoch(0);
+
     return NewsModel(
       id: id,
       title: '${json['title'] ?? ''}',
       content: '${json['content'] ?? ''}',
-      excerpt: json['excerpt'] as String?,
-      imageUrl: json['image_url'] as String?,
-      createdAt: DateTime.tryParse(json['created_at'] as String? ?? '') ??
-          DateTime.fromMillisecondsSinceEpoch(0),
+      excerpt: _str(json['excerpt']),
+      imageUrl: _str(json['image_url']),
+      createdAt: created,
+      updatedAt: DateTime.tryParse(_str(json['updated_at']) ?? ''),
+      isPublished: _parsePublished(json['is_published']),
     );
   }
 
@@ -43,7 +65,34 @@ class NewsModel {
         'excerpt': excerpt,
         'image_url': imageUrl,
         'created_at': createdAt.toIso8601String(),
+        'updated_at': updatedAt?.toIso8601String(),
+        'is_published': isPublished,
       };
+
+  /// Превью для карточки: без HTML, до ~160 символов из `excerpt` или `content`.
+  String get cardExcerptPlain {
+    final ex = excerpt;
+    if (ex != null && ex.isNotEmpty) {
+      final p = stripHtmlToPlain(ex, maxLen: 320);
+      if (p.isNotEmpty) return p;
+    }
+    return stripHtmlToPlain(content, maxLen: 160);
+  }
+
+  static String stripHtmlToPlain(String? html, {int maxLen = 160}) {
+    if (html == null || html.isEmpty) return '';
+    var s = html
+        .replaceAll(RegExp(r'<[^>]*>'), ' ')
+        .replaceAll('&nbsp;', ' ')
+        .replaceAll('&ndash;', '–')
+        .replaceAll('&mdash;', '—')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+    if (maxLen > 0 && s.runes.length > maxLen) {
+      s = '${String.fromCharCodes(s.runes.take(maxLen)).trim()}…';
+    }
+    return s;
+  }
 
   /// Локальный ассет из `pubspec` (моки: `assets/images/...`).
   static String? bundleAssetPath(String? path) {

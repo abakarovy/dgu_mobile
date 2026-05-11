@@ -1,0 +1,10 @@
+Bundled font files for news HTML (editor uses Windows/web font names; app ships redistributable OFL/GPL equivalents).
+
+- Comic Neue (Comic Sans MS substitute): https://github.com/crozynski/comicneue — SIL Open Font License 1.1
+- Liberation Mono / Serif: https://github.com/liberationfonts/liberation-fonts — SIL Open Font License 1.1
+- Charis SIL (Georgia substitute): https://software.sil.org/charis/ — SIL Open Font License 1.1
+- Andika (Lucida Sans–like sans): https://software.sil.org/andika/ — SIL Open Font License 1.1
+- DejaVu Sans / DejaVu Sans Condensed: https://dejavu-fonts.github.io/ — Bitstream Vera / DejaVu licenses (free redistribution)
+- Overpass (Trebuchet MS–like humanist sans): https://github.com/RedHatOfficial/Overpass — SIL Open Font License 1.1
+
+Microsoft font files (Tahoma, Verdana, Times New Roman, etc.) are not bundled; names from the API are mapped to the families above.

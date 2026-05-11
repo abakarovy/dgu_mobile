@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../app/router/app_router.dart';
 import '../../core/di/app_container.dart';
 import '../../data/models/news_model.dart';
+import '../../features/events/data/event_item.dart';
 import '../../firebase_options.dart';
 
 /// Обработчик сообщений FCM в изолятe; обязателен для корректного приёма в фоне (Android).
@@ -46,6 +47,13 @@ class PushNavigation {
       final idRaw = data['id']?.toString();
       final id = int.tryParse(idRaw ?? '');
       if (id != null) await _openNews(ctx, id);
+      return;
+    }
+
+    if (type == 'event') {
+      final idRaw = data['id']?.toString();
+      final id = int.tryParse(idRaw ?? '');
+      if (id != null) await _openEvent(ctx, id);
       return;
     }
 
@@ -93,10 +101,13 @@ class PushNavigation {
         for (final item in cached) {
           if (item is Map && _idOf(item) == id) {
             final m = NewsModel.fromJson(Map<String, dynamic>.from(item));
-            if (context.mounted) {
-              GoRouter.of(context).push('/app/news/detail', extra: m);
+            if (m.isPublished) {
+              if (context.mounted) {
+                GoRouter.of(context).push('/app/news/detail', extra: m);
+              }
+              return;
             }
-            return;
+            break;
           }
         }
       }
@@ -105,13 +116,30 @@ class PushNavigation {
     try {
       final fresh = await AppContainer.newsApi.getNewsById(id);
       if (!context.mounted) return;
-      if (fresh != null) {
+      if (fresh != null && fresh.isPublished) {
         GoRouter.of(context).push('/app/news/detail', extra: fresh);
       } else {
         GoRouter.of(context).go('/app/news');
       }
     } catch (_) {
       if (context.mounted) GoRouter.of(context).go('/app/news');
+    }
+  }
+
+  static Future<void> _openEvent(BuildContext context, int id) async {
+    try {
+      final e = await AppContainer.eventsApi.getPublishedEvent(id);
+      if (!context.mounted) return;
+      if (e != null) {
+        GoRouter.of(context).push(
+          '/app/news/events/detail',
+          extra: EventItem.fromEventModel(e),
+        );
+      } else {
+        GoRouter.of(context).go('/app/news/events');
+      }
+    } catch (_) {
+      if (context.mounted) GoRouter.of(context).go('/app/news/events');
     }
   }
 

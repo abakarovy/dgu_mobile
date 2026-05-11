@@ -38,6 +38,7 @@ class NewsApi {
           .whereType<Map>()
           .map((m) => Map<String, dynamic>.from(m))
           .map(NewsModel.fromJson)
+          .where((n) => n.isPublished)
           .toList();
     } on DioException catch (e) {
       throw ApiException.fromDio(e);
@@ -52,7 +53,10 @@ class NewsApi {
         options: Options(validateStatus: (s) => s != null && s < 500),
       );
       if (res.statusCode == 200 && res.data is Map) {
-        return NewsModel.fromJson(Map<String, dynamic>.from(res.data as Map));
+        final m =
+            NewsModel.fromJson(Map<String, dynamic>.from(res.data as Map));
+        if (!m.isPublished) return null;
+        return m;
       }
     } on DioException {
       // список ниже
@@ -60,7 +64,7 @@ class NewsApi {
     try {
       final list = await getNews(limit: 100);
       for (final n in list) {
-        if (n.id == id) return n;
+        if (n.id == id && n.isPublished) return n;
       }
     } catch (_) {}
     return null;

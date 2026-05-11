@@ -193,7 +193,7 @@ class _NewsPageState extends State<NewsPage> {
                     child: NewsCard(
                       category: 'Новости',
                       title: _items[i].title,
-                      excerpt: _items[i].excerpt ?? '',
+                      excerpt: _items[i].cardExcerptPlain,
                       date: _items[i].createdAt.toIso8601String().split('T').first,
                       imageWidget: _buildNewsImage(_items[i].imageUrl),
                       onTap: () =>
@@ -244,6 +244,7 @@ class _NewsPageState extends State<NewsPage> {
       final items = cached
           .whereType<Map>()
           .map((m) => NewsModel.fromJson(Map<String, dynamic>.from(m)))
+          .where((n) => n.isPublished)
           .toList();
       _items = items;
       _loading = false;

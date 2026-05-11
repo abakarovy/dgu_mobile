@@ -1,3 +1,4 @@
+import 'package:dgu_mobile/core/constants/api_constants.dart';
 import 'package:intl/intl.dart';
 
 class EventModel {
@@ -32,9 +33,24 @@ class EventModel {
       category: (str(json['category']) ?? str(json['type']) ?? str(json['kind']))?.trim(),
       location: (str(json['location']) ?? str(json['place']) ?? str(json['address']))?.trim(),
       imageUrl: (str(json['image_url']) ?? str(json['image']) ?? str(json['banner_url']))?.trim(),
-      startAt: dt(json['start_at'] ?? json['start_date'] ?? json['date_start']),
-      endAt: dt(json['end_at'] ?? json['end_date'] ?? json['date_end']),
+      startAt: dt(json['start_at'] ??
+          json['starts_at'] ??
+          json['start_date'] ??
+          json['date_start']),
+      endAt: dt(json['end_at'] ??
+          json['end_date'] ??
+          json['date_end'] ??
+          json['ends_at']),
     );
+  }
+
+  /// Как [NewsModel.resolveImageUrl]: относительные `/uploads/...` к origin сайта.
+  static String? resolveImageUrl(String? path) {
+    if (path == null || path.isEmpty) return null;
+    final t = path.trim();
+    if (t.startsWith('assets/')) return null;
+    if (t.startsWith('http://') || t.startsWith('https://')) return t;
+    return ApiConstants.resolvePublicFileUrl(t);
   }
 
   Map<String, dynamic> toJson() => {

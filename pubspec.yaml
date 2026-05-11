@@ -32,6 +32,7 @@ dependencies:
   share_plus: ^10.0.2
   flutter_html: ^3.0.0
   cupertino_icons: ^1.0.8
+  html: ^0.15.6
 
 dev_dependencies:
   flutter_test:
@@ -67,6 +68,88 @@ flutter:
         - asset: assets/fonts/Montserrat-Regular.ttf
         - asset: assets/fonts/Montserrat-ExtraBold.ttf
           weight: 800
+    # Редактор новостей на сайте шлёт web-имена (Arial, Verdana, …). В APK — OFL-аналоги
+    # (не проприетарные файлы Microsoft). См. assets/fonts/news_editor/NOTICE.txt.
+    - family: ComicNeue
+      fonts:
+        - asset: assets/fonts/news_editor/ComicNeue-Regular.ttf
+        - asset: assets/fonts/news_editor/ComicNeue-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/news_editor/ComicNeue-Italic.ttf
+          style: italic
+        - asset: assets/fonts/news_editor/ComicNeue-BoldItalic.ttf
+          weight: 700
+          style: italic
+    - family: LiberationMono
+      fonts:
+        - asset: assets/fonts/news_editor/LiberationMono-Regular.ttf
+        - asset: assets/fonts/news_editor/LiberationMono-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/news_editor/LiberationMono-Italic.ttf
+          style: italic
+        - asset: assets/fonts/news_editor/LiberationMono-BoldItalic.ttf
+          weight: 700
+          style: italic
+    - family: LiberationSerif
+      fonts:
+        - asset: assets/fonts/news_editor/LiberationSerif-Regular.ttf
+        - asset: assets/fonts/news_editor/LiberationSerif-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/news_editor/LiberationSerif-Italic.ttf
+          style: italic
+        - asset: assets/fonts/news_editor/LiberationSerif-BoldItalic.ttf
+          weight: 700
+          style: italic
+    - family: CharisSIL
+      fonts:
+        - asset: assets/fonts/news_editor/CharisSIL-Regular.ttf
+        - asset: assets/fonts/news_editor/CharisSIL-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/news_editor/CharisSIL-Italic.ttf
+          style: italic
+        - asset: assets/fonts/news_editor/CharisSIL-BoldItalic.ttf
+          weight: 700
+          style: italic
+    - family: Andika
+      fonts:
+        - asset: assets/fonts/news_editor/Andika-Regular.ttf
+        - asset: assets/fonts/news_editor/Andika-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/news_editor/Andika-Italic.ttf
+          style: italic
+        - asset: assets/fonts/news_editor/Andika-BoldItalic.ttf
+          weight: 700
+          style: italic
+    - family: DejaVuSans
+      fonts:
+        - asset: assets/fonts/news_editor/DejaVuSans.ttf
+        - asset: assets/fonts/news_editor/DejaVuSans-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/news_editor/DejaVuSans-Oblique.ttf
+          style: italic
+        - asset: assets/fonts/news_editor/DejaVuSans-BoldOblique.ttf
+          weight: 700
+          style: italic
+    - family: DejaVuSansCondensed
+      fonts:
+        - asset: assets/fonts/news_editor/DejaVuSansCondensed.ttf
+        - asset: assets/fonts/news_editor/DejaVuSansCondensed-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/news_editor/DejaVuSansCondensed-Oblique.ttf
+          style: italic
+        - asset: assets/fonts/news_editor/DejaVuSansCondensed-BoldOblique.ttf
+          weight: 700
+          style: italic
+    - family: Overpass
+      fonts:
+        - asset: assets/fonts/news_editor/Overpass-Regular.otf
+        - asset: assets/fonts/news_editor/Overpass-Bold.otf
+          weight: 700
+        - asset: assets/fonts/news_editor/Overpass-Italic.otf
+          style: italic
+        - asset: assets/fonts/news_editor/Overpass-BoldItalic.otf
+          weight: 700
+          style: italic
 
 flutter_native_splash:
   color: "#FFFFFF"
