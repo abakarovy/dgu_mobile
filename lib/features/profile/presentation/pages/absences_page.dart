@@ -9,6 +9,7 @@ import 'package:dgu_mobile/core/widgets/app_date_range_picker.dart';
 import 'package:dgu_mobile/core/theme/app_text_styles.dart';
 import 'package:dgu_mobile/data/models/absences_detail.dart';
 import 'package:dgu_mobile/features/grades/domain/entities/grade_entity.dart';
+import 'package:dgu_mobile/features/grades/domain/merge_journal_absence_rows.dart';
 import 'package:dgu_mobile/features/grades/presentation/widgets/grade_item_tile.dart';
 import 'package:dgu_mobile/features/grades/presentation/widgets/grades_list_view.dart';
 import 'package:flutter/material.dart';
@@ -123,15 +124,10 @@ class _AbsencesPageState extends State<AbsencesPage> with SingleTickerProviderSt
         .toList();
   }
 
-  static bool _gradeRowIsAbsence(GradeEntity g) {
-    final t = (g.gradeType ?? '').toLowerCase();
-    return t.contains('пропуск');
-  }
-
   /// Пропуски из журнала (как на экране оценок), в выбранном периоде.
   List<GradeEntity> _journalAbsencesInRange() {
     return _decodeCachedGrades().where((g) {
-      if (!_gradeRowIsAbsence(g)) return false;
+      if (!gradeEntityIsJournalAbsenceRow(g)) return false;
       final d = g.date;
       if (d == null) return false;
       return _dateInRange(d);
@@ -161,16 +157,19 @@ class _AbsencesPageState extends State<AbsencesPage> with SingleTickerProviderSt
         ),
       );
     }
-    for (final g in _journalAbsencesInRange()) {
+    final journalRaw = _journalAbsencesInRange();
+    final journalGrouped = mergeJournalAbsenceRows(journalRaw);
+    for (final g in journalGrouped) {
       final d = g.date;
       final gt = (g.gradeType ?? '').trim();
       final tn = (g.teacherName ?? '').trim();
       final gv = g.grade.trim();
+      final subtitle = tn;
       rows.add(
         _MergedCurrentRow(
           subjectName: g.subjectName,
           grade: gv.isEmpty ? '-' : gv,
-          subtitle: tn,
+          subtitle: subtitle,
           type: gt.isNotEmpty ? gt : null,
           isSpecialType: gt.isNotEmpty && GradeListItem.specialTypes.contains(gt),
           sortDate: d,

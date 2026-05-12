@@ -12,7 +12,8 @@ import '../models/session_grade_breakdown.dart';
 import '../widgets/grades_list_view.dart';
 import '../widgets/learning_route_view.dart';
 import '../widgets/subject_grades_sheet.dart';
-import '../../../grades/domain/entities/grade_entity.dart';
+import '../../domain/entities/grade_entity.dart';
+import '../../domain/merge_journal_absence_rows.dart';
 
 /// Вкладка «Оценки»: 3 таба (Текущие, Сессия, Учебный маршрут).
 /// Сессия: оценки за сессию (аттестации, зачёты и т.п.), переключатель семестров из 1С.
@@ -152,12 +153,13 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
 
   /// Оценки предмета для шита: только «Текущие» (не итоги сессии), все загруженные строки.
   List<GradeListItem> _itemsForCurrentSubject(String name) {
-    return _grades
-        .where((g) => g.subjectName == name)
-        .where((g) => !_isSessionType(g.gradeType))
-        .where(_hasGradeValue)
-        .map(_toListItem)
-        .toList();
+    return mergeJournalAbsenceRows(
+      _grades
+          .where((g) => g.subjectName == name)
+          .where((g) => !_isSessionType(g.gradeType))
+          .where(_hasGradeValue)
+          .toList(),
+    ).map(_toListItem).toList();
   }
 
   /// Оценки предмета для шита на вкладке «Сессия» (итоги за выбранный семестр).
@@ -328,10 +330,12 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
   }
 
   Widget _buildCurrentTab(BuildContext context) {
-    final currentEntities = _grades
-        .where((g) => !_isSessionType(g.gradeType))
-        .where(_hasGradeValue)
-        .toList();
+    final currentEntities = mergeJournalAbsenceRows(
+      _grades
+          .where((g) => !_isSessionType(g.gradeType))
+          .where(_hasGradeValue)
+          .toList(),
+    );
     final list = currentEntities.map(_toListItem).toList();
     final filtered = _filtered(list);
 
