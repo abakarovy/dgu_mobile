@@ -11,6 +11,7 @@ import '../../../../core/utils/parent_child_name.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../data/api/api_exception.dart';
 import '../../../../shared/widgets/app_header.dart';
+import '../../../../shared/widgets/dismiss_keyboard_on_tap.dart';
 
 String _certDisplayType(String raw) {
   final k = raw.trim().toLowerCase();
@@ -760,11 +761,12 @@ class _CertificateOrderPageState extends State<CertificateOrderPage> {
             Text('Заказать справку', style: appHeaderNestedTitleStyle),
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
+        child: DismissKeyboardOnTap(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
               _dropdown(
                 label: 'Тип справки',
                 value: _type,
@@ -863,6 +865,7 @@ class _CertificateOrderPageState extends State<CertificateOrderPage> {
           ),
         ),
       ),
+    ),
     );
   }
 

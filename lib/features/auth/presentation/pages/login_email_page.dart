@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/di/app_container.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../data/api/api_exception.dart';
+import '../../../../shared/widgets/dismiss_keyboard_on_tap.dart';
 import '../../domain/auth_flow_results.dart';
 
 /// Экран входа/регистрации по E-mail.
@@ -353,36 +354,40 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
     const figmaW = 1080.0;
     const figmaH = 1920.0;
     final size = MediaQuery.sizeOf(context);
-    final sf = math.min(size.width / figmaW, size.height / figmaH);
+    final layoutSf = math.min(size.width / figmaW, size.height / figmaH);
+    final sf = layoutSf;
     final sfW = size.width / figmaW;
+    const maxAuthFormScale = 0.46;
+    final sfForm = math.min(layoutSf, maxAuthFormScale);
+
     final blue = const Color.fromRGBO(46, 99, 213, 1);
 
-    final fieldRadius = 89.16 * sf;
-    final fieldBorderW = (4.46 * sf).clamp(2.0, 6.0);
+    final fieldRadius = 89.16 * sfForm;
+    final fieldBorderW = (4.46 * sfForm).clamp(2.0, 6.0);
     // Поля должны быть той же высоты, что и кнопки.
-    final fieldHeight = (120.0 * sf).clamp(56.0, 140.0);
-    final fieldLeftPad = 75.0 * sf;
-    final sidePad = 40.0 * sf;
-    final gap = (10.0 * sf).clamp(6.0, 14.0);
+    final fieldHeight = (120.0 * sfForm).clamp(44.0, 54.0);
+    final fieldLeftPad = 75.0 * sfForm;
+    final sidePad = 40.0 * sfForm;
+    final gap = (10.0 * sfForm).clamp(6.0, 12.0);
 
     final hintStyle = AppTextStyle.inter(
       fontWeight: FontWeight.w700,
-      fontSize: 35.84 * sf,
+      fontSize: 35.84 * sfForm,
       height: (55.75 / 35.84),
       color: Colors.black.withValues(alpha: 0.24),
     );
     final valueStyle = AppTextStyle.inter(
       fontWeight: FontWeight.w700,
-      fontSize: 35.84 * sf,
+      fontSize: 35.84 * sfForm,
       height: (55.75 / 35.84),
       color: Colors.black,
     );
 
-    final btnRadius = 117.96 * sf;
-    final btnBorder = (7.07 * sf).clamp(3.0, 10.0);
+    final btnRadius = 117.96 * sfForm;
+    final btnBorder = (7.07 * sfForm).clamp(3.0, 10.0);
     final btnTextStyle = AppTextStyle.inter(
       fontWeight: FontWeight.w700,
-      fontSize: 45.47 * sf,
+      fontSize: 45.47 * sfForm,
       height: 1.0,
     );
     final btnHeight = fieldHeight;
@@ -410,8 +415,9 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
         data: noTapFxTheme,
         child: Scaffold(
           backgroundColor: Colors.white,
-          body: Column(
-            children: [
+          body: DismissKeyboardOnTap(
+            child: Column(
+              children: [
               Expanded(
                 flex: photoFlex,
                 child: Stack(
@@ -504,7 +510,7 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
                                 textAlign: TextAlign.center,
                                 style: AppTextStyle.inter(
                                   fontWeight: FontWeight.w600,
-                                  fontSize: (14 * sf).clamp(13.0, 16.0),
+                                  fontSize: (14 * sfForm).clamp(13.0, 16.0),
                                   height: 1.3,
                                   color: Colors.black87,
                                 ),
@@ -518,7 +524,7 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
                                   textAlign: TextAlign.center,
                                   style: AppTextStyle.inter(
                                     fontWeight: FontWeight.w500,
-                                    fontSize: (12 * sf).clamp(11.0, 14.0),
+                                    fontSize: (12 * sfForm).clamp(11.0, 14.0),
                                     height: 1.25,
                                     color: Colors.black54,
                                   ),
@@ -589,7 +595,7 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
                                       : 'Отправить код снова',
                                   style: AppTextStyle.inter(
                                     fontWeight: FontWeight.w600,
-                                    fontSize: (13 * sf).clamp(12.0, 15.0),
+                                    fontSize: (13 * sfForm).clamp(12.0, 15.0),
                                     color: blue,
                                   ),
                                 ),
@@ -792,9 +798,9 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
                       return SingleChildScrollView(
                         padding: EdgeInsets.fromLTRB(
                           sidePad,
-                          18 * sf,
+                          18 * sfForm,
                           sidePad,
-                          18 * sf,
+                          18 * sfForm,
                         ),
                         child: ConstrainedBox(
                           constraints: BoxConstraints(
@@ -808,6 +814,7 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
                 ),
               ),
             ],
+            ),
           ),
         ),
       ),
@@ -865,6 +872,8 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
         focusNode: focusNode,
         keyboardType: keyboardType,
         obscureText: obscureText,
+        maxLines: 1,
+        textAlignVertical: TextAlignVertical.center,
         textInputAction:
             nextFocus != null ? TextInputAction.next : TextInputAction.done,
         onFieldSubmitted: (_) {
@@ -874,13 +883,15 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
             onLastFieldSubmitted?.call();
           }
         },
-        strutStyle: StrutStyle(
-          fontSize: fs,
-          height: valueStyle.height,
-          fontFamily: valueStyle.fontFamily,
-          fontWeight: valueStyle.fontWeight,
-          forceStrutHeight: true,
-        ),
+        strutStyle: obscureText
+            ? null
+            : StrutStyle(
+                fontSize: fs,
+                height: valueStyle.height,
+                fontFamily: valueStyle.fontFamily,
+                fontWeight: valueStyle.fontWeight,
+                forceStrutHeight: true,
+              ),
         inputFormatters: [
           if (key == 'email') FilteringTextInputFormatter.deny(RegExp(r'\s')),
           if (key == 'otp') FilteringTextInputFormatter.digitsOnly,
@@ -909,6 +920,8 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
               ? null
               : IconButton(
                   onPressed: onPasswordVisibilityToggle,
+                  tooltip:
+                      obscureText ? 'Показать пароль' : 'Скрыть пароль',
                   style: IconButton.styleFrom(
                     padding: EdgeInsets.only(right: fieldLeftPad),
                     minimumSize: Size.zero,
@@ -919,9 +932,16 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
                     obscureText
                         ? Icons.visibility_off_outlined
                         : Icons.visibility_outlined,
-                    size: fs*1.5,
+                    size: fs,
                     color: Colors.black.withValues(alpha: 0.45),
                   ),
+                ),
+          suffixIconConstraints: onPasswordVisibilityToggle == null
+              ? null
+              : BoxConstraints(
+                  minWidth: 48,
+                  minHeight: fieldHeight,
+                  maxHeight: fieldHeight,
                 ),
           contentPadding: EdgeInsets.only(
             left: fieldLeftPad,

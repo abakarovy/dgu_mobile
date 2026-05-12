@@ -9,6 +9,7 @@ import '../../../../core/theme/app_text_styles.dart';
 import '../../../../data/api/api_exception.dart';
 import '../../../../data/models/user_model.dart';
 import '../../../../shared/widgets/app_header.dart';
+import '../../../../shared/widgets/dismiss_keyboard_on_tap.dart';
 
 class EmailChangePage extends StatefulWidget {
   const EmailChangePage({super.key});
@@ -259,11 +260,12 @@ class _EmailChangePageState extends State<EmailChangePage> {
         headerTitle:
             Text('Смена E-mail', style: appHeaderNestedTitleStyle),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
+      body: DismissKeyboardOnTap(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
             if (!_requested) ...[
               _emailField(),
               const SizedBox(height: 12),
@@ -314,7 +316,8 @@ class _EmailChangePageState extends State<EmailChangePage> {
                 textAlign: TextAlign.center,
               ),
             ],
-          ],
+            ],
+          ),
         ),
       ),
     );

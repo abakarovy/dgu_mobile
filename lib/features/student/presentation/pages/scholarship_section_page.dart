@@ -3,6 +3,7 @@ import 'package:dgu_mobile/core/di/app_container.dart';
 import 'package:dgu_mobile/core/student/academic_period.dart';
 import 'package:dgu_mobile/core/theme/app_text_styles.dart';
 import 'package:dgu_mobile/shared/widgets/app_header.dart';
+import 'package:dgu_mobile/shared/widgets/dismiss_keyboard_on_tap.dart';
 import 'package:dgu_mobile/shared/widgets/network_degraded_banner.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -96,11 +97,12 @@ class _ScholarshipSectionPageState extends State<ScholarshipSectionPage> {
               'Соавторы',
               style: AppTextStyle.inter(fontWeight: FontWeight.w800, fontSize: 17),
             ),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
+            content: DismissKeyboardOnTap(
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
                   Text(
                     'Укажите число авторов (включая вас) для корректного деления баллов.',
                     style: AppTextStyle.inter(fontSize: 13, color: AppColors.notificationSubtitle, height: 1.35),
@@ -124,6 +126,7 @@ class _ScholarshipSectionPageState extends State<ScholarshipSectionPage> {
                     ),
                   ),
                 ],
+                ),
               ),
             ),
             actions: [

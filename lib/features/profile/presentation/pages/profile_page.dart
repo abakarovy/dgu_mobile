@@ -17,6 +17,7 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:dgu_mobile/shared/widgets/dismiss_keyboard_on_tap.dart';
 
 import '../../../../data/api/grades_api.dart' show GradesBundle;
 import '../../../../data/models/one_c_my_profile.dart';
@@ -704,6 +705,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       title: 'Заказать справку с места учебы',
                     ),
                   ),
+                  SizedBox(height: 8 * layoutScale),
                 ],
               ),
             ),
@@ -1462,7 +1464,8 @@ class _InviteParentDialogState extends State<_InviteParentDialog> {
       backgroundColor: Colors.transparent,
       elevation: 0,
       insetPadding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Container(
+      child: DismissKeyboardOnTap(
+        child: Container(
         width: double.infinity,
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
         decoration: BoxDecoration(
@@ -1755,6 +1758,7 @@ class _InviteParentDialogState extends State<_InviteParentDialog> {
             ],
           ],
         ),
+      ),
       ),
     );
   }

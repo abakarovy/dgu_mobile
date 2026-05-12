@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/di/app_container.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../data/api/api_exception.dart';
+import '../../../../shared/widgets/dismiss_keyboard_on_tap.dart';
 
 /// Экран входа: иконка в контейнере, заголовок, подзаголовок, форма (Фамилия, Имя, Отчество, Номер з/к), кнопка «Войти».
 class LoginPage extends StatefulWidget {
@@ -143,23 +144,30 @@ class _LoginPageState extends State<LoginPage> {
     const figmaW = 1080.0;
     const figmaH = 1920.0;
     final size = MediaQuery.sizeOf(context);
-    final sf = math.min(size.width / figmaW, size.height / figmaH);
+    final layoutSf = math.min(size.width / figmaW, size.height / figmaH);
+    // Шапка и фото — от полного layoutSf; поля и кнопки — с потолком, чтобы на
+    // больших экранах/окнах инпуты не раздувались пропорционально всему макету.
+    final sf = layoutSf;
     final sfW = size.width / figmaW;
+    const maxAuthFormScale = 0.46;
+    final sfForm = math.min(layoutSf, maxAuthFormScale);
+
     final blue = const Color.fromRGBO(46, 99, 213, 1);
-    final fieldRadius = 89.16 * sf;
-    final fieldBorderW = (4.46 * sf).clamp(2.0, 6.0);
+    final fieldRadius = 89.16 * sfForm;
+    final fieldBorderW = (4.46 * sfForm).clamp(2.0, 6.0);
     // Поля должны быть той же высоты, что и кнопки.
-    final fieldHeight = (120.0 * sf).clamp(56.0, 140.0);
-    final fieldLeftPad = 75.0 * sf;
-    final sidePad = 40.0 * sf;
-    final gap = (10.0 * sf).clamp(6.0, 14.0);
+    // minHeight не выше 120*sf: иначе на узком экране поля выше, чем на среднем.
+    final fieldHeight = (120.0 * sfForm).clamp(44.0, 54.0);
+    final fieldLeftPad = 75.0 * sfForm;
+    final sidePad = 40.0 * sfForm;
+    final gap = (10.0 * sfForm).clamp(6.0, 12.0);
 
     // Кнопки: тот же стиль, что «Я студент / Я родитель».
-    final btnRadius = 117.96 * sf;
-    final btnBorder = (7.07 * sf).clamp(3.0, 10.0);
+    final btnRadius = 117.96 * sfForm;
+    final btnBorder = (7.07 * sfForm).clamp(3.0, 10.0);
     final btnTextStyle = AppTextStyle.inter(
       fontWeight: FontWeight.w700,
-      fontSize: 45.47 * sf,
+      fontSize: 45.47 * sfForm,
       height: 1.0,
     );
     // Кнопки ниже и компактнее, чем поля (но в стиле экрана выбора роли).
@@ -167,13 +175,13 @@ class _LoginPageState extends State<LoginPage> {
 
     final hintStyle = AppTextStyle.inter(
       fontWeight: FontWeight.w700,
-      fontSize: 35.84 * sf,
+      fontSize: 35.84 * sfForm,
       height: (55.75 / 35.84),
       color: Colors.black.withValues(alpha: 0.24),
     );
     final valueStyle = AppTextStyle.inter(
       fontWeight: FontWeight.w700,
-      fontSize: 35.84 * sf,
+      fontSize: 35.84 * sfForm,
       height: (55.75 / 35.84),
       color: Colors.black,
     );
@@ -209,7 +217,8 @@ class _LoginPageState extends State<LoginPage> {
           data: noTapFxTheme,
           child: Scaffold(
             backgroundColor: Colors.white,
-            body: Column(
+            body: DismissKeyboardOnTap(
+              child: Column(
             children: [
               Expanded(
                 flex: photoFlex,
@@ -430,9 +439,9 @@ class _LoginPageState extends State<LoginPage> {
                       return SingleChildScrollView(
                         padding: EdgeInsets.fromLTRB(
                           sidePad,
-                          18 * sf,
+                          18 * sfForm,
                           sidePad,
-                          18 * sf,
+                          18 * sfForm,
                         ),
                         child: ConstrainedBox(
                           constraints: BoxConstraints(
@@ -446,10 +455,11 @@ class _LoginPageState extends State<LoginPage> {
                 ),
               ),
             ],
+            ),
+            ),
           ),
         ),
       ),
-    ),
     );
   }
 
@@ -474,6 +484,7 @@ class _LoginPageState extends State<LoginPage> {
             controller: _lastNameController,
             focusNode: _lastNameFocusNode,
             nextFocus: _firstNameFocusNode,
+            textCapitalization: TextCapitalization.words,
             fieldHeight: fieldHeight,
             fieldRadius: fieldRadius,
             fieldBorderW: fieldBorderW,
@@ -489,6 +500,7 @@ class _LoginPageState extends State<LoginPage> {
             controller: _firstNameController,
             focusNode: _firstNameFocusNode,
             nextFocus: _patronymicFocusNode,
+            textCapitalization: TextCapitalization.words,
             fieldHeight: fieldHeight,
             fieldRadius: fieldRadius,
             fieldBorderW: fieldBorderW,
@@ -504,6 +516,7 @@ class _LoginPageState extends State<LoginPage> {
             controller: _patronymicController,
             focusNode: _patronymicFocusNode,
             nextFocus: _studentIdFocusNode,
+            textCapitalization: TextCapitalization.words,
             fieldHeight: fieldHeight,
             fieldRadius: fieldRadius,
             fieldBorderW: fieldBorderW,
@@ -543,6 +556,7 @@ class _LoginPageState extends State<LoginPage> {
     FocusNode? nextFocus,
     VoidCallback? onLastFieldSubmitted,
     TextInputType keyboardType = TextInputType.name,
+    TextCapitalization textCapitalization = TextCapitalization.none,
     bool obscureText = false,
     int? maxLength,
     required double fieldHeight,
@@ -585,7 +599,10 @@ class _LoginPageState extends State<LoginPage> {
         controller: controller,
         focusNode: focusNode,
         keyboardType: keyboardType,
+        textCapitalization: textCapitalization,
         obscureText: obscureText,
+        maxLines: 1,
+        textAlignVertical: TextAlignVertical.center,
         textInputAction:
             nextFocus != null ? TextInputAction.next : TextInputAction.done,
         onFieldSubmitted: (_) {
@@ -595,13 +612,15 @@ class _LoginPageState extends State<LoginPage> {
             onLastFieldSubmitted?.call();
           }
         },
-        strutStyle: StrutStyle(
-          fontSize: fs,
-          height: valueStyle.height,
-          fontFamily: valueStyle.fontFamily,
-          fontWeight: valueStyle.fontWeight,
-          forceStrutHeight: true,
-        ),
+        strutStyle: obscureText
+            ? null
+            : StrutStyle(
+                fontSize: fs,
+                height: valueStyle.height,
+                fontFamily: valueStyle.fontFamily,
+                fontWeight: valueStyle.fontWeight,
+                forceStrutHeight: true,
+              ),
         inputFormatters: [
           if (keyboardType == TextInputType.number)
             FilteringTextInputFormatter.digitsOnly,
@@ -644,6 +663,13 @@ class _LoginPageState extends State<LoginPage> {
                     size: fs,
                     color: Colors.black.withValues(alpha: 0.45),
                   ),
+                ),
+          suffixIconConstraints: onPasswordVisibilityToggle == null
+              ? null
+              : BoxConstraints(
+                  minWidth: 48,
+                  minHeight: fieldHeight,
+                  maxHeight: fieldHeight,
                 ),
           contentPadding: EdgeInsets.only(
             left: fieldLeftPad,
