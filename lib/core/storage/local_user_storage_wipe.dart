@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../constants/app_constants.dart';
@@ -23,4 +24,18 @@ Future<void> wipeUserLocalPreferencesAndAvatarFiles() async {
       await File(p).delete();
     } catch (_) {}
   }
+
+  try {
+    final dir = await getApplicationDocumentsDirectory();
+    for (final e in dir.listSync(followLinks: false)) {
+      if (e is! File) continue;
+      final n = e.uri.pathSegments.isNotEmpty ? e.uri.pathSegments.last : '';
+      if (n == AppConstants.profile1cPhotoFileName ||
+          (n.startsWith('avatar_1c_') && n.endsWith('.jpg'))) {
+        try {
+          await e.delete();
+        } catch (_) {}
+      }
+    }
+  } catch (_) {}
 }

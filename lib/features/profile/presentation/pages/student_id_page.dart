@@ -4,12 +4,12 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/constants/app_colors.dart';
-import '../../../../core/constants/app_constants.dart';
 import '../../../../core/di/app_container.dart';
+import '../../../../core/storage/profile_1c_photo_cache.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../data/models/group_model.dart';
 import '../../../../data/models/one_c_my_profile.dart';
@@ -90,24 +90,13 @@ class _StudentIdPageState extends State<StudentIdPage> {
     _oneC = _readCachedOneC();
     _group = _readCachedGroup();
     if (_me != null) _meLoading = false;
-    _avatarPath = _bestLocal1cPhotoPathSync();
+    _avatarPath = Profile1cPhotoCache.existingFilePathSync(
+      documentsDir: AppContainer.appDocumentsDirPath,
+      jsonCache: AppContainer.jsonCache,
+    );
     unawaited(_loadAvatarPath());
     _loadMeAsync();
     unawaited(_loadGroupAsync());
-  }
-
-  static String? _bestLocal1cPhotoPathSync() {
-    final dir = AppContainer.appDocumentsDirPath;
-    if (dir == null || dir.trim().isEmpty) return null;
-    final path = '$dir/${AppConstants.profile1cPhotoFileName}';
-    try {
-      final f = File(path);
-      if (!f.existsSync()) return null;
-      if (f.lengthSync() <= 0) return null;
-      return path;
-    } catch (_) {
-      return null;
-    }
   }
 
   UserModel? _readCachedMe() {
@@ -151,10 +140,16 @@ class _StudentIdPageState extends State<StudentIdPage> {
   }
 
   Future<void> _loadAvatarPath() async {
-    final prefs = await SharedPreferences.getInstance();
-    final oneC = prefs.getString(AppConstants.profile1cPhotoPathKey);
-    // Если в prefs пути нет, но файл уже на диске — берём его.
-    final chosen = (oneC != null && oneC.trim().isNotEmpty) ? oneC : _bestLocal1cPhotoPathSync();
+    final fn = Profile1cPhotoCache.diskCacheFileName(AppContainer.jsonCache);
+    String? chosen;
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      if (fn != null) {
+        final expected = Profile1cPhotoCache.absolutePathForFileName(dir.path, fn);
+        final f = File(expected);
+        if (await f.exists() && await f.length() > 0) chosen = expected;
+      }
+    } catch (_) {}
     if (mounted) setState(() => _avatarPath = chosen);
   }
 

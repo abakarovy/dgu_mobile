@@ -117,15 +117,26 @@ class Profile1cApi {
 
   /// Фото студента (бинарный файл) через `GET /api/1c/student-photo`.
   ///
-  /// - Возвращает `null`, если фото не найдено (`404`) или зачётки нет (`400`).
-  /// - Для роли `parent` требуется `studentId` (см. backend doc).
-  Future<List<int>?> getStudentPhotoBytes({int? studentId}) async {
+  /// - **Студент:** `?book=<зачётка>` (обязательно для моб. кэша; несовпадение с JWT → 403).
+  /// - **Родитель:** `?student_id=<id ребёнка>`.
+  ///
+  /// `null`: нет тела (`404`), нет зачётки в запросе, `400`, `403`, `409` (дубли зачёток).
+  Future<List<int>?> getStudentPhotoBytes({
+    int? studentId,
+    String? book,
+  }) async {
     try {
       final qp = <String, dynamic>{};
-      if (studentId != null) qp['student_id'] = studentId;
+      if (studentId != null) {
+        qp['student_id'] = studentId;
+      } else {
+        final b = book?.trim();
+        if (b == null || b.isEmpty) return null;
+        qp['book'] = b;
+      }
       final res = await _api.dio.get<List<int>>(
         ApiConstants.oneCStudentPhotoPath,
-        queryParameters: qp.isEmpty ? null : qp,
+        queryParameters: qp,
         options: Options(
           validateStatus: (s) => s != null && s < 500,
           responseType: ResponseType.bytes,
@@ -133,7 +144,13 @@ class Profile1cApi {
         ),
       );
       final code = res.statusCode ?? 0;
-      if (code == 404 || code == 400) return null;
+      if (code == 404 ||
+          code == 400 ||
+          code == 403 ||
+          code == 409 ||
+          code == 503) {
+        return null;
+      }
       if (code != 200) {
         throw DioException(
           requestOptions: res.requestOptions,

@@ -7,6 +7,7 @@ import 'package:dgu_mobile/core/constants/api_constants.dart';
 import 'package:dgu_mobile/core/constants/app_colors.dart';
 import 'package:dgu_mobile/core/constants/app_constants.dart';
 import 'package:dgu_mobile/core/di/app_container.dart';
+import 'package:dgu_mobile/core/storage/profile_1c_photo_cache.dart';
 import 'package:dgu_mobile/core/utils/parent_child_name.dart';
 import 'package:dgu_mobile/core/theme/app_text_styles.dart';
 import 'package:dgu_mobile/data/api/api_exception.dart';
@@ -51,27 +52,16 @@ class _ProfilePageState extends State<ProfilePage> {
     _ticket = _readCachedTicket();
     _oneC = _readCachedOneC();
     _absenceHoursText = _readCachedAbsencesLabel();
-    _saved1cPhotoPath = _bestLocal1cPhotoPathSync();
+    _saved1cPhotoPath = Profile1cPhotoCache.existingFilePathSync(
+      documentsDir: AppContainer.appDocumentsDirPath,
+      jsonCache: AppContainer.jsonCache,
+    );
     _maybeHydrateParentTicketFromOneC();
     _loadAvatarPath();
     if ((_me?.role ?? '').trim().toLowerCase() != 'parent') {
       unawaited(_hydrateParentStatusFromPrefs());
     }
     _refreshMeInBackground();
-  }
-
-  static String? _bestLocal1cPhotoPathSync() {
-    final dir = AppContainer.appDocumentsDirPath;
-    if (dir == null || dir.trim().isEmpty) return null;
-    final path = '$dir/${AppConstants.profile1cPhotoFileName}';
-    try {
-      final f = File(path);
-      if (!f.existsSync()) return null;
-      if (f.lengthSync() <= 0) return null;
-      return path;
-    } catch (_) {
-      return null;
-    }
   }
 
   @override
@@ -394,31 +384,25 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> _loadAvatarPath() async {
-    final prefs = await SharedPreferences.getInstance();
-    final oneCPhoto = prefs.getString(AppConstants.profile1cPhotoPathKey);
-    String? chosen = oneCPhoto;
+    final cache = AppContainer.jsonCache;
+    final fn = Profile1cPhotoCache.diskCacheFileName(cache);
+    String? chosen;
     try {
-      // Если prefs пустые/битые, но файл уже есть на диске — используем его сразу.
       final dir = await getApplicationDocumentsDirectory();
-      final fallback = File('${dir.path}/${AppConstants.profile1cPhotoFileName}');
-      if ((chosen == null || chosen.trim().isEmpty) && await fallback.exists()) {
-        final len = await fallback.length();
-        if (len > 0) chosen = fallback.path;
-      } else if (chosen != null && chosen.trim().isNotEmpty) {
-        final f = File(chosen);
-        if (!await f.exists() || await f.length() == 0) {
-          chosen = null;
+      if (fn != null) {
+        final expected = Profile1cPhotoCache.absolutePathForFileName(dir.path, fn);
+        final f = File(expected);
+        if (await f.exists() && await f.length() > 0) {
+          chosen = expected;
         }
       }
     } catch (_) {}
     if (!mounted) return;
     setState(() {
-      // Пользовательскую аватарку не используем — берём фото с бэка (1С) + его кэш.
       _savedAvatarPath = null;
       _saved1cPhotoPath = chosen;
     });
 
-    // Показываем кэш сразу, а обновление с бэка делаем в фоне.
     unawaited(
       _ensure1cPhotoCached(
         refreshIfCached: true,
@@ -431,33 +415,78 @@ class _ProfilePageState extends State<ProfilePage> {
     required bool refreshIfCached,
     int? studentId,
   }) async {
-    // If we already have a cached file on disk, don't refetch on every app restart.
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final existingPath = prefs.getString(AppConstants.profile1cPhotoPathKey);
-      if (existingPath != null && existingPath.trim().isNotEmpty) {
-        final f = File(existingPath);
-        if (await f.exists()) {
-          final len = await f.length();
-          if (len > 0) {
-            if (mounted) setState(() => _saved1cPhotoPath = existingPath);
-            if (!refreshIfCached) return;
-          }
-        }
-      }
-    } catch (_) {
-      // If cache check fails, fall back to fetch.
+    final cache = AppContainer.jsonCache;
+    final fn = Profile1cPhotoCache.diskCacheFileName(cache);
+    if (fn == null) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove(AppConstants.profile1cPhotoPathKey);
+      } catch (_) {}
+      if (mounted) setState(() => _saved1cPhotoPath = null);
+      return;
     }
 
-    final bytes = await AppContainer.profile1cApi
-        .getStudentPhotoBytes(studentId: studentId)
-        .timeout(ApiConstants.prefetchRequestTimeout);
-    if (bytes == null || bytes.isEmpty) return;
     final dirPath = AppContainer.appDocumentsDirPath ??
         (await getApplicationDocumentsDirectory()).path;
-    final file = File('$dirPath/${AppConstants.profile1cPhotoFileName}');
-    await file.writeAsBytes(bytes, flush: true);
+    final file = File(Profile1cPhotoCache.absolutePathForFileName(dirPath, fn));
+
+    if (!refreshIfCached) {
+      try {
+        if (await file.exists() && await file.length() > 0) {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString(AppConstants.profile1cPhotoPathKey, file.path);
+          if (mounted) setState(() => _saved1cPhotoPath = file.path);
+          return;
+        }
+      } catch (_) {}
+    } else {
+      try {
+        if (await file.exists() && await file.length() > 0) {
+          if (mounted) setState(() => _saved1cPhotoPath = file.path);
+        }
+      } catch (_) {}
+    }
+
+    final isParent = Profile1cPhotoCache.isParentRole(cache);
+    final List<int>? bytes;
+    if (isParent) {
+      final cid = studentId ?? Profile1cPhotoCache.childStudentIdForParent(cache);
+      if (cid == null) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove(AppConstants.profile1cPhotoPathKey);
+        if (mounted) setState(() => _saved1cPhotoPath = null);
+        return;
+      }
+      bytes = await AppContainer.profile1cApi
+          .getStudentPhotoBytes(studentId: cid)
+          .timeout(ApiConstants.prefetchRequestTimeout);
+    } else {
+      final book = Profile1cPhotoCache.studentBookForPhotoFromCache(cache);
+      if (book == null || book.isEmpty) {
+        try {
+          if (await file.exists()) await file.delete();
+        } catch (_) {}
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove(AppConstants.profile1cPhotoPathKey);
+        if (mounted) setState(() => _saved1cPhotoPath = null);
+        return;
+      }
+      bytes = await AppContainer.profile1cApi
+          .getStudentPhotoBytes(book: book)
+          .timeout(ApiConstants.prefetchRequestTimeout);
+    }
+
     final prefs = await SharedPreferences.getInstance();
+    if (bytes == null || bytes.isEmpty) {
+      try {
+        if (await file.exists()) await file.delete();
+      } catch (_) {}
+      await prefs.remove(AppConstants.profile1cPhotoPathKey);
+      if (mounted) setState(() => _saved1cPhotoPath = null);
+      return;
+    }
+
+    await file.writeAsBytes(bytes, flush: true);
     await prefs.setString(AppConstants.profile1cPhotoPathKey, file.path);
     if (mounted) setState(() => _saved1cPhotoPath = file.path);
   }

@@ -28,6 +28,7 @@ import '../auth/auth_session.dart';
 import '../../core/cache/json_cache.dart';
 import '../network/app_network_banner_controller.dart';
 import '../storage/local_user_storage_wipe.dart';
+import '../storage/profile_1c_photo_cache.dart';
 import '../student/department_announcement_prompt.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -581,32 +582,57 @@ abstract final class AppContainer {
     } catch (_) {}
   }
 
-  /// Кэширует фото из 1С на диск, если файла ещё нет (без лишней загрузки при каждом старте).
+  /// Кэш фото 1С: студент — `?book=`, родитель — `?student_id=`; имя файла см. [Profile1cPhotoCache].
   static Future<void> _prefetchStudent1cPhotoToDisk({int? studentId}) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final existingPath = prefs.getString(AppConstants.profile1cPhotoPathKey);
-      if (existingPath != null && existingPath.trim().isNotEmpty) {
-        final f = File(existingPath);
-        if (await f.exists()) {
-          final len = await f.length();
-          if (len > 0) return;
-        }
-      }
+      final cache = jsonCache;
+      final fn = Profile1cPhotoCache.diskCacheFileName(cache);
+      if (fn == null) return;
 
+      final prefs = await SharedPreferences.getInstance();
       final dirPath = appDocumentsDirPath ??
           (await getApplicationDocumentsDirectory()).path;
-      final file = File('$dirPath/${AppConstants.profile1cPhotoFileName}');
+      final file = File(Profile1cPhotoCache.absolutePathForFileName(dirPath, fn));
+
+      final existingPath = prefs.getString(AppConstants.profile1cPhotoPathKey);
+      if (existingPath != null &&
+          existingPath.trim().isNotEmpty &&
+          existingPath != file.path) {
+        await prefs.remove(AppConstants.profile1cPhotoPathKey);
+      }
+
       if (await file.exists()) {
         final len = await file.length();
         if (len > 0) {
           await prefs.setString(AppConstants.profile1cPhotoPathKey, file.path);
           return;
         }
+        try {
+          await file.delete();
+        } catch (_) {}
       }
 
-      final bytes = await profile1cApi.getStudentPhotoBytes(studentId: studentId);
-      if (bytes == null || bytes.isEmpty) return;
+      final isParent = Profile1cPhotoCache.isParentRole(cache);
+      final childId =
+          studentId ?? Profile1cPhotoCache.childStudentIdForParent(cache);
+
+      final List<int>? bytes;
+      if (isParent) {
+        if (childId == null) return;
+        bytes = await profile1cApi.getStudentPhotoBytes(studentId: childId);
+      } else {
+        final book = Profile1cPhotoCache.studentBookForPhotoFromCache(cache);
+        if (book == null || book.isEmpty) return;
+        bytes = await profile1cApi.getStudentPhotoBytes(book: book);
+      }
+
+      if (bytes == null || bytes.isEmpty) {
+        try {
+          if (await file.exists()) await file.delete();
+        } catch (_) {}
+        await prefs.remove(AppConstants.profile1cPhotoPathKey);
+        return;
+      }
       await file.writeAsBytes(bytes, flush: true);
       await prefs.setString(AppConstants.profile1cPhotoPathKey, file.path);
     } catch (_) {}
