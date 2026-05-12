@@ -18,7 +18,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../shared/widgets/app_header.dart';
 import '../widgets/profile_mail_card.dart';
 
-/// Настройки: шапка как у вложенных экранов профиля, блок как на профиле, уведомления, выход и поддержка.
+/// Настройки: шапка как у вложенных экранов профиля, блок как на профиле, уведомления, выход.
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
 
@@ -370,26 +370,27 @@ class _SettingsPageState extends State<SettingsPage> {
                       onTap: _loggingOut ? null : () => _confirmLogout(context),
                     ),
                   ),
-                  SizedBox(width: 20 * layoutScale),
-                  Expanded(
-                    child: _FooterActionButton(
-                      layoutScale: layoutScale,
-                      height: 39 * layoutScale,
-                      border: Border.all(
-                        color: const Color(0xFF9A9A9A),
-                        width: 0.68 * layoutScale,
-                      ),
-                      background: const Color(0x26747474),
-                      innerBoxColor: const Color(0xFFF8FAFC),
-                      innerRadius: 9 * layoutScale,
-                      innerSize: 29 * layoutScale,
-                      iconAsset: 'assets/icons/help.svg',
-                      iconSize: 15 * layoutScale,
-                      label: 'Поддержка',
-                      labelColor: const Color(0xFF515151),
-                      onTap: () => context.push('/app/profile/support'),
-                    ),
-                  ),
+                  // Поддержка временно скрыта.
+                  // SizedBox(width: 20 * layoutScale),
+                  // Expanded(
+                  //   child: _FooterActionButton(
+                  //     layoutScale: layoutScale,
+                  //     height: 39 * layoutScale,
+                  //     border: Border.all(
+                  //       color: const Color(0xFF9A9A9A),
+                  //       width: 0.68 * layoutScale,
+                  //     ),
+                  //     background: const Color(0x26747474),
+                  //     innerBoxColor: const Color(0xFFF8FAFC),
+                  //     innerRadius: 9 * layoutScale,
+                  //     innerSize: 29 * layoutScale,
+                  //     iconAsset: 'assets/icons/help.svg',
+                  //     iconSize: 15 * layoutScale,
+                  //     label: 'Поддержка',
+                  //     labelColor: const Color(0xFF515151),
+                  //     onTap: () => context.push('/app/profile/support'),
+                  //   ),
+                  // ),
                 ],
               ),
             ),
