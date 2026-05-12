@@ -42,6 +42,9 @@ PODS:
   - Firebase/Messaging (12.9.0):
     - Firebase/CoreOnly
     - FirebaseMessaging (~> 12.9.0)
+  - Firebase/RemoteConfig (12.9.0):
+    - Firebase/CoreOnly
+    - FirebaseRemoteConfig (~> 12.9.0)
   - firebase_core (4.6.0-dgupatch1):
     - Firebase/CoreOnly (= 12.9.0)
     - Flutter
@@ -49,6 +52,12 @@ PODS:
     - Firebase/Messaging (= 12.9.0)
     - firebase_core
     - Flutter
+  - firebase_remote_config (6.4.0):
+    - Firebase/RemoteConfig (= 12.9.0)
+    - firebase_core
+    - Flutter
+  - FirebaseABTesting (12.9.0):
+    - FirebaseCore (~> 12.9.0)
   - FirebaseCore (12.9.0):
     - FirebaseCoreInternal (~> 12.9.0)
     - GoogleUtilities/Environment (~> 8.1)
@@ -69,9 +78,20 @@ PODS:
     - GoogleUtilities/Reachability (~> 8.1)
     - GoogleUtilities/UserDefaults (~> 8.1)
     - nanopb (~> 3.30910.0)
+  - FirebaseRemoteConfig (12.9.0):
+    - FirebaseABTesting (~> 12.9.0)
+    - FirebaseCore (~> 12.9.0)
+    - FirebaseInstallations (~> 12.9.0)
+    - FirebaseRemoteConfigInterop (~> 12.9.0)
+    - FirebaseSharedSwift (~> 12.9.0)
+    - GoogleUtilities/Environment (~> 8.1)
+    - "GoogleUtilities/NSData+zlib (~> 8.1)"
+  - FirebaseRemoteConfigInterop (12.9.0)
+  - FirebaseSharedSwift (12.9.0)
   - Flutter (1.0.0)
   - flutter_native_splash (2.4.3):
     - Flutter
+  - FlutterMacOS (1.0.0)
   - GoogleDataTransport (10.1.0):
     - nanopb (~> 3.30910.0)
     - PromisesObjC (~> 2.4)
@@ -127,8 +147,10 @@ DEPENDENCIES:
   - file_saver (from `.symlinks/plugins/file_saver/ios`)
   - firebase_core (from `.symlinks/plugins/firebase_core/ios`)
   - firebase_messaging (from `.symlinks/plugins/firebase_messaging/ios`)
+  - firebase_remote_config (from `.symlinks/plugins/firebase_remote_config/ios`)
   - Flutter (from `Flutter`)
   - flutter_native_splash (from `.symlinks/plugins/flutter_native_splash/ios`)
+  - FlutterMacOS (from `Flutter/ephemeral`)
   - image_picker_ios (from `.symlinks/plugins/image_picker_ios/ios`)
   - permission_handler_apple (from `.symlinks/plugins/permission_handler_apple/ios`)
   - share_plus (from `.symlinks/plugins/share_plus/ios`)
@@ -136,6 +158,11 @@ DEPENDENCIES:
   - url_launcher_ios (from `.symlinks/plugins/url_launcher_ios/ios`)
 
 SPEC REPOS:
+  https://github.com/CocoaPods/Specs.git:
+    - FirebaseABTesting
+    - FirebaseRemoteConfig
+    - FirebaseRemoteConfigInterop
+    - FirebaseSharedSwift
   trunk:
     - DKImagePickerController
     - DKPhotoGallery
@@ -162,10 +189,14 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/firebase_core/ios"
   firebase_messaging:
     :path: ".symlinks/plugins/firebase_messaging/ios"
+  firebase_remote_config:
+    :path: ".symlinks/plugins/firebase_remote_config/ios"
   Flutter:
     :path: Flutter
   flutter_native_splash:
     :path: ".symlinks/plugins/flutter_native_splash/ios"
+  FlutterMacOS:
+    :path: Flutter/ephemeral
   image_picker_ios:
     :path: ".symlinks/plugins/image_picker_ios/ios"
   permission_handler_apple:
@@ -186,12 +217,18 @@ SPEC CHECKSUMS:
   Firebase: 065f2bb395062046623036d8e6dc857bc2521d56
   firebase_core: 76dca98f0cfb6f62b079b03a43d72123426b8ab4
   firebase_messaging: c3aa897e0d40109cfb7927c40dc0dea799863f3b
+  firebase_remote_config: 0af9b3f1480d77ae9214e5ad5c0cd24c6fd97424
+  FirebaseABTesting: a399ffe546392a39b19a5c2fb28bd8ea178a6f47
   FirebaseCore: 428912f751178b06bef0a1793effeb4a5e09a9b8
   FirebaseCoreInternal: b321eafae5362113bc182956fafc9922cfc77b72
   FirebaseInstallations: 7b64ffd006032b2b019a59b803858df5112d9eaa
   FirebaseMessaging: 7d6cdbff969127c4151c824fe432f0e301210f15
+  FirebaseRemoteConfig: a2f6545e41551ffb520241d38b5d3d6776c9ebe8
+  FirebaseRemoteConfigInterop: 765ee19cd2bfa8e54937c8dae901eb634ad6787d
+  FirebaseSharedSwift: 9d2fa84a46676302b89dbd5e6e62bce2fe376909
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
   flutter_native_splash: c32d145d68aeda5502d5f543ee38c192065986cf
+  FlutterMacOS: 07614438ff4854d7f100bde9838b38db67fda35b
   GoogleDataTransport: aae35b7ea0c09004c3797d53c8c41f66f219d6a7
   GoogleUtilities: 00c88b9a86066ef77f0da2fab05f65d7768ed8e1
   image_picker_ios: e0ece4aa2a75771a7de3fa735d26d90817041326
@@ -204,6 +241,6 @@ SPEC CHECKSUMS:
   SwiftyGif: 706c60cf65fa2bc5ee0313beece843c8eb8194d4
   url_launcher_ios: 7a95fa5b60cc718a708b8f2966718e93db0cef1b
 
-PODFILE CHECKSUM: a7a4d6d9c828bf239840d93470e1f309b649e3dc
+PODFILE CHECKSUM: 9a7bea52e5a35d11ca70a7a12f6866e4c4695961
 
 COCOAPODS: 1.16.2
