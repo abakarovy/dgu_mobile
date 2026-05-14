@@ -149,8 +149,9 @@ class AccountApi {
     }
   }
 
-  /// POST /api/auth/password-reset/request (public)
-  Future<void> requestPasswordReset({required String email}) async {
+  /// POST /api/auth/password-reset/request (public).
+  /// Возвращает текст [message] из JSON ответа, если есть.
+  Future<String?> requestPasswordReset({required String email}) async {
     try {
       final res = await _api.dio.post<dynamic>(
         '/auth/password-reset/request',
@@ -164,6 +165,12 @@ class AccountApi {
           type: DioExceptionType.badResponse,
         );
       }
+      final data = res.data;
+      if (data is Map) {
+        final m = data['message'];
+        if (m is String && m.trim().isNotEmpty) return m.trim();
+      }
+      return null;
     } on DioException catch (e) {
       throw ApiException.fromDio(e);
     }

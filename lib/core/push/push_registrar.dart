@@ -26,9 +26,7 @@ class PushRegistrar {
   Future<void> ensureRegistered() async {
     if (Firebase.apps.isEmpty) return;
     try {
-      final token = await FirebaseMessaging.instance
-          .getToken()
-          .timeout(const Duration(seconds: 15));
+      final token = await FirebaseMessaging.instance.getToken();
       if (token == null || token.trim().isEmpty) return;
       final platform = Platform.isIOS ? 'ios' : (Platform.isAndroid ? 'android' : 'web');
       await AppContainer.pushApi.registerDevice(token: token, platform: platform);
@@ -42,9 +40,7 @@ class PushRegistrar {
   Future<void> unregisterCurrentDevice() async {
     if (Firebase.apps.isEmpty) return;
     try {
-      final token = await FirebaseMessaging.instance
-          .getToken()
-          .timeout(const Duration(seconds: 6));
+      final token = await FirebaseMessaging.instance.getToken();
       if (token == null || token.trim().isEmpty) return;
       await AppContainer.pushApi.unregisterDevice(token: token);
       AppLogFile.writeln('[PUSH] unregistered token (len=${token.length})');

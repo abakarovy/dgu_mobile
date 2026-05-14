@@ -6,14 +6,14 @@ import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/constants/app_colors.dart';
 import '../../../../core/di/app_container.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../data/api/api_exception.dart';
 import '../../../../shared/widgets/dismiss_keyboard_on_tap.dart';
 import '../../domain/auth_flow_results.dart';
 
-/// Экран входа/регистрации по E-mail.
-/// Визуально повторяет стиль входа по зачётке.
+/// Вход / регистрация по E-mail — те же поля и кнопки, что на экране «Студент».
 class LoginEmailPage extends StatefulWidget {
   const LoginEmailPage({super.key, this.extra});
 
@@ -24,17 +24,31 @@ class LoginEmailPage extends StatefulWidget {
 }
 
 class _LoginEmailPageState extends State<LoginEmailPage> {
+  static const Color _kBlue = Color(0xFF2E63D5);
+  static const Color _kBorderMuted = Color(0x38000000);
+  static const Color _kBorderFilled = Color(0xFF000000);
+
+  static const double _fieldW = 400;
+  static const double _fieldH = 60;
+  static const double _radius = 46;
+  static const double _inputLineExtent = 28;
+
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _otpController = TextEditingController();
+
   final _emailFocusNode = FocusNode();
   final _passwordFocusNode = FocusNode();
   final _otpFocusNode = FocusNode();
+
   final Set<String> _errorFields = {};
   bool _showWrongCredentialsError = false;
   String _credentialsErrorMessage = 'Неверный E-Mail или пароль';
   bool _submitting = false;
   bool _obscurePassword = true;
+  bool _forgotBusy = false;
+  Timer? _forgotCooldownTimer;
+  int _forgotCooldownLeft = 0;
 
   bool _awaitingOtp = false;
   bool _otpIsForRegister = false;
@@ -42,32 +56,32 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
   Timer? _resendTimer;
   int _resendSecondsLeft = 0;
 
-  bool _hasText(TextEditingController c) => c.text.trim().isNotEmpty;
+  Object? get _extra => widget.extra;
 
   bool get _isRegisterMode {
-    final e = widget.extra;
+    final e = _extra;
     return e is Map && e['mode'] == 'register';
   }
 
   bool get _isParentRole {
-    final e = widget.extra;
+    final e = _extra;
     return e is Map && e['role'] == 'parent';
   }
 
   String? get _verifiedFullName {
-    final e = widget.extra;
+    final e = _extra;
     if (e is Map) return e['fullName'] as String?;
     return null;
   }
 
   String? get _verifiedBookNumber {
-    final e = widget.extra;
+    final e = _extra;
     if (e is Map) return e['book'] as String?;
     return null;
   }
 
   String? get _registrationToken {
-    final e = widget.extra;
+    final e = _extra;
     if (e is Map) return e['registrationToken'] as String?;
     return null;
   }
@@ -80,35 +94,46 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
   @override
   void initState() {
     super.initState();
+    void refresh() {
+      if (mounted) setState(() {});
+    }
+
     _emailFocusNode.addListener(() {
-      if (_emailFocusNode.hasFocus) {
+      if (_emailFocusNode.hasFocus && mounted) {
         setState(() {
           _errorFields.remove('email');
           _showWrongCredentialsError = false;
         });
       }
+      refresh();
     });
     _passwordFocusNode.addListener(() {
-      if (_passwordFocusNode.hasFocus) {
+      if (_passwordFocusNode.hasFocus && mounted) {
         setState(() {
           _errorFields.remove('password');
           _showWrongCredentialsError = false;
         });
       }
+      refresh();
     });
     _otpFocusNode.addListener(() {
-      if (_otpFocusNode.hasFocus) {
+      if (_otpFocusNode.hasFocus && mounted) {
         setState(() {
           _errorFields.remove('otp');
           _showWrongCredentialsError = false;
         });
       }
+      refresh();
     });
+    _emailController.addListener(refresh);
+    _passwordController.addListener(refresh);
+    _otpController.addListener(refresh);
   }
 
   @override
   void dispose() {
     _resendTimer?.cancel();
+    _forgotCooldownTimer?.cancel();
     _emailController.dispose();
     _passwordController.dispose();
     _otpController.dispose();
@@ -116,6 +141,22 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
     _passwordFocusNode.dispose();
     _otpFocusNode.dispose();
     super.dispose();
+  }
+
+  void _startForgotCooldown(int seconds) {
+    _forgotCooldownTimer?.cancel();
+    setState(() => _forgotCooldownLeft = seconds.clamp(0, 3600));
+    _forgotCooldownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      setState(() {
+        if (_forgotCooldownLeft <= 1) {
+          _forgotCooldownTimer?.cancel();
+          _forgotCooldownLeft = 0;
+        } else {
+          _forgotCooldownLeft--;
+        }
+      });
+    });
   }
 
   void _startResendCooldown(int seconds) {
@@ -201,6 +242,143 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
+  }
+
+  Color _borderColor(FocusNode fn, TextEditingController c) {
+    if (fn.hasFocus) return _kBlue;
+    if (c.text.trim().isNotEmpty) return _kBorderFilled;
+    return _kBorderMuted;
+  }
+
+  Color _borderColorForKey(String key) {
+    if (key == 'email') {
+      return _borderColor(_emailFocusNode, _emailController);
+    }
+    if (key == 'password') {
+      return _borderColor(_passwordFocusNode, _passwordController);
+    }
+    if (key == 'otp') {
+      return _borderColor(_otpFocusNode, _otpController);
+    }
+    return _kBorderMuted;
+  }
+
+  ButtonStyle _noOverlay(ButtonStyle base) {
+    return base.copyWith(
+      overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+    );
+  }
+
+  Widget _outlineField({
+    required String key,
+    required TextEditingController controller,
+    required FocusNode focusNode,
+    required String hint,
+    FocusNode? nextFocus,
+    VoidCallback? onLastSubmitted,
+    TextInputType keyboardType = TextInputType.text,
+    TextCapitalization textCapitalization = TextCapitalization.none,
+    List<TextInputFormatter>? inputFormatters,
+    bool obscureText = false,
+    VoidCallback? onToggleObscure,
+  }) {
+    final isLast = nextFocus == null;
+    final hasErr = _errorFields.contains(key);
+    final borderColor = hasErr ? Colors.red : _borderColorForKey(key);
+
+    final hintStyle = AppTextStyle.inter(
+      fontWeight: FontWeight.w700,
+      fontSize: 16,
+      height: 1.0,
+      color: _kBorderMuted,
+    );
+    final textStyle = AppTextStyle.inter(
+      fontWeight: FontWeight.w700,
+      fontSize: 16,
+      height: 1.0,
+      color: _kBorderFilled,
+    );
+
+    return SizedBox(
+      width: _fieldW,
+      height: _fieldH,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(_radius),
+          border: Border.all(color: borderColor, width: 1),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(_radius),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              const SizedBox(width: 16),
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: SizedBox(
+                    height: _inputLineExtent,
+                    width: double.infinity,
+                    child: TextField(
+                      controller: controller,
+                      focusNode: focusNode,
+                      keyboardType: keyboardType,
+                      textCapitalization: textCapitalization,
+                      textInputAction:
+                          isLast ? TextInputAction.done : TextInputAction.next,
+                      inputFormatters: inputFormatters,
+                      obscureText: obscureText,
+                      textAlignVertical: TextAlignVertical.center,
+                      maxLines: 1,
+                      minLines: 1,
+                      style: textStyle,
+                      decoration: InputDecoration(
+                        hintText: hint,
+                        hintStyle: hintStyle,
+                        border: InputBorder.none,
+                        isDense: true,
+                        filled: false,
+                        contentPadding: EdgeInsets.zero,
+                        counterText: '',
+                      ),
+                      onSubmitted: (_) {
+                        if (isLast) {
+                          onLastSubmitted?.call();
+                        } else {
+                          nextFocus.requestFocus();
+                        }
+                      },
+                    ),
+                  ),
+                ),
+              ),
+              if (onToggleObscure != null) ...[
+                IconButton(
+                  onPressed: onToggleObscure,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 40,
+                    minHeight: 40,
+                  ),
+                  style: IconButton.styleFrom(
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  icon: Icon(
+                    obscureText
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
+                    size: 20,
+                    color: Colors.black.withValues(alpha: 0.45),
+                  ),
+                ),
+                const SizedBox(width: 16),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _submit() async {
@@ -349,48 +527,115 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
     }
   }
 
+  Future<void> _showAppAlert({
+    required String title,
+    required String message,
+  }) async {
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) {
+        return AlertDialog(
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+          title: Text(
+            title,
+            style: AppTextStyle.inter(
+              fontWeight: FontWeight.w800,
+              fontSize: 18,
+              height: 1.2,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          content: Text(
+            message,
+            style: AppTextStyle.inter(
+              fontWeight: FontWeight.w500,
+              fontSize: 15,
+              height: 1.35,
+              color: AppColors.grey,
+            ),
+          ),
+          actions: [
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: _kBlue,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(_radius),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+              ),
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: Text(
+                'Ок',
+                style: AppTextStyle.inter(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 16,
+                  height: 1.0,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _requestForgotPassword() async {
+    final email = _emailController.text.trim();
+    if (email.isEmpty) {
+      setState(() {
+        _errorFields
+          ..clear()
+          ..add('email');
+        _showWrongCredentialsError = false;
+      });
+      _emailFocusNode.requestFocus();
+      await _showAppAlert(
+        title: 'Восстановление пароля',
+        message:
+            'Введите e-mail в поле выше, затем снова нажмите «Забыли пароль».',
+      );
+      return;
+    }
+    if (_forgotBusy || _forgotCooldownLeft > 0) return;
+    try {
+      setState(() => _forgotBusy = true);
+      final apiMessage =
+          await AppContainer.accountApi.requestPasswordReset(email: email);
+      if (!mounted) return;
+      await _showAppAlert(
+        title: 'Восстановление пароля',
+        message: apiMessage ??
+            'Если этот адрес зарегистрирован в системе, на него отправлена ссылка для смены пароля.',
+      );
+      if (!mounted) return;
+      _startForgotCooldown(60);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      await _showAppAlert(
+        title: 'Ошибка',
+        message: e.message,
+      );
+    } finally {
+      if (mounted) setState(() => _forgotBusy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     const figmaW = 1080.0;
     const figmaH = 1920.0;
     final size = MediaQuery.sizeOf(context);
-    final layoutSf = math.min(size.width / figmaW, size.height / figmaH);
-    final sf = layoutSf;
-    final sfW = size.width / figmaW;
-    const maxAuthFormScale = 0.46;
-    final sfForm = math.min(layoutSf, maxAuthFormScale);
-
-    final blue = const Color.fromRGBO(46, 99, 213, 1);
-
-    final fieldRadius = 89.16 * sfForm;
-    final fieldBorderW = (4.46 * sfForm).clamp(2.0, 6.0);
-    // Поля должны быть той же высоты, что и кнопки.
-    final fieldHeight = (120.0 * sfForm).clamp(44.0, 54.0);
-    final fieldLeftPad = 75.0 * sfForm;
-    final sidePad = 40.0 * sfForm;
-    final gap = (10.0 * sfForm).clamp(6.0, 12.0);
-
-    final hintStyle = AppTextStyle.inter(
-      fontWeight: FontWeight.w700,
-      fontSize: 35.84 * sfForm,
-      height: (55.75 / 35.84),
-      color: Colors.black.withValues(alpha: 0.24),
-    );
-    final valueStyle = AppTextStyle.inter(
-      fontWeight: FontWeight.w700,
-      fontSize: 35.84 * sfForm,
-      height: (55.75 / 35.84),
-      color: Colors.black,
-    );
-
-    final btnRadius = 117.96 * sfForm;
-    final btnBorder = (7.07 * sfForm).clamp(3.0, 10.0);
-    final btnTextStyle = AppTextStyle.inter(
-      fontWeight: FontWeight.w700,
-      fontSize: 45.47 * sfForm,
-      height: 1.0,
-    );
-    final btnHeight = fieldHeight;
+    final sf = math.min(size.width / figmaW, size.height / figmaH);
+    final safeTop = MediaQuery.paddingOf(context).top;
+    const photoFlex = 2;
+    const formFlex = 3;
 
     final noTapFxTheme = Theme.of(context).copyWith(
       splashFactory: NoSplash.splashFactory,
@@ -399,564 +644,477 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
       hoverColor: Colors.transparent,
     );
 
-    ButtonStyle noOverlay(ButtonStyle base) {
-      return base.copyWith(
-        overlayColor: const WidgetStatePropertyAll(Colors.transparent),
-      );
-    }
+    final btnLabel = AppTextStyle.inter(
+      fontWeight: FontWeight.w700,
+      fontSize: 16,
+      height: 1.0,
+      color: Colors.white,
+    );
 
-    final safeTop = MediaQuery.paddingOf(context).top;
-    const photoFlex = 2;
-    const formFlex = 3;
+    final linkStyle = AppTextStyle.inter(
+      fontWeight: FontWeight.w700,
+      fontSize: 16,
+      height: 1.0,
+      color: _kBlue,
+    );
 
     return PopScope(
       canPop: false,
-      child: Theme(
-        data: noTapFxTheme,
-        child: Scaffold(
-          backgroundColor: Colors.white,
-          body: DismissKeyboardOnTap(
-            child: Column(
-              children: [
-              Expanded(
-                flex: photoFlex,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    Image.asset(
-                      'assets/images/photo.png',
-                      fit: BoxFit.cover,
-                      alignment: Alignment.topCenter,
-                      errorBuilder: (context, error, stackTrace) =>
-                          const ColoredBox(color: Colors.black12),
-                    ),
-                    Positioned(
-                      left: 60 * sf,
-                      top: safeTop + 56 * sf,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _topTitle,
-                            style: AppTextStyle.inter(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 111.73 * sf,
-                              height: 1.0,
-                              color: Colors.white,
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: const SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.light,
+          systemNavigationBarColor: Colors.transparent,
+          systemNavigationBarIconBrightness: Brightness.dark,
+        ),
+        child: Theme(
+          data: noTapFxTheme,
+          child: Scaffold(
+            backgroundColor: Colors.white,
+            body: DismissKeyboardOnTap(
+              child: Column(
+                children: [
+                  Expanded(
+                    flex: photoFlex,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        Image.asset(
+                          'assets/images/photo.png',
+                          fit: BoxFit.cover,
+                          alignment: Alignment.topCenter,
+                          errorBuilder: (context, error, stackTrace) =>
+                              const ColoredBox(color: Colors.black12),
+                        ),
+                        Positioned(
+                          left: 60 * sf,
+                          top: safeTop + 56 * sf,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _topTitle,
+                                style: AppTextStyle.inter(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 111.73 * sf,
+                                  height: 1.0,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              SizedBox(height: 10 * sf),
+                              Text(
+                                'КОЛЛЕДЖ ДГУ',
+                                style: AppTextStyle.inter(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 32.96 * sf * 1.25,
+                                  height: 1.0,
+                                  letterSpacing: -0.82 * sf * 1.25,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Positioned(
+                          right: 60 * sf,
+                          bottom: 36 * sf,
+                          child: SizedBox(
+                            width: 126 * sf * 1.5,
+                            height: 126 * sf * 1.5,
+                            child: SvgPicture.asset(
+                              'assets/icons/logo.svg',
+                              fit: BoxFit.contain,
                             ),
                           ),
-                          SizedBox(height: 10 * sf),
-                          Text(
-                            'КОЛЛЕДЖ ДГУ',
-                            style: AppTextStyle.inter(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 32.96 * sf * 1.25,
-                              height: 1.0,
-                              letterSpacing: -0.82 * sf * 1.25,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                    Positioned(
-                      right: 60 * sf,
-                      bottom: 36 * sf,
-                      child: SizedBox(
-                        width: 126 * sf * 1.5,
-                        height: 126 * sf * 1.5,
-                        child: SvgPicture.asset(
-                          'assets/icons/logo.svg',
-                          fit: BoxFit.contain,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                flex: formFlex,
-                child: SafeArea(
-                  top: false,
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      final innerMaxW = math.max(
-                        0.0,
-                        constraints.maxWidth - 2 * sidePad,
-                      );
-                      final formColumnW = math.min(900.0 * sfW, innerMaxW);
-                      final content = SizedBox(
-                        width: formColumnW,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            if (_showWrongCredentialsError) ...[
-                              Text(
-                                _credentialsErrorMessage,
-                                textAlign: TextAlign.center,
-                                style: AppTextStyle.inter(
-                                  fontWeight: FontWeight.w500,
-                                  fontSize: 14,
-                                  height: 1.2,
-                                  color: Colors.red,
-                                ),
-                              ),
-                              SizedBox(height: gap),
-                            ],
-                            if (_awaitingOtp && _otpChallenge != null) ...[
-                              Text(
-                                _otpChallenge!.message,
-                                textAlign: TextAlign.center,
-                                style: AppTextStyle.inter(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: (14 * sfForm).clamp(13.0, 16.0),
-                                  height: 1.3,
-                                  color: Colors.black87,
-                                ),
-                              ),
-                              if ((_otpChallenge!.emailMasked ?? '')
-                                  .trim()
-                                  .isNotEmpty) ...[
-                                SizedBox(height: gap * 0.6),
-                                Text(
-                                  'Код отправлен на ${_otpChallenge!.emailMasked}',
-                                  textAlign: TextAlign.center,
-                                  style: AppTextStyle.inter(
-                                    fontWeight: FontWeight.w500,
-                                    fontSize: (12 * sfForm).clamp(11.0, 14.0),
-                                    height: 1.25,
-                                    color: Colors.black54,
-                                  ),
-                                ),
-                              ],
-                              SizedBox(height: gap),
-                              _buildField(
-                                key: 'otp',
-                                hint: 'Код из письма (6 цифр)',
-                                controller: _otpController,
-                                focusNode: _otpFocusNode,
-                                nextFocus: null,
-                                onLastFieldSubmitted: _submit,
-                                keyboardType: TextInputType.number,
-                                maxLength: 6,
-                                fieldHeight: fieldHeight,
-                                fieldRadius: fieldRadius,
-                                fieldBorderW: fieldBorderW,
-                                fieldLeftPad: fieldLeftPad,
-                                blue: blue,
-                                hintStyle: hintStyle,
-                                valueStyle: valueStyle,
-                                obscureText: false,
-                              ),
-                              SizedBox(height: gap),
-                              SizedBox(
-                                height: btnHeight,
-                                child: FilledButton(
-                                  onPressed: _submitting ? null : _submit,
-                                  style: noOverlay(
-                                    FilledButton.styleFrom(
-                                      backgroundColor: blue,
-                                      foregroundColor: Colors.white,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(
-                                          btnRadius,
-                                        ),
-                                      ),
-                                      fixedSize: Size.fromHeight(btnHeight),
-                                      minimumSize: Size(
-                                        double.infinity,
-                                        btnHeight,
-                                      ),
-                                      padding: EdgeInsets.zero,
-                                      tapTargetSize:
-                                          MaterialTapTargetSize.shrinkWrap,
-                                      visualDensity: VisualDensity.compact,
-                                      textStyle: btnTextStyle,
-                                    ),
-                                  ),
-                                  child: Center(
-                                    child: Text(
-                                      _submitting
-                                          ? 'Проверяем…'
-                                          : 'Подтвердить',
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              SizedBox(height: gap * 0.6),
-                              TextButton(
-                                onPressed: (_submitting || _resendSecondsLeft > 0)
-                                    ? null
-                                    : _resendOtp,
-                                child: Text(
-                                  _resendSecondsLeft > 0
-                                      ? 'Отправить снова через $_resendSecondsLeft с'
-                                      : 'Отправить код снова',
-                                  style: AppTextStyle.inter(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: (13 * sfForm).clamp(12.0, 15.0),
-                                    color: blue,
-                                  ),
-                                ),
-                              ),
-                              SizedBox(height: gap * 0.4),
-                              SizedBox(
-                                height: btnHeight,
-                                child: OutlinedButton(
-                                  onPressed:
-                                      _submitting ? null : _leaveOtpStep,
-                                  style: noOverlay(
-                                    OutlinedButton.styleFrom(
-                                      foregroundColor: blue,
-                                      backgroundColor: Colors.transparent,
-                                      side: BorderSide(
-                                        color: blue,
-                                        width: btnBorder,
-                                      ),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(
-                                          btnRadius,
-                                        ),
-                                      ),
-                                      fixedSize: Size.fromHeight(btnHeight),
-                                      minimumSize: Size(
-                                        double.infinity,
-                                        btnHeight,
-                                      ),
-                                      padding: EdgeInsets.zero,
-                                      tapTargetSize:
-                                          MaterialTapTargetSize.shrinkWrap,
-                                      visualDensity: VisualDensity.compact,
-                                      textStyle: btnTextStyle,
-                                    ),
-                                  ),
-                                  child: const Center(
-                                    child: Text('Назад к паролю'),
-                                  ),
-                                ),
-                              ),
-                            ] else ...[
-                              _buildField(
-                                key: 'email',
-                                hint: 'E-mail',
-                                controller: _emailController,
-                                focusNode: _emailFocusNode,
-                                nextFocus: _passwordFocusNode,
-                                keyboardType: TextInputType.emailAddress,
-                                fieldHeight: fieldHeight,
-                                fieldRadius: fieldRadius,
-                                fieldBorderW: fieldBorderW,
-                                fieldLeftPad: fieldLeftPad,
-                                blue: blue,
-                                hintStyle: hintStyle,
-                                valueStyle: valueStyle,
-                                obscureText: false,
-                              ),
-                              SizedBox(height: gap),
-                              _buildField(
-                                key: 'password',
-                                hint: 'Пароль',
-                                controller: _passwordController,
-                                focusNode: _passwordFocusNode,
-                                nextFocus: null,
-                                onLastFieldSubmitted: _submit,
-                                keyboardType: TextInputType.visiblePassword,
-                                fieldHeight: fieldHeight,
-                                fieldRadius: fieldRadius,
-                                fieldBorderW: fieldBorderW,
-                                fieldLeftPad: fieldLeftPad,
-                                blue: blue,
-                                hintStyle: hintStyle,
-                                valueStyle: valueStyle,
-                                obscureText: _obscurePassword,
-                                onPasswordVisibilityToggle: () => setState(
-                                  () => _obscurePassword = !_obscurePassword,
-                                ),
-                              ),
-                              SizedBox(height: gap),
-                              SizedBox(
-                                height: btnHeight,
-                                child: FilledButton(
-                                  onPressed: _submitting ? null : _submit,
-                                  style: noOverlay(
-                                    FilledButton.styleFrom(
-                                      backgroundColor: blue,
-                                      foregroundColor: Colors.white,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(
-                                          btnRadius,
-                                        ),
-                                      ),
-                                      fixedSize: Size.fromHeight(btnHeight),
-                                      minimumSize: Size(
-                                        double.infinity,
-                                        btnHeight,
-                                      ),
-                                      padding: EdgeInsets.zero,
-                                      tapTargetSize:
-                                          MaterialTapTargetSize.shrinkWrap,
-                                      visualDensity: VisualDensity.compact,
-                                      textStyle: btnTextStyle,
-                                    ),
-                                  ),
-                                  child: Center(
-                                    child: Text(
-                                      _submitting
-                                          ? 'Входим…'
-                                          : (_isRegisterMode
-                                              ? 'Зарегистрироваться'
-                                              : 'Войти'),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                            if (!_awaitingOtp) SizedBox(height: gap),
-                            if (!_awaitingOtp && !_isParentRole)
-                              SizedBox(
-                                height: btnHeight,
-                                child: OutlinedButton(
-                                  onPressed: () => context.go('/login/student'),
-                                  style: noOverlay(
-                                    OutlinedButton.styleFrom(
-                                      foregroundColor: blue,
-                                      backgroundColor: Colors.transparent,
-                                      side: BorderSide(
-                                        color: blue,
-                                        width: btnBorder,
-                                      ),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(
-                                          btnRadius,
-                                        ),
-                                      ),
-                                      fixedSize: Size.fromHeight(btnHeight),
-                                      minimumSize: Size(
-                                        double.infinity,
-                                        btnHeight,
-                                      ),
-                                      padding: EdgeInsets.zero,
-                                      tapTargetSize:
-                                          MaterialTapTargetSize.shrinkWrap,
-                                      visualDensity: VisualDensity.compact,
-                                      textStyle: btnTextStyle,
-                                    ),
-                                  ),
-                                  child: Center(
-                                    child: Text(
-                                      _isRegisterMode
-                                          ? 'Назад'
-                                          : 'Войти по зачетной книжке',
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            if (!_awaitingOtp &&
-                                _isParentRole &&
-                                !_isRegisterMode) ...[
-                              SizedBox(height: gap),
-                              SizedBox(
-                                height: btnHeight,
-                                child: OutlinedButton(
-                                  onPressed: () => context.go('/login/student'),
-                                  style: noOverlay(
-                                    OutlinedButton.styleFrom(
-                                      foregroundColor: blue,
-                                      backgroundColor: Colors.transparent,
-                                      side: BorderSide(
-                                        color: blue,
-                                        width: btnBorder,
-                                      ),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(
-                                          btnRadius,
-                                        ),
-                                      ),
-                                      fixedSize: Size.fromHeight(btnHeight),
-                                      minimumSize: Size(
-                                        double.infinity,
-                                        btnHeight,
-                                      ),
-                                      padding: EdgeInsets.zero,
-                                      tapTargetSize:
-                                          MaterialTapTargetSize.shrinkWrap,
-                                      visualDensity: VisualDensity.compact,
-                                      textStyle: btnTextStyle,
-                                    ),
-                                  ),
-                                  child: const Center(
-                                    child: Text('Войти как студент'),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      );
-
-                      return SingleChildScrollView(
-                        padding: EdgeInsets.fromLTRB(
-                          sidePad,
-                          18 * sfForm,
-                          sidePad,
-                          18 * sfForm,
-                        ),
-                        child: ConstrainedBox(
-                          constraints: BoxConstraints(
-                            minHeight: constraints.maxHeight,
-                          ),
-                          child: Center(child: content),
-                        ),
-                      );
-                    },
                   ),
-                ),
+                  Expanded(
+                    flex: formFlex,
+                    child: SafeArea(
+                      top: false,
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          return SingleChildScrollView(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                minHeight: constraints.maxHeight - 32,
+                              ),
+                              child: Center(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (_showWrongCredentialsError) ...[
+                                      Padding(
+                                        padding: const EdgeInsets.only(
+                                          bottom: 16,
+                                        ),
+                                        child: Text(
+                                          _credentialsErrorMessage,
+                                          textAlign: TextAlign.center,
+                                          style: AppTextStyle.inter(
+                                            fontWeight: FontWeight.w500,
+                                            fontSize: 14,
+                                            height: 1.2,
+                                            color: Colors.red,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                    if (_awaitingOtp && _otpChallenge != null) ...[
+                                      Text(
+                                        _otpChallenge!.message,
+                                        textAlign: TextAlign.center,
+                                        style: AppTextStyle.inter(
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 15,
+                                          height: 1.3,
+                                          color: Colors.black87,
+                                        ),
+                                      ),
+                                      if ((_otpChallenge!.emailMasked ?? '')
+                                          .trim()
+                                          .isNotEmpty) ...[
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          'Код отправлен на ${_otpChallenge!.emailMasked}',
+                                          textAlign: TextAlign.center,
+                                          style: AppTextStyle.inter(
+                                            fontWeight: FontWeight.w500,
+                                            fontSize: 13,
+                                            height: 1.25,
+                                            color: Colors.black54,
+                                          ),
+                                        ),
+                                      ],
+                                      const SizedBox(height: 16),
+                                      _outlineField(
+                                        key: 'otp',
+                                        controller: _otpController,
+                                        focusNode: _otpFocusNode,
+                                        hint: 'Код из письма (6 цифр)',
+                                        onLastSubmitted: _submit,
+                                        keyboardType: TextInputType.number,
+                                        inputFormatters: [
+                                          FilteringTextInputFormatter
+                                              .digitsOnly,
+                                          LengthLimitingTextInputFormatter(6),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 16),
+                                      SizedBox(
+                                        width: _fieldW,
+                                        height: _fieldH,
+                                        child: FilledButton(
+                                          onPressed:
+                                              _submitting ? null : _submit,
+                                          style: _noOverlay(
+                                            FilledButton.styleFrom(
+                                              backgroundColor: _kBlue,
+                                              foregroundColor: Colors.white,
+                                              disabledBackgroundColor: _kBlue
+                                                  .withValues(alpha: 0.5),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(
+                                                  _radius,
+                                                ),
+                                              ),
+                                              padding: EdgeInsets.zero,
+                                              tapTargetSize:
+                                                  MaterialTapTargetSize
+                                                      .shrinkWrap,
+                                              visualDensity:
+                                                  VisualDensity.compact,
+                                              elevation: 0,
+                                            ),
+                                          ),
+                                          child: _submitting
+                                              ? const SizedBox(
+                                                  width: 24,
+                                                  height: 24,
+                                                  child: CircularProgressIndicator(
+                                                    strokeWidth: 2.5,
+                                                    color: Colors.white,
+                                                  ),
+                                                )
+                                              : Text(
+                                                  'Подтвердить',
+                                                  style: btnLabel,
+                                                ),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 12),
+                                      TextButton(
+                                        onPressed:
+                                            (_submitting ||
+                                                    _resendSecondsLeft > 0)
+                                                ? null
+                                                : _resendOtp,
+                                        child: Text(
+                                          _resendSecondsLeft > 0
+                                              ? 'Отправить снова через $_resendSecondsLeft с'
+                                              : 'Отправить код снова',
+                                          style: AppTextStyle.inter(
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 14,
+                                            color: _kBlue,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      SizedBox(
+                                        width: _fieldW,
+                                        height: _fieldH,
+                                        child: OutlinedButton(
+                                          onPressed: _submitting
+                                              ? null
+                                              : _leaveOtpStep,
+                                          style: _noOverlay(
+                                            OutlinedButton.styleFrom(
+                                              foregroundColor: _kBlue,
+                                              side: const BorderSide(
+                                                color: _kBlue,
+                                                width: 1,
+                                              ),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(
+                                                  _radius,
+                                                ),
+                                              ),
+                                              padding: EdgeInsets.zero,
+                                              tapTargetSize:
+                                                  MaterialTapTargetSize
+                                                      .shrinkWrap,
+                                              visualDensity:
+                                                  VisualDensity.compact,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            'Назад к паролю',
+                                            style: AppTextStyle.inter(
+                                              fontWeight: FontWeight.w700,
+                                              fontSize: 16,
+                                              color: _kBlue,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ] else ...[
+                                      _outlineField(
+                                        key: 'email',
+                                        controller: _emailController,
+                                        focusNode: _emailFocusNode,
+                                        hint: 'E-mail',
+                                        nextFocus: _passwordFocusNode,
+                                        keyboardType:
+                                            TextInputType.emailAddress,
+                                        inputFormatters: [
+                                          FilteringTextInputFormatter.deny(
+                                            RegExp(r'\s'),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 16),
+                                      _outlineField(
+                                        key: 'password',
+                                        controller: _passwordController,
+                                        focusNode: _passwordFocusNode,
+                                        hint: 'Пароль',
+                                        onLastSubmitted: _submit,
+                                        keyboardType:
+                                            TextInputType.visiblePassword,
+                                        obscureText: _obscurePassword,
+                                        onToggleObscure: () => setState(
+                                          () => _obscurePassword =
+                                              !_obscurePassword,
+                                        ),
+                                      ),
+                                      if (!_isRegisterMode) ...[
+                                        const SizedBox(height: 8),
+                                        SizedBox(
+                                          width: _fieldW,
+                                          child: Align(
+                                            alignment: Alignment.centerRight,
+                                            child: _forgotCooldownLeft > 0
+                                                ? Text(
+                                                    'Отправить снова через $_forgotCooldownLeft с',
+                                                    textAlign: TextAlign.right,
+                                                    style: AppTextStyle.inter(
+                                                      fontWeight:
+                                                          FontWeight.w700,
+                                                      fontSize: 16,
+                                                      height: 1.0,
+                                                      color: _kBlue,
+                                                    ),
+                                                  )
+                                                : _forgotBusy
+                                                    ? SizedBox(
+                                                        width: 22,
+                                                        height: 22,
+                                                        child:
+                                                            CircularProgressIndicator(
+                                                          strokeWidth: 2.2,
+                                                          color: _kBlue,
+                                                        ),
+                                                      )
+                                                    : GestureDetector(
+                                                        behavior:
+                                                            HitTestBehavior
+                                                                .opaque,
+                                                        onTap:
+                                                            _requestForgotPassword,
+                                                        child: Text(
+                                                          'Забыли пароль',
+                                                          style: AppTextStyle
+                                                              .inter(
+                                                            fontWeight:
+                                                                FontWeight
+                                                                    .w700,
+                                                            fontSize: 16,
+                                                            height: 1.0,
+                                                            color: _kBlue,
+                                                          ),
+                                                        ),
+                                                      ),
+                                          ),
+                                        ),
+                                      ],
+                                      const SizedBox(height: 16),
+                                      SizedBox(
+                                        width: _fieldW,
+                                        height: _fieldH,
+                                        child: FilledButton(
+                                          onPressed:
+                                              _submitting ? null : _submit,
+                                          style: _noOverlay(
+                                            FilledButton.styleFrom(
+                                              backgroundColor: _kBlue,
+                                              foregroundColor: Colors.white,
+                                              disabledBackgroundColor: _kBlue
+                                                  .withValues(alpha: 0.5),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(
+                                                  _radius,
+                                                ),
+                                              ),
+                                              padding: EdgeInsets.zero,
+                                              tapTargetSize:
+                                                  MaterialTapTargetSize
+                                                      .shrinkWrap,
+                                              visualDensity:
+                                                  VisualDensity.compact,
+                                              elevation: 0,
+                                            ),
+                                          ),
+                                          child: _submitting
+                                              ? const SizedBox(
+                                                  width: 24,
+                                                  height: 24,
+                                                  child:
+                                                      CircularProgressIndicator(
+                                                    strokeWidth: 2.5,
+                                                    color: Colors.white,
+                                                  ),
+                                                )
+                                              : Text(
+                                                  _isRegisterMode
+                                                      ? 'Зарегистрироваться'
+                                                      : 'Войти',
+                                                  style: btnLabel,
+                                                ),
+                                        ),
+                                      ),
+                                      if (_isParentRole) ...[
+                                        if (!_isRegisterMode) ...[
+                                          const SizedBox(height: 24),
+                                          SizedBox(
+                                            width: _fieldW,
+                                            child: GestureDetector(
+                                              behavior: HitTestBehavior.opaque,
+                                              onTap: () => context.go(
+                                                '/login/email',
+                                                extra: const {
+                                                  'role': 'student',
+                                                  'mode': 'login',
+                                                },
+                                              ),
+                                              child: SizedBox(
+                                                width: double.infinity,
+                                                child: Text(
+                                                  'Войти как студент',
+                                                  textAlign: TextAlign.center,
+                                                  style: linkStyle,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ] else ...[
+                                        const SizedBox(height: 24),
+                                        SizedBox(
+                                          width: _fieldW,
+                                          child: GestureDetector(
+                                            behavior: HitTestBehavior.opaque,
+                                            onTap: () =>
+                                                context.go('/login/student'),
+                                            child: SizedBox(
+                                              width: double.infinity,
+                                              child: Text(
+                                                _isRegisterMode
+                                                    ? 'Назад'
+                                                    : 'Войти по З/К',
+                                                textAlign: TextAlign.center,
+                                                style: linkStyle,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        if (!_isRegisterMode) ...[
+                                          const SizedBox(height: 24),
+                                          SizedBox(
+                                            width: _fieldW,
+                                            child: GestureDetector(
+                                              behavior:
+                                                  HitTestBehavior.opaque,
+                                              onTap: () => context.go(
+                                                '/login/email',
+                                                extra: const {
+                                                  'role': 'parent',
+                                                  'mode': 'login',
+                                                },
+                                              ),
+                                              child: SizedBox(
+                                                width: double.infinity,
+                                                child: Text(
+                                                  'Войти как родитель',
+                                                  textAlign: TextAlign.center,
+                                                  style: linkStyle,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ],
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
             ),
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildField({
-    required String key,
-    required String hint,
-    required TextEditingController controller,
-    required FocusNode focusNode,
-    FocusNode? nextFocus,
-    VoidCallback? onLastFieldSubmitted,
-    required TextInputType keyboardType,
-    int? maxLength,
-    required double fieldHeight,
-    required double fieldRadius,
-    required double fieldBorderW,
-    required double fieldLeftPad,
-    required Color blue,
-    required TextStyle hintStyle,
-    required TextStyle valueStyle,
-    required bool obscureText,
-    VoidCallback? onPasswordVisibilityToggle,
-  }) {
-    final hasError = _errorFields.contains(key);
-    final hasValue = _hasText(controller);
-    final baseColor = Colors.black.withValues(alpha: 0.22);
-    final enabledColor = hasValue ? Colors.black : baseColor;
-    final enabledBorder = OutlineInputBorder(
-      borderRadius: BorderRadius.circular(fieldRadius),
-      borderSide: BorderSide(
-        color: hasError ? Colors.red : enabledColor,
-        width: fieldBorderW,
-      ),
-    );
-    final focusedBorder = OutlineInputBorder(
-      borderRadius: BorderRadius.circular(fieldRadius),
-      borderSide: BorderSide(
-        color: hasError ? Colors.red : blue,
-        width: fieldBorderW,
-      ),
-    );
-
-    final fs = valueStyle.fontSize ?? 16;
-    final lineH = fs * (valueStyle.height ?? 1.0);
-    final vPad = ((fieldHeight - 2 * fieldBorderW - lineH) / 2).clamp(0.0, fieldHeight);
-    final rightPad = onPasswordVisibilityToggle != null ? 12.0 : 24.0;
-
-    return SizedBox(
-      height: fieldHeight,
-      width: double.infinity,
-      child: TextFormField(
-        controller: controller,
-        focusNode: focusNode,
-        keyboardType: keyboardType,
-        obscureText: obscureText,
-        maxLines: 1,
-        textAlignVertical: TextAlignVertical.center,
-        textInputAction:
-            nextFocus != null ? TextInputAction.next : TextInputAction.done,
-        onFieldSubmitted: (_) {
-          if (nextFocus != null) {
-            nextFocus.requestFocus();
-          } else {
-            onLastFieldSubmitted?.call();
-          }
-        },
-        strutStyle: obscureText
-            ? null
-            : StrutStyle(
-                fontSize: fs,
-                height: valueStyle.height,
-                fontFamily: valueStyle.fontFamily,
-                fontWeight: valueStyle.fontWeight,
-                forceStrutHeight: true,
-              ),
-        inputFormatters: [
-          if (key == 'email') FilteringTextInputFormatter.deny(RegExp(r'\s')),
-          if (key == 'otp') FilteringTextInputFormatter.digitsOnly,
-          if (maxLength != null)
-            LengthLimitingTextInputFormatter(maxLength),
-        ],
-        decoration: InputDecoration(
-          hintText: hint,
-          hintStyle: hintStyle,
-          filled: false,
-          isDense: false,
-          constraints: BoxConstraints(
-            minHeight: fieldHeight,
-            maxHeight: fieldHeight,
-          ),
-          border: enabledBorder,
-          enabledBorder: enabledBorder,
-          focusedBorder: focusedBorder,
-          errorBorder: enabledBorder.copyWith(
-            borderSide: BorderSide(color: Colors.red, width: fieldBorderW),
-          ),
-          focusedErrorBorder: focusedBorder.copyWith(
-            borderSide: BorderSide(color: Colors.red, width: fieldBorderW),
-          ),
-          suffixIcon: onPasswordVisibilityToggle == null
-              ? null
-              : IconButton(
-                  onPressed: onPasswordVisibilityToggle,
-                  tooltip:
-                      obscureText ? 'Показать пароль' : 'Скрыть пароль',
-                  style: IconButton.styleFrom(
-                    padding: EdgeInsets.only(right: fieldLeftPad),
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    visualDensity: VisualDensity.compact,
-                  ),
-                  icon: Icon(
-                    obscureText
-                        ? Icons.visibility_off_outlined
-                        : Icons.visibility_outlined,
-                    size: fs,
-                    color: Colors.black.withValues(alpha: 0.45),
-                  ),
-                ),
-          suffixIconConstraints: onPasswordVisibilityToggle == null
-              ? null
-              : BoxConstraints(
-                  minWidth: 48,
-                  minHeight: fieldHeight,
-                  maxHeight: fieldHeight,
-                ),
-          contentPadding: EdgeInsets.only(
-            left: fieldLeftPad,
-            right: rightPad,
-            top: vPad,
-            bottom: vPad,
-          ),
-          errorText: null,
-          errorStyle: const TextStyle(height: 0, fontSize: 0),
-          counterText: '',
-        ),
-        style: valueStyle,
-        onChanged: (_) {
-          if (mounted) setState(() {});
-        },
       ),
     );
   }

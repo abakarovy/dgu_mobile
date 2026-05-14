@@ -5,12 +5,13 @@ import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/constants/app_colors.dart';
 import '../../../../core/di/app_container.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../data/api/api_exception.dart';
 import '../../../../shared/widgets/dismiss_keyboard_on_tap.dart';
 
-/// Экран входа: иконка в контейнере, заголовок, подзаголовок, форма (Фамилия, Имя, Отчество, Номер з/к), кнопка «Войти».
+/// Вход по ФИО и № зачётной книжки.
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
 
@@ -19,124 +20,283 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  final _formKey = GlobalKey<FormState>();
-  final _lastNameController = TextEditingController();
-  final _firstNameController = TextEditingController();
-  final _patronymicController = TextEditingController();
-  final _studentIdController = TextEditingController();
+  static const Color _kBlue = Color(0xFF2E63D5);
+  static const Color _kBorderMuted = Color(0x38000000);
+  static const Color _kBorderFilled = Color(0xFF000000);
 
-  final _lastNameFocusNode = FocusNode();
-  final _firstNameFocusNode = FocusNode();
-  final _patronymicFocusNode = FocusNode();
-  final _studentIdFocusNode = FocusNode();
+  static const double _fieldW = 400;
+  static const double _fieldH = 60;
+  static const double _radius = 46;
+  static const double _inputLineExtent = 28;
 
-  final Set<String> _errorFields = {};
-  bool _showWrongCredentialsError = false;
-  String _credentialsErrorMessage = 'Неверные Ф.И.О. или № зач. книжки!';
+  final _lastName = TextEditingController();
+  final _firstName = TextEditingController();
+  final _patronymic = TextEditingController();
+  final _book = TextEditingController();
+
+  final _fnLast = FocusNode();
+  final _fnFirst = FocusNode();
+  final _fnPat = FocusNode();
+  final _fnBook = FocusNode();
+
   bool _submitting = false;
+  bool _showError = false;
+  String _errorMsg = '';
 
-  bool _hasText(TextEditingController c) => c.text.trim().isNotEmpty;
+  void _onUiChanged() {
+    if (mounted) setState(() {});
+  }
 
   @override
   void initState() {
     super.initState();
-    _lastNameFocusNode.addListener(() {
-      if (_lastNameFocusNode.hasFocus) {
-        setState(() {
-          _errorFields.remove('lastName');
-          _showWrongCredentialsError = false;
-        });
-      }
-    });
-    _firstNameFocusNode.addListener(() {
-      if (_firstNameFocusNode.hasFocus) {
-        setState(() {
-          _errorFields.remove('firstName');
-          _showWrongCredentialsError = false;
-        });
-      }
-    });
-    _patronymicFocusNode.addListener(() {
-      if (_patronymicFocusNode.hasFocus) {
-        setState(() {
-          _errorFields.remove('patronymic');
-          _showWrongCredentialsError = false;
-        });
-      }
-    });
-    _studentIdFocusNode.addListener(() {
-      if (_studentIdFocusNode.hasFocus) {
-        setState(() {
-          _errorFields.remove('studentId');
-          _showWrongCredentialsError = false;
-        });
-      }
-    });
+    for (final n in [_fnLast, _fnFirst, _fnPat, _fnBook]) {
+      n.addListener(_onUiChanged);
+    }
+    for (final c in [_lastName, _firstName, _patronymic, _book]) {
+      c.addListener(_onUiChanged);
+    }
   }
 
   @override
   void dispose() {
-    _lastNameController.dispose();
-    _firstNameController.dispose();
-    _patronymicController.dispose();
-    _studentIdController.dispose();
-    _lastNameFocusNode.dispose();
-    _firstNameFocusNode.dispose();
-    _patronymicFocusNode.dispose();
-    _studentIdFocusNode.dispose();
+    for (final c in [_lastName, _firstName, _patronymic, _book]) {
+      c.dispose();
+    }
+    for (final n in [_fnLast, _fnFirst, _fnPat, _fnBook]) {
+      n.dispose();
+    }
     super.dispose();
   }
 
-  String _fullName() {
-    final parts = [
-      _lastNameController.text.trim(),
-      _firstNameController.text.trim(),
-      _patronymicController.text.trim(),
-    ].where((e) => e.isNotEmpty).toList();
-    return parts.join(' ');
+  void _logSupportStubForVerify1c({required String errorMessage}) {
+    final lastName = _lastName.text.trim();
+    final firstName = _firstName.text.trim();
+    final patronymic = _patronymic.text.trim();
+    final book = _book.text.trim();
+    final fullName = [lastName, firstName, patronymic].join(' ');
+    debugPrint(
+      '[SupportStub] verify-1c | error: $errorMessage | '
+      'fullName: $fullName | student_book_number: $book | '
+      'поля: фамилия="$lastName", имя="$firstName", отчество="$patronymic", зачётка="$book"',
+    );
+  }
+
+  Future<void> _showVerify1cErrorDialog({required String message}) async {
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) {
+        return AlertDialog(
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+          title: Text(
+            'Не удалось проверить данные',
+            style: AppTextStyle.inter(
+              fontWeight: FontWeight.w800,
+              fontSize: 18,
+              height: 1.2,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          content: Text(
+            message,
+            style: AppTextStyle.inter(
+              fontWeight: FontWeight.w500,
+              fontSize: 15,
+              height: 1.35,
+              color: AppColors.grey,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                _logSupportStubForVerify1c(errorMessage: message);
+                Navigator.of(ctx).pop();
+              },
+              child: Text(
+                'Отправить в поддержку',
+                style: AppTextStyle.inter(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15,
+                  height: 1.0,
+                  color: _kBlue,
+                ),
+              ),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: _kBlue,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(_radius),
+                ),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+              ),
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: Text(
+                'Ок',
+                style: AppTextStyle.inter(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 16,
+                  height: 1.0,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Color _borderColor(FocusNode fn, TextEditingController c) {
+    if (fn.hasFocus) return _kBlue;
+    if (c.text.trim().isNotEmpty) return _kBorderFilled;
+    return _kBorderMuted;
   }
 
   Future<void> _submit() async {
     if (_submitting) return;
-    final errors = <String>{};
-    if (_lastNameController.text.trim().isEmpty) errors.add('lastName');
-    if (_firstNameController.text.trim().isEmpty) errors.add('firstName');
-    if (_patronymicController.text.trim().isEmpty) errors.add('patronymic');
-    if (_studentIdController.text.trim().isEmpty) errors.add('studentId');
+    final empty = _lastName.text.trim().isEmpty ||
+        _firstName.text.trim().isEmpty ||
+        _patronymic.text.trim().isEmpty ||
+        _book.text.trim().isEmpty;
+    if (empty) {
+      setState(() {
+        _showError = true;
+        _errorMsg = 'Заполните все поля';
+      });
+      return;
+    }
     setState(() {
-      _errorFields
-        ..clear()
-        ..addAll(errors);
-      _showWrongCredentialsError = false;
+      _showError = false;
+      _submitting = true;
     });
-    if (errors.isNotEmpty) return;
-
-    final fullName = _fullName();
-    final bookNumber = _studentIdController.text.trim();
+    final fullName = [
+      _lastName.text.trim(),
+      _firstName.text.trim(),
+      _patronymic.text.trim(),
+    ].join(' ');
+    final book = _book.text.trim();
     try {
-      setState(() => _submitting = true);
-      // Проверяем студента в 1С. Дальше — регистрация/вход по email.
-      final registrationToken = await AppContainer.authRepository
-          .verifyStudentIn1c(fullName: fullName, studentBookNumber: bookNumber);
+      final registrationToken =
+          await AppContainer.authRepository.verifyStudentIn1c(
+        fullName: fullName,
+        studentBookNumber: book,
+      );
       if (!mounted) return;
       context.go(
         '/login/email',
         extra: {
           'mode': 'register',
           'fullName': fullName,
-          'book': bookNumber,
+          'book': book,
           'registrationToken': registrationToken,
         },
       );
     } on ApiException catch (e) {
       if (!mounted) return;
-      setState(() {
-        _showWrongCredentialsError = true;
-        _credentialsErrorMessage = e.message;
-      });
+      await _showVerify1cErrorDialog(message: e.message);
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
+  }
+
+  ButtonStyle _noOverlay(ButtonStyle base) {
+    return base.copyWith(
+      overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+    );
+  }
+
+  Widget _outlineField({
+    required TextEditingController controller,
+    required FocusNode focusNode,
+    required String hint,
+    FocusNode? nextFocus,
+    VoidCallback? onLastSubmitted,
+    TextInputType keyboardType = TextInputType.name,
+    TextCapitalization textCapitalization = TextCapitalization.none,
+    List<TextInputFormatter>? inputFormatters,
+  }) {
+    final isLast = nextFocus == null;
+    final hintStyle = AppTextStyle.inter(
+      fontWeight: FontWeight.w700,
+      fontSize: 16,
+      height: 1.0,
+      color: _kBorderMuted,
+    );
+    final textStyle = AppTextStyle.inter(
+      fontWeight: FontWeight.w700,
+      fontSize: 16,
+      height: 1.0,
+      color: _kBorderFilled,
+    );
+
+    return SizedBox(
+      width: _fieldW,
+      height: _fieldH,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(_radius),
+          border: Border.all(
+            color: _borderColor(focusNode, controller),
+            width: 1,
+          ),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(_radius),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              const SizedBox(width: 16),
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: SizedBox(
+                    height: _inputLineExtent,
+                    width: double.infinity,
+                    child: TextField(
+                      controller: controller,
+                      focusNode: focusNode,
+                      keyboardType: keyboardType,
+                      textCapitalization: textCapitalization,
+                      textInputAction:
+                          isLast ? TextInputAction.done : TextInputAction.next,
+                      inputFormatters: inputFormatters,
+                      textAlignVertical: TextAlignVertical.center,
+                      maxLines: 1,
+                      minLines: 1,
+                      style: textStyle,
+                      decoration: InputDecoration(
+                        hintText: hint,
+                        hintStyle: hintStyle,
+                        border: InputBorder.none,
+                        isDense: true,
+                        filled: false,
+                        contentPadding: EdgeInsets.zero,
+                        counterText: '',
+                      ),
+                      onSubmitted: (_) {
+                        if (isLast) {
+                          onLastSubmitted?.call();
+                        } else {
+                          nextFocus.requestFocus();
+                        }
+                      },
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -144,47 +304,10 @@ class _LoginPageState extends State<LoginPage> {
     const figmaW = 1080.0;
     const figmaH = 1920.0;
     final size = MediaQuery.sizeOf(context);
-    final layoutSf = math.min(size.width / figmaW, size.height / figmaH);
-    // Шапка и фото — от полного layoutSf; поля и кнопки — с потолком, чтобы на
-    // больших экранах/окнах инпуты не раздувались пропорционально всему макету.
-    final sf = layoutSf;
-    final sfW = size.width / figmaW;
-    const maxAuthFormScale = 0.46;
-    final sfForm = math.min(layoutSf, maxAuthFormScale);
-
-    final blue = const Color.fromRGBO(46, 99, 213, 1);
-    final fieldRadius = 89.16 * sfForm;
-    final fieldBorderW = (4.46 * sfForm).clamp(2.0, 6.0);
-    // Поля должны быть той же высоты, что и кнопки.
-    // minHeight не выше 120*sf: иначе на узком экране поля выше, чем на среднем.
-    final fieldHeight = (120.0 * sfForm).clamp(44.0, 54.0);
-    final fieldLeftPad = 75.0 * sfForm;
-    final sidePad = 40.0 * sfForm;
-    final gap = (10.0 * sfForm).clamp(6.0, 12.0);
-
-    // Кнопки: тот же стиль, что «Я студент / Я родитель».
-    final btnRadius = 117.96 * sfForm;
-    final btnBorder = (7.07 * sfForm).clamp(3.0, 10.0);
-    final btnTextStyle = AppTextStyle.inter(
-      fontWeight: FontWeight.w700,
-      fontSize: 45.47 * sfForm,
-      height: 1.0,
-    );
-    // Кнопки ниже и компактнее, чем поля (но в стиле экрана выбора роли).
-    final btnHeight = fieldHeight;
-
-    final hintStyle = AppTextStyle.inter(
-      fontWeight: FontWeight.w700,
-      fontSize: 35.84 * sfForm,
-      height: (55.75 / 35.84),
-      color: Colors.black.withValues(alpha: 0.24),
-    );
-    final valueStyle = AppTextStyle.inter(
-      fontWeight: FontWeight.w700,
-      fontSize: 35.84 * sfForm,
-      height: (55.75 / 35.84),
-      color: Colors.black,
-    );
+    final sf = math.min(size.width / figmaW, size.height / figmaH);
+    final safeTop = MediaQuery.paddingOf(context).top;
+    const photoFlex = 2;
+    const formFlex = 3;
 
     final noTapFxTheme = Theme.of(context).copyWith(
       splashFactory: NoSplash.splashFactory,
@@ -193,16 +316,19 @@ class _LoginPageState extends State<LoginPage> {
       hoverColor: Colors.transparent,
     );
 
-    // Островок / Dynamic Island / статус-бар: заголовки — ниже «выреза», фото — чуть выше по доле экрана.
-    final safeTop = MediaQuery.paddingOf(context).top;
-    const photoFlex = 2;
-    const formFlex = 3;
+    final btnLabel = AppTextStyle.inter(
+      fontWeight: FontWeight.w700,
+      fontSize: 16,
+      height: 1.0,
+      color: Colors.white,
+    );
 
-    ButtonStyle noOverlay(ButtonStyle base) {
-      return base.copyWith(
-        overlayColor: const WidgetStatePropertyAll(Colors.transparent),
-      );
-    }
+    final linkStyle = AppTextStyle.inter(
+      fontWeight: FontWeight.w700,
+      fontSize: 16,
+      height: 1.0,
+      color: _kBlue,
+    );
 
     return PopScope(
       canPop: false,
@@ -219,476 +345,233 @@ class _LoginPageState extends State<LoginPage> {
             backgroundColor: Colors.white,
             body: DismissKeyboardOnTap(
               child: Column(
-            children: [
-              Expanded(
-                flex: photoFlex,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    Image.asset(
-                      'assets/images/photo.png',
-                      fit: BoxFit.cover,
-                      alignment: Alignment.topCenter,
-                      errorBuilder: (context, error, stackTrace) =>
-                          const ColoredBox(color: Colors.black12),
-                    ),
-                    Positioned(
-                      left: 60 * sf,
-                      top: safeTop + 56 * sf,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Студент',
-                            style: AppTextStyle.inter(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 111.73 * sf,
-                              height: 1.0,
-                              color: Colors.white,
-                            ),
-                          ),
-                          SizedBox(height: 10 * sf),
-                          Text(
-                            'КОЛЛЕДЖ ДГУ',
-                            style: AppTextStyle.inter(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 32.96 * sf * 1.25,
-                              height: 1.0,
-                              letterSpacing: -0.82 * sf * 1.25,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Positioned(
-                      right: 60 * sf,
-                      bottom: 36 * sf,
-                      child: SizedBox(
-                        width: 126 * sf * 1.5,
-                        height: 126 * sf * 1.5,
-                        child: SvgPicture.asset(
-                          'assets/icons/logo.svg',
-                          fit: BoxFit.contain,
+                children: [
+                  Expanded(
+                    flex: photoFlex,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        Image.asset(
+                          'assets/images/photo.png',
+                          fit: BoxFit.cover,
+                          alignment: Alignment.topCenter,
+                          errorBuilder: (context, error, stackTrace) =>
+                              const ColoredBox(color: Colors.black12),
                         ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                flex: formFlex,
-                child: SafeArea(
-                  top: false,
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      final innerMaxW = math.max(
-                        0.0,
-                        constraints.maxWidth - 2 * sidePad,
-                      );
-                      // Ширина колонки только от ширины экрана (900×sfW), не от min(w,h) — иначе
-                      // на низком окне поля и кнопки становятся непропорционально узкими.
-                      final formColumnW = math.min(900.0 * sfW, innerMaxW);
-                      final content = SizedBox(
-                        width: formColumnW,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            if (_showWrongCredentialsError) ...[
+                        Positioned(
+                          left: 60 * sf,
+                          top: safeTop + 56 * sf,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
                               Text(
-                                _credentialsErrorMessage,
-                                textAlign: TextAlign.center,
+                                'Студент',
                                 style: AppTextStyle.inter(
-                                  fontWeight: FontWeight.w500,
-                                  fontSize: 14,
-                                  height: 1.2,
-                                  color: Colors.red,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 111.73 * sf,
+                                  height: 1.0,
+                                  color: Colors.white,
                                 ),
                               ),
-                              SizedBox(height: gap),
+                              SizedBox(height: 10 * sf),
+                              Text(
+                                'КОЛЛЕДЖ ДГУ',
+                                style: AppTextStyle.inter(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 32.96 * sf * 1.25,
+                                  height: 1.0,
+                                  letterSpacing: -0.82 * sf * 1.25,
+                                  color: Colors.white,
+                                ),
+                              ),
                             ],
-                            _buildForm(
-                              fieldHeight: fieldHeight,
-                              fieldRadius: fieldRadius,
-                              fieldBorderW: fieldBorderW,
-                              fieldLeftPad: fieldLeftPad,
-                              blue: blue,
-                              hintStyle: hintStyle,
-                              valueStyle: valueStyle,
-                              gap: gap,
-                            ),
-                            SizedBox(height: gap),
-
-                            SizedBox(
-                              height: btnHeight,
-                              child: FilledButton(
-                                onPressed: _submitting ? null : _submit,
-                                style: noOverlay(
-                                  FilledButton.styleFrom(
-                                    backgroundColor: blue,
-                                    foregroundColor: Colors.white,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(
-                                        btnRadius,
-                                      ),
-                                    ),
-                                    fixedSize: Size.fromHeight(btnHeight),
-                                    minimumSize: Size(
-                                      double.infinity,
-                                      btnHeight,
-                                    ),
-                                    padding: EdgeInsets.zero,
-                                    tapTargetSize:
-                                        MaterialTapTargetSize.shrinkWrap,
-                                    visualDensity: VisualDensity.compact,
-                                    textStyle: btnTextStyle,
-                                  ),
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    _submitting ? 'Проверяем…' : 'Войти',
-                                  ),
-                                ),
-                              ),
-                            ),
-                            SizedBox(height: gap),
-
-                            SizedBox(
-                              height: btnHeight,
-                              child: OutlinedButton(
-                                onPressed: () => context.go(
-                                  '/login/email',
-                                  extra: const {
-                                    'role': 'student',
-                                    'mode': 'login',
-                                  },
-                                ),
-                                style: noOverlay(
-                                  OutlinedButton.styleFrom(
-                                    foregroundColor: blue,
-                                    backgroundColor: Colors.transparent,
-                                    side: BorderSide(
-                                      color: blue,
-                                      width: btnBorder,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(
-                                        btnRadius,
-                                      ),
-                                    ),
-                                    fixedSize: Size.fromHeight(btnHeight),
-                                    minimumSize: Size(
-                                      double.infinity,
-                                      btnHeight,
-                                    ),
-                                    padding: EdgeInsets.zero,
-                                    tapTargetSize:
-                                        MaterialTapTargetSize.shrinkWrap,
-                                    visualDensity: VisualDensity.compact,
-                                    textStyle: btnTextStyle,
-                                  ),
-                                ),
-                                child: const Center(
-                                  child: Text('Войти по E-mail'),
-                                ),
-                              ),
-                            ),
-                            SizedBox(height: gap),
-
-                            SizedBox(
-                              height: btnHeight,
-                              child: FilledButton(
-                                onPressed: () => context.go(
-                                  '/login/email',
-                                  extra: const {
-                                    'role': 'parent',
-                                    'mode': 'login',
-                                  },
-                                ),
-                                style: noOverlay(
-                                  FilledButton.styleFrom(
-                                    backgroundColor: blue,
-                                    foregroundColor: Colors.white,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(
-                                        btnRadius,
-                                      ),
-                                    ),
-                                    fixedSize: Size.fromHeight(btnHeight),
-                                    minimumSize: Size(
-                                      double.infinity,
-                                      btnHeight,
-                                    ),
-                                    padding: EdgeInsets.zero,
-                                    tapTargetSize:
-                                        MaterialTapTargetSize.shrinkWrap,
-                                    visualDensity: VisualDensity.compact,
-                                    textStyle: btnTextStyle,
-                                  ),
-                                ),
-                                child: const Center(
-                                  child: Text('Войти как родитель'),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-
-                      return SingleChildScrollView(
-                        padding: EdgeInsets.fromLTRB(
-                          sidePad,
-                          18 * sfForm,
-                          sidePad,
-                          18 * sfForm,
-                        ),
-                        child: ConstrainedBox(
-                          constraints: BoxConstraints(
-                            minHeight: constraints.maxHeight,
                           ),
-                          child: Center(child: content),
                         ),
-                      );
-                    },
+                        Positioned(
+                          right: 60 * sf,
+                          bottom: 36 * sf,
+                          child: SizedBox(
+                            width: 126 * sf * 1.5,
+                            height: 126 * sf * 1.5,
+                            child: SvgPicture.asset(
+                              'assets/icons/logo.svg',
+                              fit: BoxFit.contain,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
+                  Expanded(
+                    flex: formFlex,
+                    child: SafeArea(
+                      top: false,
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          return SingleChildScrollView(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                minHeight: constraints.maxHeight - 32,
+                              ),
+                              child: Center(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (_showError) ...[
+                                      Padding(
+                                        padding: const EdgeInsets.only(
+                                          bottom: 16,
+                                        ),
+                                        child: Text(
+                                          _errorMsg,
+                                          textAlign: TextAlign.center,
+                                          style: AppTextStyle.inter(
+                                            fontWeight: FontWeight.w500,
+                                            fontSize: 14,
+                                            height: 1.2,
+                                            color: Colors.red,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                    _outlineField(
+                                      controller: _lastName,
+                                      focusNode: _fnLast,
+                                      hint: 'Фамилия',
+                                      nextFocus: _fnFirst,
+                                      textCapitalization:
+                                          TextCapitalization.words,
+                                    ),
+                                    const SizedBox(height: 16),
+                                    _outlineField(
+                                      controller: _firstName,
+                                      focusNode: _fnFirst,
+                                      hint: 'Имя',
+                                      nextFocus: _fnPat,
+                                      textCapitalization:
+                                          TextCapitalization.words,
+                                    ),
+                                    const SizedBox(height: 16),
+                                    _outlineField(
+                                      controller: _patronymic,
+                                      focusNode: _fnPat,
+                                      hint: 'Отчество',
+                                      nextFocus: _fnBook,
+                                      textCapitalization:
+                                          TextCapitalization.words,
+                                    ),
+                                    const SizedBox(height: 16),
+                                    _outlineField(
+                                      controller: _book,
+                                      focusNode: _fnBook,
+                                      hint: 'Номер зачетной книжки',
+                                      onLastSubmitted: _submit,
+                                      keyboardType: TextInputType.number,
+                                      inputFormatters: [
+                                        FilteringTextInputFormatter
+                                            .digitsOnly,
+                                        LengthLimitingTextInputFormatter(5),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 16),
+                                    SizedBox(
+                                      width: _fieldW,
+                                      height: _fieldH,
+                                      child: FilledButton(
+                                        onPressed:
+                                            _submitting ? null : _submit,
+                                        style: _noOverlay(
+                                          FilledButton.styleFrom(
+                                            backgroundColor: _kBlue,
+                                            foregroundColor: Colors.white,
+                                            disabledBackgroundColor: _kBlue
+                                                .withValues(alpha: 0.5),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(
+                                                _radius,
+                                              ),
+                                            ),
+                                            padding: EdgeInsets.zero,
+                                            tapTargetSize: MaterialTapTargetSize
+                                                .shrinkWrap,
+                                            visualDensity:
+                                                VisualDensity.compact,
+                                            elevation: 0,
+                                          ),
+                                        ),
+                                        child: _submitting
+                                            ? const SizedBox(
+                                                width: 24,
+                                                height: 24,
+                                                child: CircularProgressIndicator(
+                                                  strokeWidth: 2.5,
+                                                  color: Colors.white,
+                                                ),
+                                              )
+                                            : Text('Войти', style: btnLabel),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 24),
+                                    SizedBox(
+                                      width: _fieldW,
+                                      child: GestureDetector(
+                                        behavior: HitTestBehavior.opaque,
+                                        onTap: () => context.go(
+                                          '/login/email',
+                                          extra: const {
+                                            'role': 'student',
+                                            'mode': 'login',
+                                          },
+                                        ),
+                                        child: SizedBox(
+                                          width: double.infinity,
+                                          child: Text(
+                                            'Войти по E-mail',
+                                            textAlign: TextAlign.center,
+                                            style: linkStyle,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 24),
+                                    SizedBox(
+                                      width: _fieldW,
+                                      child: GestureDetector(
+                                        behavior: HitTestBehavior.opaque,
+                                        onTap: () => context.go(
+                                          '/login/email',
+                                          extra: const {
+                                            'role': 'parent',
+                                            'mode': 'login',
+                                          },
+                                        ),
+                                        child: SizedBox(
+                                          width: double.infinity,
+                                          child: Text(
+                                            'Войти как родитель',
+                                            textAlign: TextAlign.center,
+                                            style: linkStyle,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
-            ),
             ),
           ),
         ),
       ),
     );
   }
-
-  Widget _buildForm({
-    required double fieldHeight,
-    required double fieldRadius,
-    required double fieldBorderW,
-    required double fieldLeftPad,
-    required Color blue,
-    required TextStyle hintStyle,
-    required TextStyle valueStyle,
-    required double gap,
-  }) {
-    return Form(
-      key: _formKey,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _buildField(
-            key: 'lastName',
-            hint: 'Фамилия',
-            controller: _lastNameController,
-            focusNode: _lastNameFocusNode,
-            nextFocus: _firstNameFocusNode,
-            textCapitalization: TextCapitalization.words,
-            fieldHeight: fieldHeight,
-            fieldRadius: fieldRadius,
-            fieldBorderW: fieldBorderW,
-            fieldLeftPad: fieldLeftPad,
-            blue: blue,
-            hintStyle: hintStyle,
-            valueStyle: valueStyle,
-          ),
-          SizedBox(height: gap),
-          _buildField(
-            key: 'firstName',
-            hint: 'Имя',
-            controller: _firstNameController,
-            focusNode: _firstNameFocusNode,
-            nextFocus: _patronymicFocusNode,
-            textCapitalization: TextCapitalization.words,
-            fieldHeight: fieldHeight,
-            fieldRadius: fieldRadius,
-            fieldBorderW: fieldBorderW,
-            fieldLeftPad: fieldLeftPad,
-            blue: blue,
-            hintStyle: hintStyle,
-            valueStyle: valueStyle,
-          ),
-          SizedBox(height: gap),
-          _buildField(
-            key: 'patronymic',
-            hint: 'Отчество',
-            controller: _patronymicController,
-            focusNode: _patronymicFocusNode,
-            nextFocus: _studentIdFocusNode,
-            textCapitalization: TextCapitalization.words,
-            fieldHeight: fieldHeight,
-            fieldRadius: fieldRadius,
-            fieldBorderW: fieldBorderW,
-            fieldLeftPad: fieldLeftPad,
-            blue: blue,
-            hintStyle: hintStyle,
-            valueStyle: valueStyle,
-          ),
-          SizedBox(height: gap),
-          _buildField(
-            key: 'studentId',
-            hint: 'Номер з/к',
-            controller: _studentIdController,
-            focusNode: _studentIdFocusNode,
-            nextFocus: null,
-            onLastFieldSubmitted: _submit,
-            keyboardType: TextInputType.number,
-            maxLength: 5,
-            fieldHeight: fieldHeight,
-            fieldRadius: fieldRadius,
-            fieldBorderW: fieldBorderW,
-            fieldLeftPad: fieldLeftPad,
-            blue: blue,
-            hintStyle: hintStyle,
-            valueStyle: valueStyle,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildField({
-    required String key,
-    required String hint,
-    required TextEditingController controller,
-    required FocusNode focusNode,
-    FocusNode? nextFocus,
-    VoidCallback? onLastFieldSubmitted,
-    TextInputType keyboardType = TextInputType.name,
-    TextCapitalization textCapitalization = TextCapitalization.none,
-    bool obscureText = false,
-    int? maxLength,
-    required double fieldHeight,
-    required double fieldRadius,
-    required double fieldBorderW,
-    required double fieldLeftPad,
-    required Color blue,
-    required TextStyle hintStyle,
-    required TextStyle valueStyle,
-    VoidCallback? onPasswordVisibilityToggle,
-  }) {
-    final hasError = _errorFields.contains(key);
-    final hasValue = _hasText(controller);
-    final baseColor = Colors.black.withValues(alpha: 0.22);
-    final enabledColor = hasValue ? Colors.black : baseColor;
-    final enabledBorder = OutlineInputBorder(
-      borderRadius: BorderRadius.circular(fieldRadius),
-      borderSide: BorderSide(
-        color: hasError ? Colors.red : enabledColor,
-        width: fieldBorderW,
-      ),
-    );
-    final focusedBorder = OutlineInputBorder(
-      borderRadius: BorderRadius.circular(fieldRadius),
-      borderSide: BorderSide(
-        color: hasError ? Colors.red : blue,
-        width: fieldBorderW,
-      ),
-    );
-
-    final fs = valueStyle.fontSize ?? 16;
-    final lineH = fs * (valueStyle.height ?? 1.0);
-    final vPad = ((fieldHeight - 2 * fieldBorderW - lineH) / 2).clamp(0.0, fieldHeight);
-    final rightPad = onPasswordVisibilityToggle != null ? 12.0 : 24.0;
-
-    return SizedBox(
-      height: fieldHeight,
-      width: double.infinity,
-      child: TextFormField(
-        controller: controller,
-        focusNode: focusNode,
-        keyboardType: keyboardType,
-        textCapitalization: textCapitalization,
-        obscureText: obscureText,
-        maxLines: 1,
-        textAlignVertical: TextAlignVertical.center,
-        textInputAction:
-            nextFocus != null ? TextInputAction.next : TextInputAction.done,
-        onFieldSubmitted: (_) {
-          if (nextFocus != null) {
-            nextFocus.requestFocus();
-          } else {
-            onLastFieldSubmitted?.call();
-          }
-        },
-        strutStyle: obscureText
-            ? null
-            : StrutStyle(
-                fontSize: fs,
-                height: valueStyle.height,
-                fontFamily: valueStyle.fontFamily,
-                fontWeight: valueStyle.fontWeight,
-                forceStrutHeight: true,
-              ),
-        inputFormatters: [
-          if (keyboardType == TextInputType.number)
-            FilteringTextInputFormatter.digitsOnly,
-          if (maxLength != null) LengthLimitingTextInputFormatter(maxLength),
-        ],
-        decoration: InputDecoration(
-          hintText: hint,
-          hintStyle: hintStyle,
-          filled: false,
-          isDense: false,
-          constraints: BoxConstraints(
-            minHeight: fieldHeight,
-            maxHeight: fieldHeight,
-          ),
-          border: enabledBorder,
-          enabledBorder: enabledBorder,
-          focusedBorder: focusedBorder,
-          errorBorder: enabledBorder.copyWith(
-            borderSide: BorderSide(color: Colors.red, width: fieldBorderW),
-          ),
-          focusedErrorBorder: focusedBorder.copyWith(
-            borderSide: BorderSide(color: Colors.red, width: fieldBorderW),
-          ),
-          suffixIcon: onPasswordVisibilityToggle == null
-              ? null
-              : IconButton(
-                  onPressed: onPasswordVisibilityToggle,
-                  tooltip:
-                      obscureText ? 'Показать пароль' : 'Скрыть пароль',
-                  style: IconButton.styleFrom(
-                    padding: EdgeInsets.only(right: fieldLeftPad),
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    visualDensity: VisualDensity.compact,
-                  ),
-                  icon: Icon(
-                    obscureText
-                        ? Icons.visibility_off_outlined
-                        : Icons.visibility_outlined,
-                    size: fs,
-                    color: Colors.black.withValues(alpha: 0.45),
-                  ),
-                ),
-          suffixIconConstraints: onPasswordVisibilityToggle == null
-              ? null
-              : BoxConstraints(
-                  minWidth: 48,
-                  minHeight: fieldHeight,
-                  maxHeight: fieldHeight,
-                ),
-          contentPadding: EdgeInsets.only(
-            left: fieldLeftPad,
-            right: rightPad,
-            top: vPad,
-            bottom: vPad,
-          ),
-          errorText: null,
-          errorStyle: const TextStyle(height: 0, fontSize: 0),
-          counterText: '',
-        ),
-        style: valueStyle,
-        onChanged: (_) {
-          // Чтобы обновлять цвет обводки (пусто/есть текст) и стиль значения.
-          if (mounted) setState(() {});
-        },
-      ),
-    );
-  }
-
-  // _buildSwitchButton больше не используется: все кнопки в стиле «Я студент / Я родитель».
 }

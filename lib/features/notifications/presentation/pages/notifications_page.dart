@@ -169,13 +169,14 @@ class _NotificationsPageState extends State<NotificationsPage> {
               ),
               const SizedBox(height: 18),
               if (_saving)
-                Text(
-                  'Сохраняем…',
-                  style: AppTextStyle.inter(
-                    fontWeight: FontWeight.w500,
-                    fontSize: 12,
-                    height: 16 / 12,
-                    color: AppColors.notificationSubtitle,
+                Center(
+                  child: SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppColors.notificationSubtitle,
+                    ),
                   ),
                 ),
               const SizedBox(height: 30),

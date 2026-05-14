@@ -402,13 +402,14 @@ class _SettingsPageState extends State<SettingsPage> {
             if (_savingPrefs)
               Padding(
                 padding: EdgeInsets.only(top: 12 * layoutScale),
-                child: Text(
-                  'Сохраняем…',
-                  textAlign: TextAlign.center,
-                  style: AppTextStyle.inter(
-                    fontWeight: FontWeight.w500,
-                    fontSize: 12 * layoutScale,
-                    color: _muted,
+                child: Center(
+                  child: SizedBox(
+                    width: 22 * layoutScale,
+                    height: 22 * layoutScale,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: _muted,
+                    ),
                   ),
                 ),
               ),
