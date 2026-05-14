@@ -113,7 +113,13 @@ class AuthRepositoryImpl implements AuthRepository {
 
   @override
   Future<void> logout() async {
-    await PushRegistrar.instance.unregisterCurrentDevice();
+    // FCM (Installations/Google) при плохом DNS может долго ждать [getToken] — без таймаута
+    // локальная очистка сессии не наступает, а [GoRouter] снова отправляет на /bootstrap.
+    try {
+      await PushRegistrar.instance
+          .unregisterCurrentDevice()
+          .timeout(const Duration(seconds: 10));
+    } catch (_) {}
     await RealtimeWsClient.instance.disconnect();
     await _tokenStorage.clear();
     await _jsonCache.clearAll();
