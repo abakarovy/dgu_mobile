@@ -15,6 +15,9 @@ class LoginRolePage extends StatelessWidget {
   static const _figmaH = 1920.0;
   static const Color _kBlue = Color(0xFF2E63D5);
 
+  /// Горизонтальные поля белого блока под кнопками («Я студент» / «Я родитель»).
+  static const double _buttonHorizontalInset = 30;
+
   static double _sf(Size s) {
     final sw = s.width / _figmaW;
     final sh = s.height / _figmaH;
@@ -27,7 +30,7 @@ class LoginRolePage extends StatelessWidget {
     final sf = _sf(size);
 
     const topFlex = 2;
-    const bottomFlex = 3;
+    const bottomFlex = 4;
     final safeTop = MediaQuery.paddingOf(context).top;
 
     final titleStyle = AppTextStyle.inter(
@@ -119,12 +122,15 @@ class LoginRolePage extends StatelessWidget {
                 flex: bottomFlex,
                 child: SafeArea(
                   top: false,
-                  child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: _buttonHorizontalInset,
+                    ),
                     child: Column(
-                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         SizedBox(
-                          width: 400,
                           height: 60,
                           child: OutlinedButton(
                             onPressed: () => context.go('/login/student'),
@@ -132,10 +138,7 @@ class LoginRolePage extends StatelessWidget {
                               OutlinedButton.styleFrom(
                                 foregroundColor: _kBlue,
                                 backgroundColor: Colors.transparent,
-                                side: const BorderSide(
-                                  color: _kBlue,
-                                  width: 1,
-                                ),
+                                side: const BorderSide(color: _kBlue, width: 1),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(46),
                                 ),
@@ -153,15 +156,11 @@ class LoginRolePage extends StatelessWidget {
                         ),
                         const SizedBox(height: 16),
                         SizedBox(
-                          width: 400,
                           height: 60,
                           child: FilledButton(
                             onPressed: () => context.go(
                               '/login/email',
-                              extra: const {
-                                'role': 'parent',
-                                'mode': 'login',
-                              },
+                              extra: const {'role': 'parent', 'mode': 'login'},
                             ),
                             style: noOverlay(
                               FilledButton.styleFrom(
@@ -179,7 +178,9 @@ class LoginRolePage extends StatelessWidget {
                             child: Text(
                               'Я родитель',
                               textAlign: TextAlign.center,
-                              style: btnLabelStyle.copyWith(color: Colors.white),
+                              style: btnLabelStyle.copyWith(
+                                color: Colors.white,
+                              ),
                             ),
                           ),
                         ),

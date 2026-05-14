@@ -28,10 +28,10 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
   static const Color _kBorderMuted = Color(0x38000000);
   static const Color _kBorderFilled = Color(0xFF000000);
 
-  static const double _fieldW = 400;
+  static const double _formHorizontalInset = 30;
   static const double _fieldH = 60;
   static const double _radius = 46;
-  static const double _inputLineExtent = 28;
+  static const double _inputLineHeight = 22;
 
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -298,10 +298,11 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
       height: 1.0,
       color: _kBorderFilled,
     );
+    final verticalPad = (_fieldH - _inputLineHeight) / 2;
 
     return SizedBox(
-      width: _fieldW,
       height: _fieldH,
+      width: double.infinity,
       child: DecoratedBox(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(_radius),
@@ -314,42 +315,48 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
             children: [
               const SizedBox(width: 16),
               Expanded(
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: SizedBox(
-                    height: _inputLineExtent,
-                    width: double.infinity,
-                    child: TextField(
-                      controller: controller,
-                      focusNode: focusNode,
-                      keyboardType: keyboardType,
-                      textCapitalization: textCapitalization,
-                      textInputAction:
-                          isLast ? TextInputAction.done : TextInputAction.next,
-                      inputFormatters: inputFormatters,
-                      obscureText: obscureText,
-                      textAlignVertical: TextAlignVertical.center,
-                      maxLines: 1,
-                      minLines: 1,
-                      style: textStyle,
-                      decoration: InputDecoration(
-                        hintText: hint,
-                        hintStyle: hintStyle,
-                        border: InputBorder.none,
-                        isDense: true,
-                        filled: false,
-                        contentPadding: EdgeInsets.zero,
-                        counterText: '',
-                      ),
-                      onSubmitted: (_) {
-                        if (isLast) {
-                          onLastSubmitted?.call();
-                        } else {
-                          nextFocus.requestFocus();
-                        }
-                      },
+                child: TextField(
+                  controller: controller,
+                  focusNode: focusNode,
+                  keyboardType: keyboardType,
+                  textCapitalization: textCapitalization,
+                  textAlign: TextAlign.start,
+                  textDirection: TextDirection.ltr,
+                  textInputAction: isLast
+                      ? TextInputAction.done
+                      : TextInputAction.next,
+                  inputFormatters: inputFormatters,
+                  obscureText: obscureText,
+                  textAlignVertical: TextAlignVertical.center,
+                  maxLines: 1,
+                  minLines: 1,
+                  style: textStyle,
+                  decoration: InputDecoration(
+                    hintText: hint,
+                    hintStyle: hintStyle,
+                    hintTextDirection: TextDirection.ltr,
+                    alignLabelWithHint: true,
+                    border: InputBorder.none,
+                    isDense: true,
+                    filled: false,
+                    contentPadding: EdgeInsets.fromLTRB(
+                      0,
+                      verticalPad,
+                      0,
+                      verticalPad,
                     ),
+                    counterText: '',
                   ),
+                  onSubmitted: (_) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (!mounted) return;
+                      if (isLast) {
+                        onLastSubmitted?.call();
+                      } else {
+                        nextFocus.requestFocus();
+                      }
+                    });
+                  },
                 ),
               ),
               if (onToggleObscure != null) ...[
@@ -567,7 +574,10 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(_radius),
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 28,
+                  vertical: 14,
+                ),
               ),
               onPressed: () => Navigator.of(ctx).pop(),
               child: Text(
@@ -606,22 +616,21 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
     if (_forgotBusy || _forgotCooldownLeft > 0) return;
     try {
       setState(() => _forgotBusy = true);
-      final apiMessage =
-          await AppContainer.accountApi.requestPasswordReset(email: email);
+      final apiMessage = await AppContainer.accountApi.requestPasswordReset(
+        email: email,
+      );
       if (!mounted) return;
       await _showAppAlert(
         title: 'Восстановление пароля',
-        message: apiMessage ??
+        message:
+            apiMessage ??
             'Если этот адрес зарегистрирован в системе, на него отправлена ссылка для смены пароля.',
       );
       if (!mounted) return;
       _startForgotCooldown(60);
     } on ApiException catch (e) {
       if (!mounted) return;
-      await _showAppAlert(
-        title: 'Ошибка',
-        message: e.message,
-      );
+      await _showAppAlert(title: 'Ошибка', message: e.message);
     } finally {
       if (mounted) setState(() => _forgotBusy = false);
     }
@@ -635,7 +644,7 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
     final sf = math.min(size.width / figmaW, size.height / figmaH);
     final safeTop = MediaQuery.paddingOf(context).top;
     const photoFlex = 2;
-    const formFlex = 3;
+    const formFlex = 4;
 
     final noTapFxTheme = Theme.of(context).copyWith(
       splashFactory: NoSplash.splashFactory,
@@ -737,212 +746,236 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
                       child: LayoutBuilder(
                         builder: (context, constraints) {
                           return SingleChildScrollView(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            padding: const EdgeInsets.fromLTRB(
+                              _formHorizontalInset,
+                              16,
+                              _formHorizontalInset,
+                              16,
+                            ),
                             child: ConstrainedBox(
                               constraints: BoxConstraints(
                                 minHeight: constraints.maxHeight - 32,
                               ),
-                              child: Center(
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    if (_showWrongCredentialsError) ...[
-                                      Padding(
-                                        padding: const EdgeInsets.only(
-                                          bottom: 16,
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (_showWrongCredentialsError) ...[
+                                    Padding(
+                                      padding: const EdgeInsets.only(
+                                        bottom: 16,
+                                      ),
+                                      child: Text(
+                                        _credentialsErrorMessage,
+                                        textAlign: TextAlign.center,
+                                        style: AppTextStyle.inter(
+                                          fontWeight: FontWeight.w500,
+                                          fontSize: 14,
+                                          height: 1.2,
+                                          color: Colors.red,
                                         ),
-                                        child: Text(
-                                          _credentialsErrorMessage,
-                                          textAlign: TextAlign.center,
-                                          style: AppTextStyle.inter(
-                                            fontWeight: FontWeight.w500,
-                                            fontSize: 14,
-                                            height: 1.2,
-                                            color: Colors.red,
-                                          ),
+                                      ),
+                                    ),
+                                  ],
+                                  if (_awaitingOtp &&
+                                      _otpChallenge != null) ...[
+                                    Text(
+                                      _otpChallenge!.message,
+                                      textAlign: TextAlign.center,
+                                      style: AppTextStyle.inter(
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 15,
+                                        height: 1.3,
+                                        color: Colors.black87,
+                                      ),
+                                    ),
+                                    if ((_otpChallenge!.emailMasked ?? '')
+                                        .trim()
+                                        .isNotEmpty) ...[
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        'Код отправлен на ${_otpChallenge!.emailMasked}',
+                                        textAlign: TextAlign.center,
+                                        style: AppTextStyle.inter(
+                                          fontWeight: FontWeight.w500,
+                                          fontSize: 13,
+                                          height: 1.25,
+                                          color: Colors.black54,
                                         ),
                                       ),
                                     ],
-                                    if (_awaitingOtp && _otpChallenge != null) ...[
-                                      Text(
-                                        _otpChallenge!.message,
-                                        textAlign: TextAlign.center,
+                                    const SizedBox(height: 16),
+                                    _outlineField(
+                                      key: 'otp',
+                                      controller: _otpController,
+                                      focusNode: _otpFocusNode,
+                                      hint: 'Код из письма (6 цифр)',
+                                      onLastSubmitted: _submit,
+                                      keyboardType: TextInputType.number,
+                                      inputFormatters: [
+                                        FilteringTextInputFormatter.digitsOnly,
+                                        LengthLimitingTextInputFormatter(6),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 16),
+                                    SizedBox(
+                                      height: _fieldH,
+                                      child: FilledButton(
+                                        onPressed: _submitting ? null : _submit,
+                                        style: _noOverlay(
+                                          FilledButton.styleFrom(
+                                            backgroundColor: _kBlue,
+                                            foregroundColor: Colors.white,
+                                            disabledBackgroundColor: _kBlue
+                                                .withValues(alpha: 0.5),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(
+                                                    _radius,
+                                                  ),
+                                            ),
+                                            padding: EdgeInsets.zero,
+                                            tapTargetSize: MaterialTapTargetSize
+                                                .shrinkWrap,
+                                            visualDensity:
+                                                VisualDensity.compact,
+                                            elevation: 0,
+                                          ),
+                                        ),
+                                        child: _submitting
+                                            ? const SizedBox(
+                                                width: 24,
+                                                height: 24,
+                                                child:
+                                                    CircularProgressIndicator(
+                                                      strokeWidth: 2.5,
+                                                      color: Colors.white,
+                                                    ),
+                                              )
+                                            : Text(
+                                                'Подтвердить',
+                                                style: btnLabel,
+                                              ),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    TextButton(
+                                      onPressed:
+                                          (_submitting ||
+                                              _resendSecondsLeft > 0)
+                                          ? null
+                                          : _resendOtp,
+                                      child: Text(
+                                        _resendSecondsLeft > 0
+                                            ? 'Отправить снова через $_resendSecondsLeft с'
+                                            : 'Отправить код снова',
                                         style: AppTextStyle.inter(
                                           fontWeight: FontWeight.w600,
-                                          fontSize: 15,
-                                          height: 1.3,
-                                          color: Colors.black87,
+                                          fontSize: 14,
+                                          color: _kBlue,
                                         ),
                                       ),
-                                      if ((_otpChallenge!.emailMasked ?? '')
-                                          .trim()
-                                          .isNotEmpty) ...[
-                                        const SizedBox(height: 8),
-                                        Text(
-                                          'Код отправлен на ${_otpChallenge!.emailMasked}',
-                                          textAlign: TextAlign.center,
-                                          style: AppTextStyle.inter(
-                                            fontWeight: FontWeight.w500,
-                                            fontSize: 13,
-                                            height: 1.25,
-                                            color: Colors.black54,
-                                          ),
-                                        ),
-                                      ],
-                                      const SizedBox(height: 16),
-                                      _outlineField(
-                                        key: 'otp',
-                                        controller: _otpController,
-                                        focusNode: _otpFocusNode,
-                                        hint: 'Код из письма (6 цифр)',
-                                        onLastSubmitted: _submit,
-                                        keyboardType: TextInputType.number,
-                                        inputFormatters: [
-                                          FilteringTextInputFormatter
-                                              .digitsOnly,
-                                          LengthLimitingTextInputFormatter(6),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 16),
-                                      SizedBox(
-                                        width: _fieldW,
-                                        height: _fieldH,
-                                        child: FilledButton(
-                                          onPressed:
-                                              _submitting ? null : _submit,
-                                          style: _noOverlay(
-                                            FilledButton.styleFrom(
-                                              backgroundColor: _kBlue,
-                                              foregroundColor: Colors.white,
-                                              disabledBackgroundColor: _kBlue
-                                                  .withValues(alpha: 0.5),
-                                              shape: RoundedRectangleBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(
-                                                  _radius,
-                                                ),
-                                              ),
-                                              padding: EdgeInsets.zero,
-                                              tapTargetSize:
-                                                  MaterialTapTargetSize
-                                                      .shrinkWrap,
-                                              visualDensity:
-                                                  VisualDensity.compact,
-                                              elevation: 0,
+                                    ),
+                                    const SizedBox(height: 8),
+                                    SizedBox(
+                                      height: _fieldH,
+                                      child: OutlinedButton(
+                                        onPressed: _submitting
+                                            ? null
+                                            : _leaveOtpStep,
+                                        style: _noOverlay(
+                                          OutlinedButton.styleFrom(
+                                            foregroundColor: _kBlue,
+                                            side: const BorderSide(
+                                              color: _kBlue,
+                                              width: 1,
                                             ),
-                                          ),
-                                          child: _submitting
-                                              ? const SizedBox(
-                                                  width: 24,
-                                                  height: 24,
-                                                  child: CircularProgressIndicator(
-                                                    strokeWidth: 2.5,
-                                                    color: Colors.white,
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(
+                                                    _radius,
                                                   ),
-                                                )
-                                              : Text(
-                                                  'Подтвердить',
-                                                  style: btnLabel,
-                                                ),
+                                            ),
+                                            padding: EdgeInsets.zero,
+                                            tapTargetSize: MaterialTapTargetSize
+                                                .shrinkWrap,
+                                            visualDensity:
+                                                VisualDensity.compact,
+                                          ),
                                         ),
-                                      ),
-                                      const SizedBox(height: 12),
-                                      TextButton(
-                                        onPressed:
-                                            (_submitting ||
-                                                    _resendSecondsLeft > 0)
-                                                ? null
-                                                : _resendOtp,
                                         child: Text(
-                                          _resendSecondsLeft > 0
-                                              ? 'Отправить снова через $_resendSecondsLeft с'
-                                              : 'Отправить код снова',
+                                          'Назад к паролю',
                                           style: AppTextStyle.inter(
-                                            fontWeight: FontWeight.w600,
-                                            fontSize: 14,
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 16,
                                             color: _kBlue,
                                           ),
                                         ),
                                       ),
+                                    ),
+                                  ] else ...[
+                                    _outlineField(
+                                      key: 'email',
+                                      controller: _emailController,
+                                      focusNode: _emailFocusNode,
+                                      hint: 'E-mail',
+                                      nextFocus: _passwordFocusNode,
+                                      keyboardType: TextInputType.emailAddress,
+                                      inputFormatters: [
+                                        FilteringTextInputFormatter.deny(
+                                          RegExp(r'\s'),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 16),
+                                    _outlineField(
+                                      key: 'password',
+                                      controller: _passwordController,
+                                      focusNode: _passwordFocusNode,
+                                      hint: 'Пароль',
+                                      onLastSubmitted: _submit,
+                                      keyboardType:
+                                          TextInputType.visiblePassword,
+                                      obscureText: _obscurePassword,
+                                      onToggleObscure: () => setState(
+                                        () => _obscurePassword =
+                                            !_obscurePassword,
+                                      ),
+                                    ),
+                                    if (!_isRegisterMode) ...[
                                       const SizedBox(height: 8),
                                       SizedBox(
-                                        width: _fieldW,
-                                        height: _fieldH,
-                                        child: OutlinedButton(
-                                          onPressed: _submitting
-                                              ? null
-                                              : _leaveOtpStep,
-                                          style: _noOverlay(
-                                            OutlinedButton.styleFrom(
-                                              foregroundColor: _kBlue,
-                                              side: const BorderSide(
-                                                color: _kBlue,
-                                                width: 1,
-                                              ),
-                                              shape: RoundedRectangleBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(
-                                                  _radius,
-                                                ),
-                                              ),
-                                              padding: EdgeInsets.zero,
-                                              tapTargetSize:
-                                                  MaterialTapTargetSize
-                                                      .shrinkWrap,
-                                              visualDensity:
-                                                  VisualDensity.compact,
-                                            ),
-                                          ),
-                                          child: Text(
-                                            'Назад к паролю',
-                                            style: AppTextStyle.inter(
-                                              fontWeight: FontWeight.w700,
-                                              fontSize: 16,
-                                              color: _kBlue,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ] else ...[
-                                      _outlineField(
-                                        key: 'email',
-                                        controller: _emailController,
-                                        focusNode: _emailFocusNode,
-                                        hint: 'E-mail',
-                                        nextFocus: _passwordFocusNode,
-                                        keyboardType:
-                                            TextInputType.emailAddress,
-                                        inputFormatters: [
-                                          FilteringTextInputFormatter.deny(
-                                            RegExp(r'\s'),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 16),
-                                      _outlineField(
-                                        key: 'password',
-                                        controller: _passwordController,
-                                        focusNode: _passwordFocusNode,
-                                        hint: 'Пароль',
-                                        onLastSubmitted: _submit,
-                                        keyboardType:
-                                            TextInputType.visiblePassword,
-                                        obscureText: _obscurePassword,
-                                        onToggleObscure: () => setState(
-                                          () => _obscurePassword =
-                                              !_obscurePassword,
-                                        ),
-                                      ),
-                                      if (!_isRegisterMode) ...[
-                                        const SizedBox(height: 8),
-                                        SizedBox(
-                                          width: _fieldW,
-                                          child: Align(
-                                            alignment: Alignment.centerRight,
-                                            child: _forgotCooldownLeft > 0
-                                                ? Text(
-                                                    'Отправить снова через $_forgotCooldownLeft с',
-                                                    textAlign: TextAlign.right,
+                                        width: double.infinity,
+                                        child: Align(
+                                          alignment: Alignment.centerRight,
+                                          child: _forgotCooldownLeft > 0
+                                              ? Text(
+                                                  'Отправить снова через $_forgotCooldownLeft с',
+                                                  textAlign: TextAlign.right,
+                                                  style: AppTextStyle.inter(
+                                                    fontWeight: FontWeight.w700,
+                                                    fontSize: 16,
+                                                    height: 1.0,
+                                                    color: _kBlue,
+                                                  ),
+                                                )
+                                              : _forgotBusy
+                                              ? SizedBox(
+                                                  width: 22,
+                                                  height: 22,
+                                                  child:
+                                                      CircularProgressIndicator(
+                                                        strokeWidth: 2.2,
+                                                        color: _kBlue,
+                                                      ),
+                                                )
+                                              : GestureDetector(
+                                                  behavior:
+                                                      HitTestBehavior.opaque,
+                                                  onTap: _requestForgotPassword,
+                                                  child: Text(
+                                                    'Забыли пароль',
                                                     style: AppTextStyle.inter(
                                                       fontWeight:
                                                           FontWeight.w700,
@@ -950,159 +983,117 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
                                                       height: 1.0,
                                                       color: _kBlue,
                                                     ),
-                                                  )
-                                                : _forgotBusy
-                                                    ? SizedBox(
-                                                        width: 22,
-                                                        height: 22,
-                                                        child:
-                                                            CircularProgressIndicator(
-                                                          strokeWidth: 2.2,
-                                                          color: _kBlue,
-                                                        ),
-                                                      )
-                                                    : GestureDetector(
-                                                        behavior:
-                                                            HitTestBehavior
-                                                                .opaque,
-                                                        onTap:
-                                                            _requestForgotPassword,
-                                                        child: Text(
-                                                          'Забыли пароль',
-                                                          style: AppTextStyle
-                                                              .inter(
-                                                            fontWeight:
-                                                                FontWeight
-                                                                    .w700,
-                                                            fontSize: 16,
-                                                            height: 1.0,
-                                                            color: _kBlue,
-                                                          ),
-                                                        ),
-                                                      ),
-                                          ),
-                                        ),
-                                      ],
-                                      const SizedBox(height: 16),
-                                      SizedBox(
-                                        width: _fieldW,
-                                        height: _fieldH,
-                                        child: FilledButton(
-                                          onPressed:
-                                              _submitting ? null : _submit,
-                                          style: _noOverlay(
-                                            FilledButton.styleFrom(
-                                              backgroundColor: _kBlue,
-                                              foregroundColor: Colors.white,
-                                              disabledBackgroundColor: _kBlue
-                                                  .withValues(alpha: 0.5),
-                                              shape: RoundedRectangleBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(
-                                                  _radius,
-                                                ),
-                                              ),
-                                              padding: EdgeInsets.zero,
-                                              tapTargetSize:
-                                                  MaterialTapTargetSize
-                                                      .shrinkWrap,
-                                              visualDensity:
-                                                  VisualDensity.compact,
-                                              elevation: 0,
-                                            ),
-                                          ),
-                                          child: _submitting
-                                              ? const SizedBox(
-                                                  width: 24,
-                                                  height: 24,
-                                                  child:
-                                                      CircularProgressIndicator(
-                                                    strokeWidth: 2.5,
-                                                    color: Colors.white,
                                                   ),
-                                                )
-                                              : Text(
-                                                  _isRegisterMode
-                                                      ? 'Зарегистрироваться'
-                                                      : 'Войти',
-                                                  style: btnLabel,
                                                 ),
                                         ),
                                       ),
-                                      if (_isParentRole) ...[
-                                        if (!_isRegisterMode) ...[
-                                          const SizedBox(height: 24),
-                                          SizedBox(
-                                            width: _fieldW,
-                                            child: GestureDetector(
-                                              behavior: HitTestBehavior.opaque,
-                                              onTap: () => context.go(
-                                                '/login/email',
-                                                extra: const {
-                                                  'role': 'student',
-                                                  'mode': 'login',
-                                                },
-                                              ),
-                                              child: SizedBox(
-                                                width: double.infinity,
-                                                child: Text(
-                                                  'Войти как студент',
-                                                  textAlign: TextAlign.center,
-                                                  style: linkStyle,
-                                                ),
-                                              ),
+                                    ],
+                                    const SizedBox(height: 16),
+                                    SizedBox(
+                                      height: _fieldH,
+                                      child: FilledButton(
+                                        onPressed: _submitting ? null : _submit,
+                                        style: _noOverlay(
+                                          FilledButton.styleFrom(
+                                            backgroundColor: _kBlue,
+                                            foregroundColor: Colors.white,
+                                            disabledBackgroundColor: _kBlue
+                                                .withValues(alpha: 0.5),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(
+                                                    _radius,
+                                                  ),
                                             ),
+                                            padding: EdgeInsets.zero,
+                                            tapTargetSize: MaterialTapTargetSize
+                                                .shrinkWrap,
+                                            visualDensity:
+                                                VisualDensity.compact,
+                                            elevation: 0,
                                           ),
-                                        ],
-                                      ] else ...[
-                                        const SizedBox(height: 24),
-                                        SizedBox(
-                                          width: _fieldW,
-                                          child: GestureDetector(
-                                            behavior: HitTestBehavior.opaque,
-                                            onTap: () =>
-                                                context.go('/login/student'),
-                                            child: SizedBox(
-                                              width: double.infinity,
-                                              child: Text(
+                                        ),
+                                        child: _submitting
+                                            ? const SizedBox(
+                                                width: 24,
+                                                height: 24,
+                                                child:
+                                                    CircularProgressIndicator(
+                                                      strokeWidth: 2.5,
+                                                      color: Colors.white,
+                                                    ),
+                                              )
+                                            : Text(
                                                 _isRegisterMode
-                                                    ? 'Назад'
-                                                    : 'Войти по З/К',
-                                                textAlign: TextAlign.center,
-                                                style: linkStyle,
+                                                    ? 'Зарегистрироваться'
+                                                    : 'Войти',
+                                                style: btnLabel,
                                               ),
+                                      ),
+                                    ),
+                                    if (_isParentRole) ...[
+                                      if (!_isRegisterMode) ...[
+                                        const SizedBox(height: 24),
+                                        GestureDetector(
+                                          behavior: HitTestBehavior.opaque,
+                                          onTap: () => context.go(
+                                            '/login/email',
+                                            extra: const {
+                                              'role': 'student',
+                                              'mode': 'login',
+                                            },
+                                          ),
+                                          child: SizedBox(
+                                            width: double.infinity,
+                                            child: Text(
+                                              'Войти как студент',
+                                              textAlign: TextAlign.center,
+                                              style: linkStyle,
                                             ),
                                           ),
                                         ),
-                                        if (!_isRegisterMode) ...[
-                                          const SizedBox(height: 24),
-                                          SizedBox(
-                                            width: _fieldW,
-                                            child: GestureDetector(
-                                              behavior:
-                                                  HitTestBehavior.opaque,
-                                              onTap: () => context.go(
-                                                '/login/email',
-                                                extra: const {
-                                                  'role': 'parent',
-                                                  'mode': 'login',
-                                                },
-                                              ),
-                                              child: SizedBox(
-                                                width: double.infinity,
-                                                child: Text(
-                                                  'Войти как родитель',
-                                                  textAlign: TextAlign.center,
-                                                  style: linkStyle,
-                                                ),
-                                              ),
+                                      ],
+                                    ] else ...[
+                                      const SizedBox(height: 24),
+                                      GestureDetector(
+                                        behavior: HitTestBehavior.opaque,
+                                        onTap: () =>
+                                            context.go('/login/student'),
+                                        child: SizedBox(
+                                          width: double.infinity,
+                                          child: Text(
+                                            _isRegisterMode
+                                                ? 'Назад'
+                                                : 'Войти по З/К',
+                                            textAlign: TextAlign.center,
+                                            style: linkStyle,
+                                          ),
+                                        ),
+                                      ),
+                                      if (!_isRegisterMode) ...[
+                                        const SizedBox(height: 24),
+                                        GestureDetector(
+                                          behavior: HitTestBehavior.opaque,
+                                          onTap: () => context.go(
+                                            '/login/email',
+                                            extra: const {
+                                              'role': 'parent',
+                                              'mode': 'login',
+                                            },
+                                          ),
+                                          child: SizedBox(
+                                            width: double.infinity,
+                                            child: Text(
+                                              'Войти как родитель',
+                                              textAlign: TextAlign.center,
+                                              style: linkStyle,
                                             ),
                                           ),
-                                        ],
+                                        ),
                                       ],
                                     ],
                                   ],
-                                ),
+                                ],
                               ),
                             ),
                           );

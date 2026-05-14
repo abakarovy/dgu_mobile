@@ -9,9 +9,11 @@ class DismissKeyboardOnTap extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // translucent: ловили жест параллельно с Focusable — IME «Далее» иногда давал моргание клавиатуры.
+    // deferToChild: только туда, где дети не обработали тап (фон формы между полями и т.д.).
     return GestureDetector(
       onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-      behavior: HitTestBehavior.translucent,
+      behavior: HitTestBehavior.deferToChild,
       child: child,
     );
   }

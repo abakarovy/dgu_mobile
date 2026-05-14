@@ -69,10 +69,12 @@ class _LoginPageState extends State<LoginPage> {
   static const Color _kBorderMuted = Color(0x38000000);
   static const Color _kBorderFilled = Color(0xFF000000);
 
-  static const double _fieldW = 400;
+  static const double _formHorizontalInset = 30;
   static const double _fieldH = 60;
   static const double _radius = 46;
-  static const double _inputLineExtent = 28;
+
+  /// Визуальная высота одной строки (Inter 16 / height 1.0) для вертикальных полей в `_fieldH`.
+  static const double _inputLineHeight = 22;
 
   final _lastName = TextEditingController();
   final _firstName = TextEditingController();
@@ -179,8 +181,10 @@ class _LoginPageState extends State<LoginPage> {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(_radius),
                 ),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 28,
+                  vertical: 14,
+                ),
               ),
               onPressed: () => Navigator.of(ctx).pop(),
               child: Text(
@@ -207,7 +211,8 @@ class _LoginPageState extends State<LoginPage> {
 
   Future<void> _submit() async {
     if (_submitting) return;
-    final empty = _lastName.text.trim().isEmpty ||
+    final empty =
+        _lastName.text.trim().isEmpty ||
         _firstName.text.trim().isEmpty ||
         _patronymic.text.trim().isEmpty ||
         _book.text.trim().isEmpty;
@@ -229,11 +234,8 @@ class _LoginPageState extends State<LoginPage> {
     ].join(' ');
     final book = _book.text.trim();
     try {
-      final registrationToken =
-          await AppContainer.authRepository.verifyStudentIn1c(
-        fullName: fullName,
-        studentBookNumber: book,
-      );
+      final registrationToken = await AppContainer.authRepository
+          .verifyStudentIn1c(fullName: fullName, studentBookNumber: book);
       if (!mounted) return;
       context.go(
         '/login/email',
@@ -281,10 +283,11 @@ class _LoginPageState extends State<LoginPage> {
       height: 1.0,
       color: _kBorderFilled,
     );
+    final verticalPad = (_fieldH - _inputLineHeight) / 2;
 
     return SizedBox(
-      width: _fieldW,
       height: _fieldH,
+      width: double.infinity,
       child: DecoratedBox(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(_radius),
@@ -300,41 +303,48 @@ class _LoginPageState extends State<LoginPage> {
             children: [
               const SizedBox(width: 16),
               Expanded(
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: SizedBox(
-                    height: _inputLineExtent,
-                    width: double.infinity,
-                    child: TextField(
-                      controller: controller,
-                      focusNode: focusNode,
-                      keyboardType: keyboardType,
-                      textCapitalization: textCapitalization,
-                      textInputAction:
-                          isLast ? TextInputAction.done : TextInputAction.next,
-                      inputFormatters: inputFormatters,
-                      textAlignVertical: TextAlignVertical.center,
-                      maxLines: 1,
-                      minLines: 1,
-                      style: textStyle,
-                      decoration: InputDecoration(
-                        hintText: hint,
-                        hintStyle: hintStyle,
-                        border: InputBorder.none,
-                        isDense: true,
-                        filled: false,
-                        contentPadding: EdgeInsets.zero,
-                        counterText: '',
-                      ),
-                      onSubmitted: (_) {
-                        if (isLast) {
-                          onLastSubmitted?.call();
-                        } else {
-                          nextFocus.requestFocus();
-                        }
-                      },
+                child: TextField(
+                  controller: controller,
+                  focusNode: focusNode,
+                  keyboardType: keyboardType,
+                  textCapitalization: textCapitalization,
+                  // Горизонтально слева; вертикально по центру пилюли — через contentPadding.
+                  textAlign: TextAlign.start,
+                  textDirection: TextDirection.ltr,
+                  textInputAction: isLast
+                      ? TextInputAction.done
+                      : TextInputAction.next,
+                  inputFormatters: inputFormatters,
+                  textAlignVertical: TextAlignVertical.center,
+                  maxLines: 1,
+                  minLines: 1,
+                  style: textStyle,
+                  decoration: InputDecoration(
+                    hintText: hint,
+                    hintStyle: hintStyle,
+                    hintTextDirection: TextDirection.ltr,
+                    alignLabelWithHint: true,
+                    border: InputBorder.none,
+                    isDense: true,
+                    filled: false,
+                    contentPadding: EdgeInsets.fromLTRB(
+                      0,
+                      verticalPad,
+                      0,
+                      verticalPad,
                     ),
+                    counterText: '',
                   ),
+                  onSubmitted: (_) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (!mounted) return;
+                      if (isLast) {
+                        onLastSubmitted?.call();
+                      } else {
+                        nextFocus.requestFocus();
+                      }
+                    });
+                  },
                 ),
               ),
             ],
@@ -352,7 +362,7 @@ class _LoginPageState extends State<LoginPage> {
     final sf = math.min(size.width / figmaW, size.height / figmaH);
     final safeTop = MediaQuery.paddingOf(context).top;
     const photoFlex = 2;
-    const formFlex = 3;
+    const formFlex = 4;
 
     final noTapFxTheme = Theme.of(context).copyWith(
       splashFactory: NoSplash.splashFactory,
@@ -454,165 +464,159 @@ class _LoginPageState extends State<LoginPage> {
                       child: LayoutBuilder(
                         builder: (context, constraints) {
                           return SingleChildScrollView(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            padding: const EdgeInsets.fromLTRB(
+                              _formHorizontalInset,
+                              16,
+                              _formHorizontalInset,
+                              16,
+                            ),
                             child: ConstrainedBox(
                               constraints: BoxConstraints(
                                 minHeight: constraints.maxHeight - 32,
                               ),
-                              child: Center(
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    if (_showError) ...[
-                                      Padding(
-                                        padding: const EdgeInsets.only(
-                                          bottom: 16,
-                                        ),
-                                        child: Text(
-                                          _errorMsg,
-                                          textAlign: TextAlign.center,
-                                          style: AppTextStyle.inter(
-                                            fontWeight: FontWeight.w500,
-                                            fontSize: 14,
-                                            height: 1.2,
-                                            color: Colors.red,
-                                          ),
-                                        ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (_showError) ...[
+                                    Padding(
+                                      padding: const EdgeInsets.only(
+                                        bottom: 16,
                                       ),
-                                    ],
-                                    _outlineField(
-                                      controller: _lastName,
-                                      focusNode: _fnLast,
-                                      hint: 'Фамилия',
-                                      nextFocus: _fnFirst,
-                                      textCapitalization:
-                                          TextCapitalization.words,
-                                      inputFormatters: const [
-                                        _capitalizeNameParts,
-                                      ],
-                                    ),
-                                    const SizedBox(height: 16),
-                                    _outlineField(
-                                      controller: _firstName,
-                                      focusNode: _fnFirst,
-                                      hint: 'Имя',
-                                      nextFocus: _fnPat,
-                                      textCapitalization:
-                                          TextCapitalization.words,
-                                      inputFormatters: const [
-                                        _capitalizeNameParts,
-                                      ],
-                                    ),
-                                    const SizedBox(height: 16),
-                                    _outlineField(
-                                      controller: _patronymic,
-                                      focusNode: _fnPat,
-                                      hint: 'Отчество',
-                                      nextFocus: _fnBook,
-                                      textCapitalization:
-                                          TextCapitalization.words,
-                                      inputFormatters: const [
-                                        _capitalizeNameParts,
-                                      ],
-                                    ),
-                                    const SizedBox(height: 16),
-                                    _outlineField(
-                                      controller: _book,
-                                      focusNode: _fnBook,
-                                      hint: 'Номер зачетной книжки',
-                                      onLastSubmitted: _submit,
-                                      keyboardType: TextInputType.number,
-                                      inputFormatters: [
-                                        FilteringTextInputFormatter
-                                            .digitsOnly,
-                                        LengthLimitingTextInputFormatter(5),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 16),
-                                    SizedBox(
-                                      width: _fieldW,
-                                      height: _fieldH,
-                                      child: FilledButton(
-                                        onPressed:
-                                            _submitting ? null : _submit,
-                                        style: _noOverlay(
-                                          FilledButton.styleFrom(
-                                            backgroundColor: _kBlue,
-                                            foregroundColor: Colors.white,
-                                            disabledBackgroundColor: _kBlue
-                                                .withValues(alpha: 0.5),
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(
-                                                _radius,
-                                              ),
-                                            ),
-                                            padding: EdgeInsets.zero,
-                                            tapTargetSize: MaterialTapTargetSize
-                                                .shrinkWrap,
-                                            visualDensity:
-                                                VisualDensity.compact,
-                                            elevation: 0,
-                                          ),
-                                        ),
-                                        child: _submitting
-                                            ? const SizedBox(
-                                                width: 24,
-                                                height: 24,
-                                                child: CircularProgressIndicator(
-                                                  strokeWidth: 2.5,
-                                                  color: Colors.white,
-                                                ),
-                                              )
-                                            : Text('Войти', style: btnLabel),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 24),
-                                    SizedBox(
-                                      width: _fieldW,
-                                      child: GestureDetector(
-                                        behavior: HitTestBehavior.opaque,
-                                        onTap: () => context.go(
-                                          '/login/email',
-                                          extra: const {
-                                            'role': 'student',
-                                            'mode': 'login',
-                                          },
-                                        ),
-                                        child: SizedBox(
-                                          width: double.infinity,
-                                          child: Text(
-                                            'Войти по E-mail',
-                                            textAlign: TextAlign.center,
-                                            style: linkStyle,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 24),
-                                    SizedBox(
-                                      width: _fieldW,
-                                      child: GestureDetector(
-                                        behavior: HitTestBehavior.opaque,
-                                        onTap: () => context.go(
-                                          '/login/email',
-                                          extra: const {
-                                            'role': 'parent',
-                                            'mode': 'login',
-                                          },
-                                        ),
-                                        child: SizedBox(
-                                          width: double.infinity,
-                                          child: Text(
-                                            'Войти как родитель',
-                                            textAlign: TextAlign.center,
-                                            style: linkStyle,
-                                          ),
+                                      child: Text(
+                                        _errorMsg,
+                                        textAlign: TextAlign.center,
+                                        style: AppTextStyle.inter(
+                                          fontWeight: FontWeight.w500,
+                                          fontSize: 14,
+                                          height: 1.2,
+                                          color: Colors.red,
                                         ),
                                       ),
                                     ),
                                   ],
-                                ),
+                                  _outlineField(
+                                    controller: _lastName,
+                                    focusNode: _fnLast,
+                                    hint: 'Фамилия',
+                                    nextFocus: _fnFirst,
+                                    textCapitalization:
+                                        TextCapitalization.words,
+                                    inputFormatters: const [
+                                      _capitalizeNameParts,
+                                    ],
+                                  ),
+                                  const SizedBox(height: 16),
+                                  _outlineField(
+                                    controller: _firstName,
+                                    focusNode: _fnFirst,
+                                    hint: 'Имя',
+                                    nextFocus: _fnPat,
+                                    textCapitalization:
+                                        TextCapitalization.words,
+                                    inputFormatters: const [
+                                      _capitalizeNameParts,
+                                    ],
+                                  ),
+                                  const SizedBox(height: 16),
+                                  _outlineField(
+                                    controller: _patronymic,
+                                    focusNode: _fnPat,
+                                    hint: 'Отчество',
+                                    nextFocus: _fnBook,
+                                    textCapitalization:
+                                        TextCapitalization.words,
+                                    inputFormatters: const [
+                                      _capitalizeNameParts,
+                                    ],
+                                  ),
+                                  const SizedBox(height: 16),
+                                  _outlineField(
+                                    controller: _book,
+                                    focusNode: _fnBook,
+                                    hint: 'Номер зачетной книжки',
+                                    onLastSubmitted: _submit,
+                                    keyboardType: TextInputType.number,
+                                    inputFormatters: [
+                                      FilteringTextInputFormatter.digitsOnly,
+                                      LengthLimitingTextInputFormatter(5),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 16),
+                                  SizedBox(
+                                    height: _fieldH,
+                                    child: FilledButton(
+                                      onPressed: _submitting ? null : _submit,
+                                      style: _noOverlay(
+                                        FilledButton.styleFrom(
+                                          backgroundColor: _kBlue,
+                                          foregroundColor: Colors.white,
+                                          disabledBackgroundColor: _kBlue
+                                              .withValues(alpha: 0.5),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              _radius,
+                                            ),
+                                          ),
+                                          padding: EdgeInsets.zero,
+                                          tapTargetSize:
+                                              MaterialTapTargetSize.shrinkWrap,
+                                          visualDensity: VisualDensity.compact,
+                                          elevation: 0,
+                                        ),
+                                      ),
+                                      child: _submitting
+                                          ? const SizedBox(
+                                              width: 24,
+                                              height: 24,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2.5,
+                                                color: Colors.white,
+                                              ),
+                                            )
+                                          : Text('Войти', style: btnLabel),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 24),
+                                  GestureDetector(
+                                    behavior: HitTestBehavior.opaque,
+                                    onTap: () => context.go(
+                                      '/login/email',
+                                      extra: const {
+                                        'role': 'student',
+                                        'mode': 'login',
+                                      },
+                                    ),
+                                    child: SizedBox(
+                                      width: double.infinity,
+                                      child: Text(
+                                        'Войти по E-mail',
+                                        textAlign: TextAlign.center,
+                                        style: linkStyle,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 24),
+                                  GestureDetector(
+                                    behavior: HitTestBehavior.opaque,
+                                    onTap: () => context.go(
+                                      '/login/email',
+                                      extra: const {
+                                        'role': 'parent',
+                                        'mode': 'login',
+                                      },
+                                    ),
+                                    child: SizedBox(
+                                      width: double.infinity,
+                                      child: Text(
+                                        'Войти как родитель',
+                                        textAlign: TextAlign.center,
+                                        style: linkStyle,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           );
