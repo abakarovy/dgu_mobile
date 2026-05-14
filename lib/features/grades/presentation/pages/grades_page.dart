@@ -1,9 +1,11 @@
 import 'dart:async';
 
 import 'package:dgu_mobile/core/constants/app_colors.dart';
+import 'package:dgu_mobile/core/constants/app_ui.dart';
 import 'package:dgu_mobile/core/widgets/app_date_range_picker.dart';
 import 'package:dgu_mobile/core/theme/app_text_styles.dart';
 import 'package:dgu_mobile/core/di/app_container.dart';
+import 'package:dgu_mobile/core/navigation/app_overlay_notifier.dart';
 import 'package:dgu_mobile/core/utils/calendar_period.dart';
 import 'package:dgu_mobile/core/utils/parent_child_name.dart';
 import 'package:flutter/material.dart';
@@ -306,7 +308,7 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
                         periodLabel: _sessionSemesterLabel(),
                         onPrev: _prevSessionSemester,
                         onNext: _nextSessionSemester,
-                        onTap: () {},
+                        onTap: () => _showSessionSemesterPicker(context),
                       ),
                     ),
                   Expanded(
@@ -518,6 +520,199 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
     final n = semesters.length;
     final i = _sessionSemesterIndex.clamp(0, n - 1);
     return semesters[i];
+  }
+
+  /// Строки для списка: «N семестр» + учебный год, если распознан формат 1С.
+  (String title, String? yearPart) _sessionPickerLines(String raw) {
+    final t = raw.trim();
+    final m = RegExp(r'^(\d+)\s*сем\.?\s+(.+)$', caseSensitive: false)
+        .firstMatch(t);
+    if (m != null) {
+      final num = m.group(1)!;
+      final rest = m.group(2)!.trim();
+      return ('$num семестр', rest.isEmpty ? null : rest);
+    }
+    return (t, null);
+  }
+
+  Future<void> _showSessionSemesterPicker(BuildContext context) async {
+    final semesters = _effectiveSemesters();
+    if (semesters.isEmpty) return;
+    final currentIdx = _sessionSemesterIndex.clamp(0, semesters.length - 1);
+
+    await AppOverlayNotifier.wrapModalBottomSheet<void>(() {
+      return showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        isDismissible: true,
+        enableDrag: true,
+        useRootNavigator: true,
+        barrierColor: Colors.black54,
+        builder: (ctx) {
+          final bottomInset = MediaQuery.viewInsetsOf(ctx).bottom;
+          final maxH = MediaQuery.sizeOf(ctx).height * 0.55;
+          final sheetH = MediaQuery.sizeOf(ctx).height - bottomInset;
+          return Padding(
+            padding: EdgeInsets.only(bottom: bottomInset),
+            child: SizedBox(
+              height: sheetH,
+              width: double.infinity,
+              child: Stack(
+                fit: StackFit.expand,
+                clipBehavior: Clip.none,
+                children: [
+                  Positioned.fill(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => Navigator.of(ctx).pop(),
+                      child: const ColoredBox(color: Colors.transparent),
+                    ),
+                  ),
+                  Align(
+                    alignment: Alignment.bottomCenter,
+                    child: SizedBox(
+                      height: maxH,
+                      width: double.infinity,
+                      child: Material(
+                        color: AppColors.surfaceLight,
+                        clipBehavior: Clip.antiAlias,
+                        shape: const RoundedRectangleBorder(
+                          borderRadius: BorderRadius.vertical(
+                            top: Radius.circular(AppUi.radiusXl),
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            const SizedBox(height: 8),
+                            Center(
+                              child: Container(
+                                width: 40,
+                                height: 4,
+                                decoration: BoxDecoration(
+                                  color: AppColors.lightGrey,
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(20, 14, 4, 8),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      'Семестр и учебный год',
+                                      style: AppTextStyle.inter(
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 18,
+                                        height: 1.2,
+                                        color: AppColors.textPrimary,
+                                      ),
+                                    ),
+                                  ),
+                                  IconButton(
+                                    onPressed: () => Navigator.of(ctx).pop(),
+                                    icon: const Icon(
+                                      Icons.close,
+                                      color: AppColors.caption,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Expanded(
+                              child: ListView.separated(
+                                padding:
+                                    const EdgeInsets.fromLTRB(12, 0, 12, 24),
+                                itemCount: semesters.length,
+                                separatorBuilder: (context, _) =>
+                                    const SizedBox(height: 6),
+                                itemBuilder: (context, i) {
+                                  final label = semesters[i];
+                                  final (title, yearPart) =
+                                      _sessionPickerLines(label);
+                                  final selected = i == currentIdx;
+                                  return Material(
+                                    color: selected
+                                        ? const Color(0xFFEFF6FF)
+                                        : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: InkWell(
+                                      borderRadius: BorderRadius.circular(12),
+                                      onTap: () {
+                                        Navigator.of(ctx).pop();
+                                        setState(() {
+                                          _sessionSemesterIndex = i;
+                                        });
+                                      },
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 16,
+                                          vertical: 14,
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    title,
+                                                    style: AppTextStyle.inter(
+                                                      fontWeight:
+                                                          FontWeight.w700,
+                                                      fontSize: 16,
+                                                      height: 1.2,
+                                                      color: AppColors
+                                                          .textPrimary,
+                                                    ),
+                                                  ),
+                                                  if (yearPart != null) ...[
+                                                    const SizedBox(height: 4),
+                                                    Text(
+                                                      yearPart,
+                                                      style:
+                                                          AppTextStyle.inter(
+                                                        fontWeight:
+                                                            FontWeight.w500,
+                                                        fontSize: 13,
+                                                        height: 1.25,
+                                                        color: AppColors
+                                                            .notificationSubtitle,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ],
+                                              ),
+                                            ),
+                                            if (selected)
+                                              const Icon(
+                                                Icons.check_circle_rounded,
+                                                size: 22,
+                                                color: Color(0xFF2563EB),
+                                              ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    });
   }
 
   void _prevSessionSemester() {

@@ -169,23 +169,127 @@ class _SettingsPageState extends State<SettingsPage> {
         );
       },
     );
-    if (go == true && mounted) {
-      await _onLogout();
+    if (go == true && mounted && context.mounted) {
+      await _onLogout(context);
     }
   }
 
-  Future<void> _onLogout() async {
+  String _logoutFailureDetails(Object error, StackTrace stackTrace) {
+    final primary = switch (error) {
+      ApiException(:final message) => message.trim().isEmpty
+          ? 'Ошибка сервера'
+          : message.trim(),
+      _ => error.toString().trim().isEmpty
+          ? 'Неизвестная ошибка'
+          : error.toString().trim(),
+    };
+    final st = stackTrace.toString().trim();
+    if (st.isEmpty) return primary;
+    return '$primary\n\nТехнические детали (stack trace):\n$st';
+  }
+
+  Future<void> _showLogoutErrorDialog({
+    required BuildContext context,
+    required String title,
+    required String message,
+  }) async {
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) {
+        final maxH = MediaQuery.sizeOf(ctx).height * 0.55;
+        return AlertDialog(
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+          title: Text(
+            title,
+            style: AppTextStyle.inter(
+              fontWeight: FontWeight.w800,
+              fontSize: 18,
+              height: 1.2,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: maxH),
+              child: SingleChildScrollView(
+                child: SelectableText(
+                  message,
+                  style: AppTextStyle.inter(
+                    fontWeight: FontWeight.w500,
+                    fontSize: 14,
+                    height: 1.35,
+                    color: AppColors.grey,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          actions: [
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.primaryBlue,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: Text(
+                'Понятно',
+                style: AppTextStyle.inter(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 16,
+                  height: 1.0,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _onLogout(BuildContext context) async {
     if (_loggingOut) return;
     setState(() => _loggingOut = true);
     try {
       await AppContainer.authRepository.logout();
-      if (mounted) context.go('/login');
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Не удалось выйти')),
+      if (!mounted || !context.mounted) return;
+      final stillIn = await AppContainer.authRepository.isLoggedIn();
+      if (!mounted || !context.mounted) return;
+      if (stillIn) {
+        await _showLogoutErrorDialog(
+          context: context,
+          title: 'Выход не завершён',
+          message:
+              'Сессия всё ещё считается активной. Данные могли быть очищены не полностью.\n\n'
+              'Попробуйте нажать «Выйти из аккаунта» ещё раз. Если проблема повторяется — '
+              'закройте приложение полностью и откройте снова.',
         );
+        return;
       }
+      context.go('/login');
+    } catch (e, st) {
+      if (!mounted || !context.mounted) return;
+      final stillIn = await AppContainer.authRepository.isLoggedIn();
+      if (!mounted || !context.mounted) return;
+      final details = _logoutFailureDetails(e, st);
+      final suffix = stillIn
+          ? '\n\nВы всё ещё вошли в аккаунт — выход не выполнен.'
+          : '\n\nТокен мог быть удалён; при проблемах со входом перезапустите приложение.';
+      await _showLogoutErrorDialog(
+        context: context,
+        title: 'Не удалось выйти',
+        message: details + suffix,
+      );
     } finally {
       if (mounted) setState(() => _loggingOut = false);
     }

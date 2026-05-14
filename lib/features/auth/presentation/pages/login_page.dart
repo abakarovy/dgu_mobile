@@ -11,6 +11,49 @@ import '../../../../core/theme/app_text_styles.dart';
 import '../../../../data/api/api_exception.dart';
 import '../../../../shared/widgets/dismiss_keyboard_on_tap.dart';
 
+/// Первая буква строки и буква после пробела/дефиса — заглавные (ФИО на любом вводе).
+class _CapitalizeNamePartsFormatter extends TextInputFormatter {
+  const _CapitalizeNamePartsFormatter();
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    if (newValue.composing.isValid && !newValue.composing.isCollapsed) {
+      return newValue;
+    }
+    final text = newValue.text;
+    if (text.isEmpty) return newValue;
+
+    final buf = StringBuffer();
+    var capNext = true;
+    for (final r in text.runes) {
+      final c = String.fromCharCode(r);
+      if (capNext) {
+        if (c == ' ' || c == '\t' || c == '-') {
+          buf.write(c);
+          continue;
+        }
+        buf.write(c.toUpperCase());
+        capNext = false;
+      } else {
+        buf.write(c);
+        if (c == ' ' || c == '\t' || c == '-') {
+          capNext = true;
+        }
+      }
+    }
+    final s = buf.toString();
+    if (s == text) return newValue;
+    return TextEditingValue(
+      text: s,
+      selection: newValue.selection,
+      composing: newValue.composing,
+    );
+  }
+}
+
 /// Вход по ФИО и № зачётной книжки.
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -20,6 +63,8 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
+  static const _capitalizeNameParts = _CapitalizeNamePartsFormatter();
+
   static const Color _kBlue = Color(0xFF2E63D5);
   static const Color _kBorderMuted = Color(0x38000000);
   static const Color _kBorderFilled = Color(0xFF000000);
@@ -442,6 +487,9 @@ class _LoginPageState extends State<LoginPage> {
                                       nextFocus: _fnFirst,
                                       textCapitalization:
                                           TextCapitalization.words,
+                                      inputFormatters: const [
+                                        _capitalizeNameParts,
+                                      ],
                                     ),
                                     const SizedBox(height: 16),
                                     _outlineField(
@@ -451,6 +499,9 @@ class _LoginPageState extends State<LoginPage> {
                                       nextFocus: _fnPat,
                                       textCapitalization:
                                           TextCapitalization.words,
+                                      inputFormatters: const [
+                                        _capitalizeNameParts,
+                                      ],
                                     ),
                                     const SizedBox(height: 16),
                                     _outlineField(
@@ -460,6 +511,9 @@ class _LoginPageState extends State<LoginPage> {
                                       nextFocus: _fnBook,
                                       textCapitalization:
                                           TextCapitalization.words,
+                                      inputFormatters: const [
+                                        _capitalizeNameParts,
+                                      ],
                                     ),
                                     const SizedBox(height: 16),
                                     _outlineField(
