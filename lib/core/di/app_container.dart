@@ -257,7 +257,8 @@ abstract final class AppContainer {
     ]);
     // Профиль 1С для UI; расписание запрашиваем с `student_id` = id пользователя (как curriculum).
     await _timedPrefetch(ApiConstants.scheduleReceiveTimeout, _prefetchOneCProfile);
-    await _timedPrefetch(ApiConstants.prefetchScheduleTimeout, _prefetchScheduleCaches);
+    // Расписание временно без прогрева кэша (раздел «в разработке»).
+    // await _timedPrefetch(ApiConstants.prefetchScheduleTimeout, _prefetchScheduleCaches);
     // После `grades:my` в кэше — подпись пропусков с учётом текущего семестра.
     await _timedPrefetch(t, _prefetchProfileAbsencesLabel);
     await _timedPrefetch(
@@ -317,7 +318,6 @@ abstract final class AppContainer {
       _timedPrefetch(t, _prefetchHelp),
       _timedPrefetch(t, _prefetchNotificationPreferences),
       _timedPrefetch(ApiConstants.scheduleReceiveTimeout, () => _prefetchOneCProfileForStudent(cid)),
-      _timedPrefetch(ApiConstants.prefetchScheduleTimeout, () => _prefetchScheduleCachesForStudent(cid)),
     ]);
     await _timedPrefetch(t, () => _prefetchProfileAbsencesLabelForStudent(cid));
     await _timedPrefetch(
@@ -453,6 +453,7 @@ abstract final class AppContainer {
   }
 
   /// Неделя (7 запросов по дням) + срез «сегодня» для главной.
+  // ignore: unused_element — отключено вместе с разделом «Расписание» (в разработке).
   static Future<void> _prefetchScheduleCaches() async {
     final sid = _studentIdFromAuthCache();
     final week = await scheduleApi.getWeekForCalendar(
@@ -470,6 +471,7 @@ abstract final class AppContainer {
     );
   }
 
+  // ignore: unused_element — отключено вместе с разделом «Расписание» (в разработке).
   static Future<void> _prefetchScheduleCachesForStudent(int studentId) async {
     final week = await scheduleApi.getWeekForCalendar(
       DateTime.now(),

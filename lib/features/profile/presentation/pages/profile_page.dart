@@ -694,7 +694,19 @@ class _ProfilePageState extends State<ProfilePage> {
                         parentPending: _parentPending,
                       ),
                     ),
-                  SizedBox(height: 8 * layoutScale),
+                  if ((me?.role ?? '').trim().toLowerCase() == 'student') ...[
+                    if ((me?.role ?? '').trim().toLowerCase() != 'parent')
+                      SizedBox(height: 8 * layoutScale),
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => context.push('/app/profile/wifi-password'),
+                      child: _certificateActionCard(
+                        layoutScale: layoutScale,
+                        title: 'Заявка на пароль Wi‑Fi колледжа',
+                      ),
+                    ),
+                    SizedBox(height: 8 * layoutScale),
+                  ],
                   GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onTap: () {

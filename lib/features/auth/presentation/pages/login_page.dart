@@ -5,11 +5,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../../core/constants/app_colors.dart';
 import '../../../../core/di/app_container.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../data/api/api_exception.dart';
 import '../../../../shared/widgets/dismiss_keyboard_on_tap.dart';
+import '../registration_support_flow.dart';
 
 /// Первая буква строки и буква после пробела/дефиса — заглавные (ФИО на любом вводе).
 class _CapitalizeNamePartsFormatter extends TextInputFormatter {
@@ -116,90 +116,30 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
-  void _logSupportStubForVerify1c({required String errorMessage}) {
+  Future<void> _showVerify1cErrorDialog({
+    required String message,
+    required int? statusCode,
+  }) async {
     final lastName = _lastName.text.trim();
     final firstName = _firstName.text.trim();
     final patronymic = _patronymic.text.trim();
     final book = _book.text.trim();
     final fullName = [lastName, firstName, patronymic].join(' ');
-    debugPrint(
-      '[SupportStub] verify-1c | error: $errorMessage | '
-      'fullName: $fullName | student_book_number: $book | '
-      'поля: фамилия="$lastName", имя="$firstName", отчество="$patronymic", зачётка="$book"',
+    final offerSupport = isStudentBookNotFoundRegistrationError(
+      message: message,
+      statusCode: statusCode,
     );
-  }
 
-  Future<void> _showVerify1cErrorDialog({required String message}) async {
-    await showDialog<void>(
+    await showRegistrationBookNotFoundDialog(
       context: context,
-      barrierDismissible: true,
-      builder: (ctx) {
-        return AlertDialog(
-          backgroundColor: Colors.white,
-          surfaceTintColor: Colors.transparent,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
-          ),
-          title: Text(
-            'Не удалось проверить данные',
-            style: AppTextStyle.inter(
-              fontWeight: FontWeight.w800,
-              fontSize: 18,
-              height: 1.2,
-              color: AppColors.textPrimary,
-            ),
-          ),
-          content: Text(
-            message,
-            style: AppTextStyle.inter(
-              fontWeight: FontWeight.w500,
-              fontSize: 15,
-              height: 1.35,
-              color: AppColors.grey,
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                _logSupportStubForVerify1c(errorMessage: message);
-                Navigator.of(ctx).pop();
-              },
-              child: Text(
-                'Отправить в поддержку',
-                style: AppTextStyle.inter(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 15,
-                  height: 1.0,
-                  color: _kBlue,
-                ),
-              ),
-            ),
-            FilledButton(
-              style: FilledButton.styleFrom(
-                backgroundColor: _kBlue,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(_radius),
-                ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 28,
-                  vertical: 14,
-                ),
-              ),
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: Text(
-                'Ок',
-                style: AppTextStyle.inter(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 16,
-                  height: 1.0,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ],
-        );
-      },
+      errorMessage: message,
+      fullName: fullName,
+      studentBookNumber: book,
+      source: 'verify-1c',
+      lastName: lastName,
+      firstName: firstName,
+      patronymic: patronymic,
+      offerSupportButton: offerSupport,
     );
   }
 
@@ -235,7 +175,13 @@ class _LoginPageState extends State<LoginPage> {
     final book = _book.text.trim();
     try {
       final registrationToken = await AppContainer.authRepository
-          .verifyStudentIn1c(fullName: fullName, studentBookNumber: book);
+          .verifyStudentIn1c(
+            fullName: fullName,
+            studentBookNumber: book,
+            lastName: _lastName.text.trim(),
+            firstName: _firstName.text.trim(),
+            patronymic: _patronymic.text.trim(),
+          );
       if (!mounted) return;
       context.go(
         '/login/email',
@@ -248,7 +194,10 @@ class _LoginPageState extends State<LoginPage> {
       );
     } on ApiException catch (e) {
       if (!mounted) return;
-      await _showVerify1cErrorDialog(message: e.message);
+      await _showVerify1cErrorDialog(
+        message: e.message,
+        statusCode: e.statusCode,
+      );
     } finally {
       if (mounted) setState(() => _submitting = false);
     }

@@ -351,7 +351,7 @@ class _AppDateRangePickerPanelState extends State<_AppDateRangePickerPanel> {
                           ),
                           onPressed: _confirm,
                           child: Text(
-                            'Готово',
+                            'Заявка отправлена',
                             style: AppTextStyle.inter(
                               fontWeight: FontWeight.w600,
                               fontSize: 15,

@@ -11,7 +11,28 @@ abstract class AuthRepository {
   });
 
   /// Проверка студента в 1С (по ФИО и № зачётки) перед регистрацией.
-  Future<String?> verifyStudentIn1c({required String fullName, required String studentBookNumber});
+  /// [lastName], [firstName], [patronymic] — для отчёта в поддержку при ошибках.
+  Future<String?> verifyStudentIn1c({
+    required String fullName,
+    required String studentBookNumber,
+    String? lastName,
+    String? firstName,
+    String? patronymic,
+  });
+
+  /// POST `/auth/student/support/registration-report` (без JWT) — по кнопке «Отправить в поддержку».
+  /// При **404** бэкенд уже ставит письмо в YouGile; повторный вызов — по желанию пользователя.
+  Future<String> submitRegistrationSupportReport({
+    required String source,
+    required String message,
+    required String fullName,
+    required String studentBookNumber,
+    String? lastName,
+    String? firstName,
+    String? patronymic,
+    String? registrationEmail,
+    String? errorCode,
+  });
 
   /// Регистрация студента; при OTP — повтор с [otpCode].
   Future<AuthRegisterResult> registerStudent({

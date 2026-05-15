@@ -30,6 +30,9 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  /// Запросы `/1c/schedule` и пара на главной отключены (экран расписания в разработке).
+  static const bool _kScheduleFeatureDisabled = true;
+
   static const Duration _silentScheduleMinInterval = Duration(minutes: 8);
   /// Обновление карточек «текущая пара» при смене времени без перезапуска приложения.
   static const Duration _scheduleClockTick = Duration(seconds: 30);
@@ -68,6 +71,11 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _hydrateTodayFromCache() {
+    if (_kScheduleFeatureDisabled) {
+      if (!mounted) return;
+      setState(() => _todayLessons = const <ScheduleLesson>[]);
+      return;
+    }
     // Родитель: расписание берём из `/api/parents/student-data` (кэш), а не из `schedule:*`.
     final isParent = _banner.me?.role.trim().toLowerCase() == 'parent';
     if (isParent) {
@@ -134,6 +142,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _refreshTodayScheduleSilent({required bool force}) async {
+    if (_kScheduleFeatureDisabled) return;
     final isParent = _banner.me?.role.trim().toLowerCase() == 'parent';
     if (isParent) {
       try {
@@ -748,23 +757,21 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _actionsSection({required double sf}) {
-    // «Мои задания» и «Расписание»: в ряд пополам, пока обе подписи помещаются
-    // в одну строку в своей половине; иначе — колонка на всю ширину.
+    // «Мои курсы» и «Расписание»: в ряд пополам, пока обе подписи помещаются в одну строку.
     const labelFont = 11.72;
     return LayoutBuilder(
       builder: (context, constraints) {
         final gap = 12 * sf;
-        final minTasks = _minActionCardWidth(context, sf, 'Мои задания', labelFont);
+        final minCourses = _minActionCardWidth(context, sf, 'Мои курсы', labelFont);
         final minSchedule = _minActionCardWidth(context, sf, 'Расписание', labelFont);
-        // Половины равны: каждая должна вместить свою самую длинную подпись в одну строку.
-        final minHalf = max(minTasks, minSchedule);
+        final minHalf = max(minCourses, minSchedule);
         final minRowTotal = 2 * minHalf + gap;
 
         if (constraints.maxWidth < minRowTotal) {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _tasksCard(context, sf: sf),
+              _coursesCard(context, sf: sf),
               SizedBox(height: gap),
               _scheduleCard(context, sf: sf),
             ],
@@ -774,7 +781,7 @@ class _HomePageState extends State<HomePage> {
         return Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(child: _tasksCard(context, sf: sf)),
+            Expanded(child: _coursesCard(context, sf: sf)),
             SizedBox(width: gap),
             Expanded(child: _scheduleCard(context, sf: sf)),
           ],
@@ -783,8 +790,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _tasksCard(BuildContext context, {required double sf}) {
-    // Точный цвет из дизайна: #10B98121 (alpha 0x21).
+  Widget _coursesCard(BuildContext context, {required double sf}) {
     final greenBg = const Color(0x2110B981);
     final iconBg = const Color(0xFFECFDF5);
     final iconColor = const Color.fromRGBO(5, 150, 105, 1);
@@ -798,10 +804,10 @@ class _HomePageState extends State<HomePage> {
       iconAsset: 'assets/icons/book_icon.svg',
       iconW: 14.749685287475586,
       iconH: 18.437108993530273,
-      label: 'Мои задания',
+      label: 'Мои курсы',
       labelColor: iconColor,
       labelFontSize: 11.72,
-      onPressed: () => context.push('/app/tasks'),
+      onPressed: () => context.push('/app/student/lms'),
     );
   }
 
@@ -819,6 +825,7 @@ class _HomePageState extends State<HomePage> {
       iconW: 13.500144958496094,
       iconH: 15,
       label: 'Расписание',
+      subtitle: 'В разработке',
       labelColor: iconColor,
       labelFontSize: 11.72,
       onPressed: () => context.push('/app/schedule'),
@@ -852,6 +859,7 @@ class _HomePageState extends State<HomePage> {
     required Color iconBg,
     required Color iconColor,
     required String label,
+    String? subtitle,
     required Color labelColor,
     required double labelFontSize,
     required String iconAsset,
@@ -860,6 +868,8 @@ class _HomePageState extends State<HomePage> {
     required VoidCallback onPressed,
   }) {
     final radius = 20 * sf;
+    final sub = subtitle?.trim();
+    final hasSub = sub != null && sub.isNotEmpty;
 
     final card = Container(
       height: 90 * sf,
@@ -871,7 +881,8 @@ class _HomePageState extends State<HomePage> {
       child: Align(
         alignment: Alignment.topLeft,
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
+          crossAxisAlignment:
+              hasSub ? CrossAxisAlignment.start : CrossAxisAlignment.center,
           children: [
             Container(
               width: 35 * sf,
@@ -892,15 +903,43 @@ class _HomePageState extends State<HomePage> {
             ),
             SizedBox(width: 10 * sf),
             Expanded(
-              child: Text(
-                label,
-                textAlign: TextAlign.left,
-                style: AppTextStyle.inter(
-                  fontWeight: FontWeight.w700,
-                  fontSize: labelFontSize * sf,
-                  color: labelColor,
-                ),
-              ),
+              child: hasSub
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          label,
+                          textAlign: TextAlign.left,
+                          style: AppTextStyle.inter(
+                            fontWeight: FontWeight.w700,
+                            fontSize: labelFontSize * sf,
+                            color: labelColor,
+                          ),
+                        ),
+                        SizedBox(height: 3 * sf),
+                        Text(
+                          sub,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTextStyle.inter(
+                            fontWeight: FontWeight.w500,
+                            fontSize: (labelFontSize * 0.72) * sf,
+                            color: AppColors.caption,
+                          ),
+                        ),
+                      ],
+                    )
+                  : Text(
+                      label,
+                      textAlign: TextAlign.left,
+                      style: AppTextStyle.inter(
+                        fontWeight: FontWeight.w700,
+                        fontSize: labelFontSize * sf,
+                        color: labelColor,
+                      ),
+                    ),
             ),
           ],
         ),
@@ -937,6 +976,26 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _todayLessonsSection({required double sf}) {
+    if (_kScheduleFeatureDisabled) {
+      return SizedBox(
+        height: 220 * sf,
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Text(
+              'Расписание на сегодня в разработке.',
+              textAlign: TextAlign.center,
+              style: AppTextStyle.inter(
+                fontWeight: FontWeight.w600,
+                fontSize: 15 * sf,
+                height: 1.35,
+                color: AppColors.caption,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
     final items = _todayLessons;
     if (items.isEmpty) {
       return SizedBox(

@@ -23,6 +23,7 @@ import '../../features/schedule/presentation/pages/schedule_page.dart';
 import '../../features/support/presentation/pages/support_page.dart';
 import '../../features/profile/presentation/pages/settings_page.dart';
 import '../../features/profile/presentation/pages/student_id_page.dart';
+import '../../features/profile/presentation/pages/wifi_password_request_page.dart';
 import '../../features/profile/presentation/pages/absences_page.dart';
 import '../../features/tasks/presentation/pages/tasks_page.dart';
 import '../../features/shell/presentation/pages/app_shell_page.dart';
@@ -137,6 +138,15 @@ final GoRouter appRouter = GoRouter(
                     key: state.pageKey,
                     name: state.name,
                     child: const SettingsPage(),
+                  ),
+                ),
+                GoRoute(
+                  path: 'wifi-password',
+                  name: 'wifiPassword',
+                  pageBuilder: (context, state) => _cupertinoSubpage(
+                    key: state.pageKey,
+                    name: state.name,
+                    child: const WifiPasswordRequestPage(),
                   ),
                 ),
               ],

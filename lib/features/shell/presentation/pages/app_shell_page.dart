@@ -64,17 +64,20 @@ class _AppShellPageState extends State<AppShellPage> {
     final isStudentIdScreen = path.endsWith('student-id');
     final isSettingsScreen = path.endsWith('settings');
     final isAbsencesScreen = path.endsWith('absences');
+    final isWifiPasswordScreen = path.endsWith('wifi-password');
     final hideShellAppBar = isNotificationsScreen ||
         isSupportScreen ||
         isStudentIdScreen ||
         isSettingsScreen ||
-        isAbsencesScreen;
+        isAbsencesScreen ||
+        isWifiPasswordScreen;
 
     /// Без нижнего меню: полноэкранные вложенные экраны профиля и поддержка.
     final hideShellBottomNavBase = isSettingsScreen ||
         isAbsencesScreen ||
         isStudentIdScreen ||
-        isSupportScreen;
+        isSupportScreen ||
+        isWifiPasswordScreen;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,

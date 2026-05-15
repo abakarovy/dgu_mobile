@@ -11,6 +11,7 @@ class StudentModuleTile extends StatelessWidget {
     required this.subtitle,
     required this.accentColor,
     required this.onTap,
+    this.bottomSpacing = 10,
   });
 
   final IconData icon;
@@ -18,11 +19,13 @@ class StudentModuleTile extends StatelessWidget {
   final String subtitle;
   final Color accentColor;
   final VoidCallback onTap;
+  /// Отступ снизу (для встраивания в ряд на главной передайте `0`).
+  final double bottomSpacing;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: EdgeInsets.only(bottom: bottomSpacing),
       child: GestureDetector(
         onTap: onTap,
         behavior: HitTestBehavior.opaque,

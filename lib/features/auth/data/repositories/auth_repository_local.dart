@@ -28,9 +28,27 @@ class AuthRepositoryLocal implements AuthRepository {
   Future<String?> verifyStudentIn1c({
     required String fullName,
     required String studentBookNumber,
+    String? lastName,
+    String? firstName,
+    String? patronymic,
   }) async {
     // Локальный режим: считаем проверку успешной.
     return null;
+  }
+
+  @override
+  Future<String> submitRegistrationSupportReport({
+    required String source,
+    required String message,
+    required String fullName,
+    required String studentBookNumber,
+    String? lastName,
+    String? firstName,
+    String? patronymic,
+    String? registrationEmail,
+    String? errorCode,
+  }) async {
+    return 'Сообщение передано в поддержку.';
   }
 
   @override

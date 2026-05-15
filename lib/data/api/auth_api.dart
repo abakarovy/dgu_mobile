@@ -31,6 +31,8 @@ class AuthApi {
   final TokenStorage _tokenStorage;
 
   static const String _studentVerify1cPath = '/auth/student/verify-1c';
+  static const String _studentRegistrationSupportPath =
+      '/auth/student/support/registration-report';
   static const String _studentRegisterPath = '/auth/student/register';
   static const String _staffLoginPath = '/auth/staff/login';
 
@@ -129,17 +131,29 @@ class AuthApi {
   }
 
   /// POST /api/auth/student/verify-1c — проверка студента в 1С (без регистрации).
+  /// [lastName], [firstName], [patronymic] — для письма в YouGile при 404 (с бэкенда).
   Future<StudentVerify1cResult> verifyStudentIn1c({
     required String fullName,
     required String studentBookNumber,
+    String? lastName,
+    String? firstName,
+    String? patronymic,
   }) async {
     try {
+      final data = <String, dynamic>{
+        'full_name': fullName.trim(),
+        'student_book_number': studentBookNumber.trim(),
+      };
+      final ln = lastName?.trim();
+      final fn = firstName?.trim();
+      final pn = patronymic?.trim();
+      if (ln != null && ln.isNotEmpty) data['last_name'] = ln;
+      if (fn != null && fn.isNotEmpty) data['first_name'] = fn;
+      if (pn != null && pn.isNotEmpty) data['patronymic'] = pn;
+
       final response = await _api.dio.post<dynamic>(
         _studentVerify1cPath,
-        data: <String, dynamic>{
-          'full_name': fullName.trim(),
-          'student_book_number': studentBookNumber.trim(),
-        },
+        data: data,
         options: Options(validateStatus: (s) => s != null && s < 500),
       );
       if (response.statusCode != 200) {
@@ -149,13 +163,69 @@ class AuthApi {
         );
       }
 
-      final data = response.data;
-      if (data is Map<String, dynamic>) {
-        final t = (data['registration_token'] ?? data['registrationToken'] ?? data['token']);
+      final payload = response.data;
+      if (payload is Map) {
+        final map = Map<String, dynamic>.from(payload);
+        final t = (map['registration_token'] ?? map['registrationToken'] ?? map['token']);
         final s = (t is String) ? t.trim() : (t == null ? '' : '$t').trim();
         return StudentVerify1cResult(registrationToken: s.isEmpty ? null : s);
       }
       return const StudentVerify1cResult(registrationToken: null);
+    } on DioException catch (e) {
+      throw ApiException.fromDio(e);
+    }
+  }
+
+  /// POST `/auth/student/support/registration-report` — опционально (не дублировать стандартный 404).
+  /// Без JWT. Успех: 200 + `{ ok, message }`.
+  Future<String> postStudentRegistrationSupportReport({
+    required String source,
+    required String message,
+    required String fullName,
+    required String studentBookNumber,
+    String? lastName,
+    String? firstName,
+    String? patronymic,
+    String? registrationEmail,
+    String? errorCode,
+  }) async {
+    try {
+      final body = <String, dynamic>{
+        'source': source.trim(),
+        'message': message.trim(),
+        'full_name': fullName.trim(),
+        'student_book_number': studentBookNumber.trim(),
+        'error_code': (errorCode != null && errorCode.trim().isNotEmpty)
+            ? errorCode.trim()
+            : 'NOT_FOUND',
+      };
+      final ln = lastName?.trim();
+      final fn = firstName?.trim();
+      final pn = patronymic?.trim();
+      if (ln != null && ln.isNotEmpty) body['last_name'] = ln;
+      if (fn != null && fn.isNotEmpty) body['first_name'] = fn;
+      if (pn != null && pn.isNotEmpty) body['patronymic'] = pn;
+      final re = registrationEmail?.trim();
+      if (re != null && re.isNotEmpty) body['registration_email'] = re;
+
+      final response = await _api.dio.post<dynamic>(
+        _studentRegistrationSupportPath,
+        data: body,
+        options: Options(validateStatus: (s) => s != null && s < 500),
+      );
+      final code = response.statusCode ?? 0;
+      if (code != 200) {
+        throw ApiException(
+          ApiErrorParser.fromResponseData(response.data) ?? 'Ошибка',
+          code,
+        );
+      }
+      final data = response.data;
+      if (data is Map) {
+        final m = data['message'];
+        if (m is String && m.trim().isNotEmpty) return m.trim();
+      }
+      return 'Сообщение передано в поддержку.';
     } on DioException catch (e) {
       throw ApiException.fromDio(e);
     }

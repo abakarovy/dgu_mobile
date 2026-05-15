@@ -12,6 +12,7 @@ import '../../../../core/theme/app_text_styles.dart';
 import '../../../../data/api/api_exception.dart';
 import '../../../../shared/widgets/dismiss_keyboard_on_tap.dart';
 import '../../domain/auth_flow_results.dart';
+import '../registration_support_flow.dart';
 
 /// Вход / регистрация по E-mail — те же поля и кнопки, что на экране «Студент».
 class LoginEmailPage extends StatefulWidget {
@@ -89,6 +90,43 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
   String get _topTitle {
     if (_isParentRole) return 'Родитель';
     return _isRegisterMode ? 'Регистрация' : 'Студент';
+  }
+
+  Future<void> _handleRegisterApiException(ApiException e) async {
+    if (!mounted) return;
+    final fullName = _verifiedFullName;
+    final book = _verifiedBookNumber;
+    if (fullName == null || book == null) {
+      setState(() {
+        _showWrongCredentialsError = true;
+        _credentialsErrorMessage = e.message;
+      });
+      return;
+    }
+    if (isStudentBookNotFoundRegistrationError(
+      message: e.message,
+      statusCode: e.statusCode,
+    )) {
+      await showRegistrationBookNotFoundDialog(
+        context: context,
+        errorMessage: e.message,
+        fullName: fullName,
+        studentBookNumber: book,
+        source: 'student/register',
+        registrationEmail: _emailController.text.trim(),
+        dialogTitle: 'Не удалось зарегистрироваться',
+      );
+      return;
+    }
+    setState(() {
+      _showWrongCredentialsError = true;
+      if (e.statusCode == 400 || e.statusCode == 409) {
+        _credentialsErrorMessage =
+            'Аккаунт уже существует. Войдите по E‑Mail.';
+      } else {
+        _credentialsErrorMessage = e.message;
+      }
+    });
   }
 
   @override
@@ -235,10 +273,14 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
       }
     } on ApiException catch (e) {
       if (!mounted) return;
-      setState(() {
-        _showWrongCredentialsError = true;
-        _credentialsErrorMessage = e.message;
-      });
+      if (_otpIsForRegister) {
+        await _handleRegisterApiException(e);
+      } else {
+        setState(() {
+          _showWrongCredentialsError = true;
+          _credentialsErrorMessage = e.message;
+        });
+      }
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -450,10 +492,14 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
         }
       } on ApiException catch (e) {
         if (!mounted) return;
-        setState(() {
-          _showWrongCredentialsError = true;
-          _credentialsErrorMessage = e.message;
-        });
+        if (_otpIsForRegister) {
+          await _handleRegisterApiException(e);
+        } else {
+          setState(() {
+            _showWrongCredentialsError = true;
+            _credentialsErrorMessage = e.message;
+          });
+        }
       } finally {
         if (mounted) setState(() => _submitting = false);
       }
@@ -520,15 +566,14 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
       }
     } on ApiException catch (e) {
       if (!mounted) return;
-      setState(() {
-        _showWrongCredentialsError = true;
-        if (_isRegisterMode && (e.statusCode == 400 || e.statusCode == 409)) {
-          _credentialsErrorMessage =
-              'Аккаунт уже существует. Войдите по E‑Mail.';
-        } else {
+      if (_isRegisterMode) {
+        await _handleRegisterApiException(e);
+      } else {
+        setState(() {
+          _showWrongCredentialsError = true;
           _credentialsErrorMessage = e.message;
-        }
-      });
+        });
+      }
     } finally {
       if (mounted) setState(() => _submitting = false);
     }

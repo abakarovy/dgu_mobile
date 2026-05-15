@@ -223,5 +223,45 @@ class AccountApi {
       throw ApiException.fromDio(e);
     }
   }
+
+  /// POST /api/students/me/wifi-password-request
+  ///
+  /// Только для роли `student`. Текст для пользователя в поле [message] ответа.
+  Future<String> requestStudentWifiPassword({
+    required String wifiLogin,
+    required String desiredPassword,
+    String? courseGroupHint,
+  }) async {
+    try {
+      final body = <String, dynamic>{
+        'wifi_login': wifiLogin.trim(),
+        'desired_password': desiredPassword.trim(),
+      };
+      final hint = courseGroupHint?.trim();
+      if (hint != null && hint.isNotEmpty) {
+        body['course_group_hint'] = hint;
+      }
+      final res = await _api.dio.post<dynamic>(
+        '/students/me/wifi-password-request',
+        data: body,
+        options: Options(validateStatus: (s) => s != null && s < 500),
+      );
+      if (res.statusCode != 200) {
+        throw DioException(
+          requestOptions: res.requestOptions,
+          response: res,
+          type: DioExceptionType.badResponse,
+        );
+      }
+      final raw = res.data;
+      if (raw is Map) {
+        final m = raw['message'];
+        if (m is String && m.trim().isNotEmpty) return m.trim();
+      }
+      return 'Заявка отправлена.';
+    } on DioException catch (e) {
+      throw ApiException.fromDio(e);
+    }
+  }
 }
 

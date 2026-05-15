@@ -9,11 +9,10 @@ import 'package:dgu_mobile/shared/widgets/network_degraded_banner.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-/// Хаб студенческих сервисов (курсы, объявления, портфолио, рейтинг, портал).
+/// Экран «Сервисы студента»: рейтинг, объявления, портфолио, портал. «Мои курсы» — на главной.
 class StudentHubPage extends StatefulWidget {
   const StudentHubPage({super.key});
 
-  static const Color _cLms = Color(0xFF7C3AED);
   static const Color _cAnn = Color(0xFFEA580C);
   static const Color _cPort = Color(0xFF0891B2);
   static const Color _cSch = Color(0xFFCA8A04);
@@ -218,13 +217,6 @@ class _StudentHubPageState extends State<StudentHubPage> {
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
                 children: [
                   _scholarshipPreviewCard(context),
-                  StudentModuleTile(
-                    icon: Icons.school_outlined,
-                    title: 'Мои курсы',
-                    subtitle: 'Юрайт, ПРОФ СПО, Академия Москва, учебный план',
-                    accentColor: StudentHubPage._cLms,
-                    onTap: () => context.push('/app/student/lms'),
-                  ),
                   StudentModuleTile(
                     icon: Icons.campaign_outlined,
                     title: 'Объявления отделения',

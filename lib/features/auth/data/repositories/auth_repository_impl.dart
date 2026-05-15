@@ -65,12 +65,43 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<String?> verifyStudentIn1c({
     required String fullName,
     required String studentBookNumber,
+    String? lastName,
+    String? firstName,
+    String? patronymic,
   }) async {
     final r = await _authApi.verifyStudentIn1c(
       fullName: fullName.trim(),
       studentBookNumber: studentBookNumber.trim(),
+      lastName: lastName,
+      firstName: firstName,
+      patronymic: patronymic,
     );
     return r.registrationToken;
+  }
+
+  @override
+  Future<String> submitRegistrationSupportReport({
+    required String source,
+    required String message,
+    required String fullName,
+    required String studentBookNumber,
+    String? lastName,
+    String? firstName,
+    String? patronymic,
+    String? registrationEmail,
+    String? errorCode,
+  }) async {
+    return _authApi.postStudentRegistrationSupportReport(
+      source: source,
+      message: message,
+      fullName: fullName,
+      studentBookNumber: studentBookNumber,
+      lastName: lastName,
+      firstName: firstName,
+      patronymic: patronymic,
+      registrationEmail: registrationEmail,
+      errorCode: errorCode,
+    );
   }
 
   @override
