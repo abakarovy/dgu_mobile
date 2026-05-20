@@ -1,8 +1,4 @@
-import 'dart:convert' show jsonEncode;
-import 'dart:io';
-
 import '../../core/constants/api_constants.dart';
-import '../../core/constants/app_constants.dart';
 import '../../features/auth/domain/repositories/auth_repository.dart';
 import '../../data/api/api_client.dart';
 import '../../data/api/auth_api.dart';
@@ -20,7 +16,6 @@ import '../../data/api/profile_1c_api.dart';
 import '../../data/api/push_api.dart';
 import '../../data/api/schedule_api.dart';
 import '../../data/api/student_ticket_api.dart';
-import '../../data/api/student_services_api.dart';
 import '../../data/services/token_storage.dart';
 import '../../features/auth/data/repositories/auth_repository_impl.dart';
 import '../../features/schedule/domain/schedule_calendar_filter.dart';
@@ -28,10 +23,7 @@ import '../auth/auth_session.dart';
 import '../../core/cache/json_cache.dart';
 import '../network/app_network_banner_controller.dart';
 import '../storage/local_user_storage_wipe.dart';
-import '../storage/profile_1c_photo_cache.dart';
-import '../student/department_announcement_prompt.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 /// Простой DI: инициализация один раз при старте, затем доступ к репозиториям.
 abstract final class AppContainer {
@@ -51,7 +43,6 @@ abstract final class AppContainer {
   static AccountApi? _accountApi;
   static DocumentsApi? _documentsApi;
   static StudentTicketApi? _studentTicketApi;
-  static StudentServicesApi? _studentServicesApi;
   static JsonCache? _jsonCache;
   static String? _appDocumentsDirPath;
 
@@ -89,7 +80,6 @@ abstract final class AppContainer {
     _accountApi = AccountApi(apiClient: apiClient);
     _documentsApi = DocumentsApi(apiClient: apiClient);
     _studentTicketApi = StudentTicketApi(apiClient: apiClient);
-    _studentServicesApi = StudentServicesApi(apiClient: apiClient);
     _jsonCache = jsonCache;
   }
 
@@ -187,12 +177,6 @@ abstract final class AppContainer {
     return a;
   }
 
-  static StudentServicesApi get studentServicesApi {
-    final a = _studentServicesApi;
-    if (a == null) throw StateError('AppContainer.init() must be called before using studentServicesApi');
-    return a;
-  }
-
   static AuthApi get authApi {
     final a = _authApi;
     if (a == null) throw StateError('AppContainer.init() must be called before using authApi');
@@ -221,10 +205,6 @@ abstract final class AppContainer {
     } catch (_) {}
     try {
       AppNetworkBannerController.instance.clearDegradation();
-    } catch (_) {}
-    try {
-      // Снова можно показать приглашение к объявлениям после следующего входа.
-      DepartmentAnnouncementPrompt.resetSessionScheduling();
     } catch (_) {}
     AuthSession.bump();
   }
@@ -255,24 +235,15 @@ abstract final class AppContainer {
       _timedPrefetch(t, _prefetchAssignments),
       _timedPrefetch(t, _prefetchStudentTicket),
     ]);
-    // Профиль 1С для UI; расписание запрашиваем с `student_id` = id пользователя (как curriculum).
+    // Профиль 1С нужен до расписания (student_id = номер зачётки в query).
     await _timedPrefetch(ApiConstants.scheduleReceiveTimeout, _prefetchOneCProfile);
-    // Расписание временно без прогрева кэша (раздел «в разработке»).
-    // await _timedPrefetch(ApiConstants.prefetchScheduleTimeout, _prefetchScheduleCaches);
+    await _timedPrefetch(ApiConstants.prefetchScheduleTimeout, _prefetchScheduleCaches);
     // После `grades:my` в кэше — подпись пропусков с учётом текущего семестра.
     await _timedPrefetch(t, _prefetchProfileAbsencesLabel);
     await _timedPrefetch(
       ApiConstants.scheduleReceiveTimeout,
       _prefetchCurriculum,
     );
-    // Профиль: статус родителя и фото 1С — чтобы не запрашивать только при открытии вкладки.
-    await Future.wait<void>([
-      _timedPrefetch(t, _prefetchParentStatusForStudent),
-      _timedPrefetch(
-        ApiConstants.receiveTimeout,
-        () => _prefetchStudent1cPhotoToDisk(studentId: null),
-      ),
-    ]);
     return results.every((ok) => ok);
   }
 
@@ -318,15 +289,12 @@ abstract final class AppContainer {
       _timedPrefetch(t, _prefetchHelp),
       _timedPrefetch(t, _prefetchNotificationPreferences),
       _timedPrefetch(ApiConstants.scheduleReceiveTimeout, () => _prefetchOneCProfileForStudent(cid)),
+      _timedPrefetch(ApiConstants.prefetchScheduleTimeout, () => _prefetchScheduleCachesForStudent(cid)),
     ]);
     await _timedPrefetch(t, () => _prefetchProfileAbsencesLabelForStudent(cid));
     await _timedPrefetch(
       ApiConstants.scheduleReceiveTimeout,
       () => _prefetchCurriculumForStudent(cid),
-    );
-    await _timedPrefetch(
-      ApiConstants.receiveTimeout,
-      () => _prefetchStudent1cPhotoToDisk(studentId: cid),
     );
     return results.every((ok) => ok);
   }
@@ -404,7 +372,15 @@ abstract final class AppContainer {
 
   static Future<void> _prefetchHelp() async {
     final h = await mobileHelpApi.getHelp();
-    await jsonCache.setJson('mobile:help', h.toCacheJson());
+    await jsonCache.setJson('mobile:help', {
+      'hotline_phone': h.hotlinePhone,
+      'email': h.email,
+      'website_url': h.websiteUrl,
+      'faq': [
+        for (final f in (h.faq ?? const []))
+          {'title': f.title, 'answer': f.answer}
+      ],
+    });
   }
 
   static Future<void> _prefetchNotificationPreferences() async {
@@ -443,19 +419,15 @@ abstract final class AppContainer {
     await jsonCache.setJson('1c:my-profile', p.toJsonMap());
   }
 
-  static int? _studentIdFromAuthCache() {
-    final m = jsonCache.getJsonMap('auth:me');
+  static int? _studentBookIdFrom1cCache() {
+    final m = jsonCache.getJsonMap('1c:my-profile');
     if (m == null) return null;
-    final id = m['id'];
-    if (id is int) return id;
-    if (id is num) return id.toInt();
-    return null;
+    return int.tryParse(m['student_book_number']?.toString().trim() ?? '');
   }
 
   /// Неделя (7 запросов по дням) + срез «сегодня» для главной.
-  // ignore: unused_element — отключено вместе с разделом «Расписание» (в разработке).
   static Future<void> _prefetchScheduleCaches() async {
-    final sid = _studentIdFromAuthCache();
+    final sid = _studentBookIdFrom1cCache();
     final week = await scheduleApi.getWeekForCalendar(
       DateTime.now(),
       studentId: sid,
@@ -471,7 +443,6 @@ abstract final class AppContainer {
     );
   }
 
-  // ignore: unused_element — отключено вместе с разделом «Расписание» (в разработке).
   static Future<void> _prefetchScheduleCachesForStudent(int studentId) async {
     final week = await scheduleApi.getWeekForCalendar(
       DateTime.now(),
@@ -570,73 +541,5 @@ abstract final class AppContainer {
       }
     }
     return bestLabel;
-  }
-
-  /// Сохраняет ответ `GET /students/me/parent-status` в SharedPreferences (как экран профиля).
-  static Future<void> _prefetchParentStatusForStudent() async {
-    try {
-      final s = await accountApi.getParentStatus();
-      final p = await SharedPreferences.getInstance();
-      await p.setString(
-        AppConstants.profileLastParentStatusJsonKey,
-        jsonEncode(s),
-      );
-    } catch (_) {}
-  }
-
-  /// Кэш фото 1С: студент — `?book=`, родитель — `?student_id=`; имя файла см. [Profile1cPhotoCache].
-  static Future<void> _prefetchStudent1cPhotoToDisk({int? studentId}) async {
-    try {
-      final cache = jsonCache;
-      final fn = Profile1cPhotoCache.diskCacheFileName(cache);
-      if (fn == null) return;
-
-      final prefs = await SharedPreferences.getInstance();
-      final dirPath = appDocumentsDirPath ??
-          (await getApplicationDocumentsDirectory()).path;
-      final file = File(Profile1cPhotoCache.absolutePathForFileName(dirPath, fn));
-
-      final existingPath = prefs.getString(AppConstants.profile1cPhotoPathKey);
-      if (existingPath != null &&
-          existingPath.trim().isNotEmpty &&
-          existingPath != file.path) {
-        await prefs.remove(AppConstants.profile1cPhotoPathKey);
-      }
-
-      if (await file.exists()) {
-        final len = await file.length();
-        if (len > 0) {
-          await prefs.setString(AppConstants.profile1cPhotoPathKey, file.path);
-          return;
-        }
-        try {
-          await file.delete();
-        } catch (_) {}
-      }
-
-      final isParent = Profile1cPhotoCache.isParentRole(cache);
-      final childId =
-          studentId ?? Profile1cPhotoCache.childStudentIdForParent(cache);
-
-      final List<int>? bytes;
-      if (isParent) {
-        if (childId == null) return;
-        bytes = await profile1cApi.getStudentPhotoBytes(studentId: childId);
-      } else {
-        final book = Profile1cPhotoCache.studentBookForPhotoFromCache(cache);
-        if (book == null || book.isEmpty) return;
-        bytes = await profile1cApi.getStudentPhotoBytes(book: book);
-      }
-
-      if (bytes == null || bytes.isEmpty) {
-        try {
-          if (await file.exists()) await file.delete();
-        } catch (_) {}
-        await prefs.remove(AppConstants.profile1cPhotoPathKey);
-        return;
-      }
-      await file.writeAsBytes(bytes, flush: true);
-      await prefs.setString(AppConstants.profile1cPhotoPathKey, file.path);
-    } catch (_) {}
   }
 }
