@@ -938,9 +938,11 @@ class _ProfilePageState extends State<ProfilePage> {
     required String fullName,
   }) {
     // Ниже, чем в макете 309 — компактнее шапка профиля.
+    // Портрет 3∶4 как на экране «Студенческий билет» (student_id_page).
     final heroH = 248 * layoutScale;
-    final avatar = 96 * layoutScale;
-    final radius = 33 * layoutScale;
+    final avatarW = 96 * layoutScale;
+    final avatarH = 128 * layoutScale;
+    final radius = 12 * layoutScale;
     final borderW = 3.34 * layoutScale;
     final nameSize = 20.03 * layoutScale;
     final subtitleSize = 16.5 * layoutScale;
@@ -975,67 +977,78 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
           ),
           Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: avatar,
-                  height: avatar,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(radius),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0x1A000000),
-                        offset: Offset(0, 8.35 * layoutScale),
-                        blurRadius: 20.86 * layoutScale,
-                      ),
-                    ],
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(radius),
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        Positioned.fill(child: _avatarImage(layoutScale)),
-                        Positioned.fill(
-                          child: IgnorePointer(
-                            child: DecoratedBox(
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(radius),
-                                border: Border.all(
-                                  color: Colors.white,
-                                  width: borderW,
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 24 * layoutScale),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Container(
+                    width: avatarW,
+                    height: avatarH,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(radius),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0x1A000000),
+                          offset: Offset(0, 8.35 * layoutScale),
+                          blurRadius: 20.86 * layoutScale,
+                        ),
+                      ],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(radius),
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          Positioned.fill(child: _avatarImage(layoutScale)),
+                          Positioned.fill(
+                            child: IgnorePointer(
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(radius),
+                                  border: Border.all(
+                                    color: Colors.white,
+                                    width: borderW,
+                                  ),
                                 ),
                               ),
                             ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: 16 * layoutScale),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          fullName,
+                          textAlign: TextAlign.left,
+                          style: AppTextStyle.inter(
+                            fontWeight: FontWeight.w800,
+                            fontSize: nameSize,
+                            height: 1.0,
+                            color: Colors.white,
+                          ),
+                        ),
+                        SizedBox(height: 3 * layoutScale),
+                        Text(
+                          'Колледж ДГУ',
+                          style: AppTextStyle.inter(
+                            fontWeight: FontWeight.w600,
+                            fontSize: subtitleSize,
+                            height: 1.0,
+                            color: const Color(0xFF94A3B8),
                           ),
                         ),
                       ],
                     ),
                   ),
-                ),
-                SizedBox(height: 8 * layoutScale),
-                Text(
-                  fullName,
-                  textAlign: TextAlign.center,
-                  style: AppTextStyle.inter(
-                    fontWeight: FontWeight.w800,
-                    fontSize: nameSize,
-                    height: 1.0,
-                    color: Colors.white,
-                  ),
-                ),
-                SizedBox(height: 3 * layoutScale),
-                Text(
-                  'Колледж ДГУ',
-                  style: AppTextStyle.inter(
-                    fontWeight: FontWeight.w600,
-                    fontSize: subtitleSize,
-                    height: 1.0,
-                    color: const Color(0xFF94A3B8),
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ],
