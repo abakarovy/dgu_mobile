@@ -373,15 +373,10 @@ class _SchedulePageState extends State<SchedulePage> {
     }
   }
 
-  /// Родитель: id ребёнка; студент: номер зачётки из кэша 1С (часто именно его ждёт бэкенд).
+  /// Родитель: id ребёнка; студент: id пользователя из `/auth/me`.
   Future<int?> _studentIdForScheduleQuery() async {
     final parent = await _linkedStudentIdForScheduleApi();
     if (parent != null) return parent;
-    final cached = AppContainer.jsonCache.getJsonMap('1c:my-profile');
-    if (cached != null) {
-      final p = int.tryParse(cached['student_book_number']?.toString().trim() ?? '');
-      if (p != null) return p;
-    }
     final me = AppContainer.jsonCache.getJsonMap('auth:me');
     final id = me?['id'];
     if (id is int) return id;

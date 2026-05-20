@@ -15,6 +15,7 @@ import '../../data/api/notification_preferences_api.dart';
 import '../../data/api/profile_1c_api.dart';
 import '../../data/api/push_api.dart';
 import '../../data/api/schedule_api.dart';
+import '../../data/api/student_services_api.dart';
 import '../../data/api/student_ticket_api.dart';
 import '../../data/services/token_storage.dart';
 import '../../features/auth/data/repositories/auth_repository_impl.dart';
@@ -43,6 +44,7 @@ abstract final class AppContainer {
   static AccountApi? _accountApi;
   static DocumentsApi? _documentsApi;
   static StudentTicketApi? _studentTicketApi;
+  static StudentServicesApi? _studentServicesApi;
   static JsonCache? _jsonCache;
   static String? _appDocumentsDirPath;
 
@@ -80,6 +82,7 @@ abstract final class AppContainer {
     _accountApi = AccountApi(apiClient: apiClient);
     _documentsApi = DocumentsApi(apiClient: apiClient);
     _studentTicketApi = StudentTicketApi(apiClient: apiClient);
+    _studentServicesApi = StudentServicesApi(apiClient: apiClient);
     _jsonCache = jsonCache;
   }
 
@@ -177,6 +180,12 @@ abstract final class AppContainer {
     return a;
   }
 
+  static StudentServicesApi get studentServicesApi {
+    final a = _studentServicesApi;
+    if (a == null) throw StateError('AppContainer.init() must be called before using studentServicesApi');
+    return a;
+  }
+
   static AuthApi get authApi {
     final a = _authApi;
     if (a == null) throw StateError('AppContainer.init() must be called before using authApi');
@@ -235,7 +244,7 @@ abstract final class AppContainer {
       _timedPrefetch(t, _prefetchAssignments),
       _timedPrefetch(t, _prefetchStudentTicket),
     ]);
-    // Профиль 1С нужен до расписания (student_id = номер зачётки в query).
+    // Профиль 1С нужен до расписания (данные профиля/группы/кэша UI).
     await _timedPrefetch(ApiConstants.scheduleReceiveTimeout, _prefetchOneCProfile);
     await _timedPrefetch(ApiConstants.prefetchScheduleTimeout, _prefetchScheduleCaches);
     // После `grades:my` в кэше — подпись пропусков с учётом текущего семестра.
@@ -419,15 +428,18 @@ abstract final class AppContainer {
     await jsonCache.setJson('1c:my-profile', p.toJsonMap());
   }
 
-  static int? _studentBookIdFrom1cCache() {
-    final m = jsonCache.getJsonMap('1c:my-profile');
+  static int? _studentIdFromAuthCache() {
+    final m = jsonCache.getJsonMap('auth:me');
     if (m == null) return null;
-    return int.tryParse(m['student_book_number']?.toString().trim() ?? '');
+    final id = m['id'];
+    if (id is int) return id;
+    if (id is num) return id.toInt();
+    return int.tryParse(id?.toString().trim() ?? '');
   }
 
   /// Неделя (7 запросов по дням) + срез «сегодня» для главной.
   static Future<void> _prefetchScheduleCaches() async {
-    final sid = _studentBookIdFrom1cCache();
+    final sid = _studentIdFromAuthCache();
     final week = await scheduleApi.getWeekForCalendar(
       DateTime.now(),
       studentId: sid,

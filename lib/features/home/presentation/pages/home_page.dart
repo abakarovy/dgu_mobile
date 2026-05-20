@@ -165,17 +165,18 @@ class _HomePageState extends State<HomePage> {
       }
     }
     try {
-      final bookId = int.tryParse(
-        AppContainer.jsonCache
-                .getJsonMap('1c:my-profile')?['student_book_number']
-                ?.toString()
-                .trim() ??
-            '',
-      );
+      final me = AppContainer.jsonCache.getJsonMap('auth:me');
+      final uid = me?['id'];
+      int? studentId;
+      if (uid is int) {
+        studentId = uid;
+      } else if (uid is num) {
+        studentId = uid.toInt();
+      }
       final fresh = await AppContainer.scheduleApi.getWeekForCalendar(
         DateTime.now(),
         forceRefresh: force,
-        studentId: bookId,
+        studentId: studentId,
       );
       await AppContainer.jsonCache.setJson(
         ScheduleApi.weekCalendarCacheKey(DateTime.now()),
@@ -957,10 +958,15 @@ class _HomePageState extends State<HomePage> {
         : null;
 
     final start = _parseStartTime(lesson.time) ?? '—';
-    final pairLabel = lesson.pairNumber != null
-        ? (lesson.pairNumber == 0
+    final rawPairNo = lesson.pairNumber;
+    final normalizedPairNo =
+        (rawPairNo != null && rawPairNo >= 5 && rawPairNo <= 8)
+            ? (rawPairNo - 5)
+            : rawPairNo;
+    final pairLabel = normalizedPairNo != null
+        ? (normalizedPairNo == 0
             ? '0 ПАРА'
-            : '${lesson.pairNumber} ПАРА'.toUpperCase())
+            : '$normalizedPairNo ПАРА'.toUpperCase())
         : '${index + 1} ПАРА';
 
     final timeColor = ongoing ? const Color(0xFF1E293B) : const Color(0xFF94A3B8);

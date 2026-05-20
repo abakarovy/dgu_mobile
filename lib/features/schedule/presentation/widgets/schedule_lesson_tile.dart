@@ -33,6 +33,12 @@ class ScheduleLessonTile extends StatelessWidget {
     return RegExp(r'^\d+').hasMatch(s) && s.toLowerCase().contains('пара');
   }
 
+  static int? _normalizePairNumber(int? n) {
+    if (n == null) return null;
+    if (n >= 5 && n <= 8) return n - 5; // 5→0, 6→1, 7→2, 8→3
+    return n;
+  }
+
   String _startTimeText() {
     final t = lesson.time.trim();
     if (t.isEmpty || t == '--:--') return '—';
@@ -45,7 +51,7 @@ class ScheduleLessonTile extends StatelessWidget {
   }
 
   String _pairLabel() {
-    final n = lesson.pairNumber;
+    final n = _normalizePairNumber(lesson.pairNumber);
     if (n == null) return 'ПАРА';
     if (n == 0) return '0 ПАРА';
     return '$n ПАРА'.toUpperCase();
