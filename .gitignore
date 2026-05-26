@@ -47,5 +47,8 @@ app.*.map.json
 # Local environment config (API base URL, etc.)
 .env
 
+# RuStore PEPK / PEM выгрузка (локально)
+/rustore_signing_out/
+
 # Локальные логи при flutter run -d windows/linux/macos (debug)
 /logs/

@@ -1,0 +1,7 @@
+# Скопируйте в key.properties и заполните. Файл key.properties в git не коммитится.
+# storeFile — путь относительно каталога android/ (например upload-keystore.jks).
+# Не указывайте второй префикс «android/» — иначе получится android/android/... и сборка упадёт.
+storePassword=ВАШ_ПАРОЛЬ_ХРАНИЛИЩА
+keyPassword=ВАШ_ПАРОЛЬ_КЛЮЧА_ИЛИ_ТОЖЕ_ЧТО_ВЫШЕ
+keyAlias=upload
+storeFile=upload-keystore.jks
