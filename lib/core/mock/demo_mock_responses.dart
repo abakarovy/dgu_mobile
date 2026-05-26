@@ -1,9 +1,10 @@
 import 'package:dio/dio.dart';
 
 import 'demo_api_interceptor.dart';
+import 'demo_persona.dart';
 import 'demo_session.dart';
 
-/// Моковые тела ответов для [DemoSession].
+/// Моковые тела ответов для [DemoSession] (по структуре college.dgu.ru).
 abstract final class DemoMockResponses {
   static DemoMockPayload? tryResolve(RequestOptions options) {
     final path = _normPath(options.path);
@@ -34,14 +35,7 @@ abstract final class DemoMockResponses {
       return DemoMockPayload(statusCode: 200, data: DemoSession.demoUser.toJson());
     }
     if (path == '/groups/my') {
-      return DemoMockPayload(
-        statusCode: 200,
-        data: {
-          'id': 101,
-          'name': 'ОИБАС-22',
-          'code': 'ОИБАС-22',
-        },
-      );
+      return const DemoMockPayload(statusCode: 200, data: <dynamic>[]);
     }
     if (path == '/1c/my-profile') {
       return DemoMockPayload(statusCode: 200, data: _myProfile());
@@ -52,7 +46,7 @@ abstract final class DemoMockResponses {
       final ymd = forDate?.trim().isNotEmpty == true
           ? forDate!.trim()
           : _ymd(DateTime(now.year, now.month, now.day));
-      return DemoMockPayload(statusCode: 200, data: {'schedule': _scheduleForDate(ymd)});
+      return DemoMockPayload(statusCode: 200, data: _scheduleEnvelope(ymd));
     }
     if (path == '/1c/sync-grades') {
       return DemoMockPayload(statusCode: 200, data: _syncGrades());
@@ -61,40 +55,13 @@ abstract final class DemoMockResponses {
       return DemoMockPayload(statusCode: 200, data: {'grades': []});
     }
     if (path == '/1c/curriculum') {
-      return DemoMockPayload(
-        statusCode: 200,
-        data: {
-          'curriculum': {
-            'title': 'Учебный план (демо)',
-            'semesters': [
-              {
-                'name': '3 семестр',
-                'disciplines': [
-                  {'name': 'Базы данных', 'hours': 72},
-                  {'name': 'Программирование', 'hours': 108},
-                ],
-              },
-            ],
-          },
-          'is_cached': true,
-        },
-      );
+      return DemoMockPayload(statusCode: 200, data: _curriculum());
     }
     if (path == '/1c/absences') {
-      return DemoMockPayload(
-        statusCode: 200,
-        data: {
-          'semesters': [
-            {
-              'semester': '2025-2026, весна',
-              'data': {'total_absences': 4},
-            },
-          ],
-        },
-      );
+      return DemoMockPayload(statusCode: 200, data: _absences());
     }
     if (path == '/1c/student-photo') {
-      return DemoMockPayload(statusCode: 404, data: {'detail': 'no photo'});
+      return DemoMockPayload(statusCode: 404, data: {'detail': 'Фото не найдено'});
     }
     if (path == '/journal/grades/my') {
       return DemoMockPayload(statusCode: 200, data: []);
@@ -102,8 +69,7 @@ abstract final class DemoMockResponses {
     if (path == '/news' || path.startsWith('/news/')) {
       if (path.startsWith('/news/') && path != '/news') {
         final id = int.tryParse(path.split('/').last) ?? 1;
-        final item = _newsItem(id);
-        return DemoMockPayload(statusCode: 200, data: item);
+        return DemoMockPayload(statusCode: 200, data: _newsItem(id));
       }
       return DemoMockPayload(statusCode: 200, data: _newsList());
     }
@@ -117,10 +83,21 @@ abstract final class DemoMockResponses {
       return DemoMockPayload(statusCode: 200, data: _notificationPrefs());
     }
     if (path == '/mobile/student-ticket') {
-      return DemoMockPayload(statusCode: 200, data: {'ticket': _studentTicket()});
+      return DemoMockPayload(statusCode: 200, data: _studentTicketEnvelope());
     }
     if (path == '/mobile/assignments/my') {
       return DemoMockPayload(statusCode: 200, data: _assignments());
+    }
+    if (path == '/students/me/parent-status') {
+      return DemoMockPayload(
+        statusCode: 200,
+        data: {
+          'linked': false,
+          'parent_has_account': false,
+          'parent_email_masked': null,
+          'link_status': null,
+        },
+      );
     }
     if (path == '/lms') {
       return DemoMockPayload(statusCode: 200, data: _lmsList());
@@ -132,7 +109,7 @@ abstract final class DemoMockResponses {
           'id': 1,
           'title': 'ЭБС «Юрайт»',
           'url': 'https://urait.ru',
-          'login_hint': 'Логин выдаётся в библиотеке',
+          'login_hint': 'Логин выдаётся в библиотеке колледжа',
         },
       );
     }
@@ -145,7 +122,7 @@ abstract final class DemoMockResponses {
     if (path == '/portfolio/rating') {
       return DemoMockPayload(
         statusCode: 200,
-        data: {'position': 12, 'total_students': 48, 'score': 24.5},
+        data: {'position': 8, 'total_students': 32, 'score': 31.0},
       );
     }
     if (path == '/portfolio/share') {
@@ -163,7 +140,7 @@ abstract final class DemoMockResponses {
         data: {
           'academic_year': '2025-2026',
           'semester': 'spring',
-          'total_score': 18,
+          'total_score': 22,
           'entries': [],
         },
       );
@@ -183,7 +160,6 @@ abstract final class DemoMockResponses {
     if (path == '/health') {
       return DemoMockPayload(statusCode: 200, data: {'status': 'ok', 'demo': true});
     }
-    // Неизвестные GET — пустой успех, чтобы экраны не падали.
     return DemoMockPayload(statusCode: 200, data: <String, dynamic>{});
   }
 
@@ -194,7 +170,7 @@ abstract final class DemoMockResponses {
     if (path == '/students/me/wifi-password-request') {
       return DemoMockPayload(
         statusCode: 200,
-        data: {'message': 'Заявка принята (демо-режим).'},
+        data: {'message': 'Заявка принята. Пароль Wi‑Fi будет настроен в течение 1–2 рабочих дней.'},
       );
     }
     if (path == '/push/device') {
@@ -207,128 +183,276 @@ abstract final class DemoMockResponses {
       }
       return DemoMockPayload(statusCode: 200, data: _notificationPrefs());
     }
-    if (path.startsWith('/portfolio/')) {
-      return DemoMockPayload(statusCode: 200, data: {'ok': true});
-    }
-    if (path.startsWith('/scholarship-rating/')) {
+    if (path.startsWith('/portfolio/') || path.startsWith('/scholarship-rating/')) {
       return DemoMockPayload(statusCode: 200, data: {'ok': true});
     }
     return DemoMockPayload(statusCode: 200, data: {'ok': true});
   }
 
   static Map<String, dynamic> _myProfile() => {
-        'full_name': DemoSession.demoUser.fullName,
-        'student_book_number': DemoSession.demoUser.studentBookNumber,
-        'group': 'ОИБАС-22',
-        'department': DemoSession.demoUser.department,
-        'direction': DemoSession.demoUser.direction,
-        'course': DemoSession.demoUser.course,
-        'curator': 'Иванова Мария Петровна',
-        'funding_type': 'Бюджет',
-        'study_form': 'Очная',
-        'status': 'Студент',
-        'birth_date': '15.03.2006',
-        'admission_year': '2022',
+        'is_cached': true,
+        'student_id': DemoPersona.studentBookNumber,
+        'last_name': DemoPersona.lastName,
+        'first_name': DemoPersona.firstName,
+        'middle_name': DemoPersona.patronymic,
+        'birthday': DemoPersona.birthday,
+        'full_name': DemoPersona.fullName,
+        'student_book_number': DemoPersona.studentBookNumber,
+        'group': DemoPersona.studyGroup,
+        'department': DemoPersona.department,
+        'direction': DemoPersona.direction,
+        'course': DemoPersona.course,
+        'curator': DemoPersona.curator,
+        'funding_type': DemoPersona.fundingType,
+        'budget_type': 'Федеральный',
+        'education_form': DemoPersona.studyForm,
+        'study_form': DemoPersona.studyForm,
+        'admission_year': DemoPersona.admissionYear,
+        'status': DemoPersona.status,
+        'social_role': '',
+        'grades': _syncGrades()['grades'],
       };
 
-  static Map<String, dynamic> _studentTicket() => {
-        'full_name': DemoSession.demoUser.fullName,
-        'student_book_number': DemoSession.demoUser.studentBookNumber,
-        'birth_date': '15.03.2006',
-        'department': DemoSession.demoUser.department,
-        'study_group': 'ОИБАС-22',
-        'admission_year': '2022',
-        'study_form': 'Очная',
-        'status': 'Студент',
-        'course': DemoSession.demoUser.course,
+  static Map<String, dynamic> _studentTicketEnvelope() => {
+        'full_name': DemoPersona.fullName,
+        'student_book_number': DemoPersona.studentBookNumber,
+        'ticket_valid_until': null,
+        'ticket_issued_at': null,
+        'study_form': DemoPersona.studyForm,
+        'course': DemoPersona.course,
+        'birth_date': DemoPersona.birthday,
+        'department': DemoPersona.department,
+        'study_group': DemoPersona.studyGroup,
+        'admission_year': DemoPersona.admissionYear,
+        'status': DemoPersona.status,
       };
 
-  static Map<String, dynamic> _syncGrades() {
-    final now = DateTime.now();
-    return {
-      'grades': [
-        {
-          'semester': '2025-2026, весна',
-          'records': [
-            {
-              'subject': 'Базы данных',
-              'grade': '5',
-              'type': 'Контрольная',
-              'date': now.subtract(const Duration(days: 3)).toIso8601String(),
-              'teacher_name': 'Петров А.С.',
-            },
-            {
-              'subject': 'Программирование',
-              'grade': '4',
-              'type': 'Практика',
-              'date': now.subtract(const Duration(days: 10)).toIso8601String(),
-              'teacher_name': 'Сидорова Е.В.',
-            },
-            {
-              'subject': 'История',
-              'grade': '5',
-              'type': 'Зачёт',
-              'date': now.subtract(const Duration(days: 20)).toIso8601String(),
-            },
-          ],
-        },
-        {
-          'semester': '2025-2026, осень',
-          'records': [
-            {
-              'subject': 'Математика',
-              'grade': '4',
-              'type': 'Экзамен',
-              'date': now.subtract(const Duration(days: 90)).toIso8601String(),
-            },
-          ],
-        },
-      ],
-    };
-  }
+  static Map<String, dynamic> _syncGrades() => {
+        'grades': [
+          {
+            'semester': '1 сем 2025-2026',
+            'records': [
+              {
+                'subject': 'Веб-программирование',
+                'grade': '4',
+                'type': 'Контрольная работа',
+                'date': '2026-04-15',
+                'teacher_name': 'Хангишиева Аида Хабибуллаевна',
+              },
+              {
+                'subject': 'Системное программирование',
+                'grade': '5',
+                'type': 'Практическое занятие',
+                'date': '2026-04-22',
+                'teacher_name': 'Атаев Ахмед Арсенович',
+              },
+              {
+                'subject': 'Поддержка и тестирование программных модулей',
+                'grade': '4',
+                'type': 'Лабораторная',
+                'date': '2026-05-06',
+                'teacher_name': 'Багирова София Динмагомедовна',
+              },
+              {
+                'subject': 'Разработка мобильных приложений',
+                'grade': '5',
+                'type': 'Проект',
+                'date': '2026-05-12',
+                'teacher_name': 'Хангишиева Аида Хабибуллаевна',
+              },
+              {
+                'subject': 'Технология разработки программного обеспечения',
+                'grade': '3',
+                'type': 'Тест',
+                'date': '2026-05-18',
+                'teacher_name': 'Атаев Ахмед Арсенович',
+              },
+            ],
+          },
+          {
+            'semester': '2 сем 2024-2025',
+            'records': [
+              {
+                'subject': 'Инструментальные средства разработки ПО',
+                'grade': '4',
+                'type': 'Экзамен',
+                'date': '2025-06-10',
+              },
+              {
+                'subject': 'Безопасность жизнедеятельности',
+                'grade': '5',
+                'type': 'Зачёт',
+                'date': '2025-06-18',
+              },
+            ],
+          },
+        ],
+      };
 
+  static Map<String, dynamic> _curriculum() => {
+        'curriculum': [
+          {
+            'subject': 'Разработка мобильных приложений',
+            'semester': '6 семестр',
+            'control_form': 'Экзамен',
+            'hours': {
+              'total': 144,
+              'theory_lectures': 36,
+              'practical': 72,
+              'lab': 36,
+            },
+          },
+          {
+            'subject': 'Веб-программирование',
+            'semester': '6 семестр',
+            'control_form': 'Дифференцированный зачёт',
+            'hours': {'total': 108, 'theory_lectures': 36, 'practical': 72, 'lab': 0},
+          },
+          {
+            'subject': 'Системное программирование',
+            'semester': '5 семестр',
+            'control_form': 'Экзамен',
+            'hours': {'total': 126, 'theory_lectures': 36, 'practical': 54, 'lab': 36},
+          },
+          {
+            'subject': 'Поддержка и тестирование программных модулей',
+            'semester': '5 семестр',
+            'control_form': 'Экзамен',
+            'hours': {'total': 108, 'theory_lectures': 18, 'practical': 54, 'lab': 36},
+          },
+        ],
+        'is_cached': true,
+      };
+
+  static Map<String, dynamic> _absences() => {
+        'student_id': DemoPersona.studentBookNumber,
+        'status': 'success',
+        'semesters': [
+          {
+            'semester': '1 сем 2025-2026',
+            'period': {'start': '01.09.2025', 'end': '31.01.2026'},
+            'data': {
+              'total_absences': 6,
+              'excused_absences': 2,
+              'unexcused_absences': 4,
+            },
+          },
+          {
+            'semester': '2 сем 2024-2025',
+            'period': {'start': '01.02.2025', 'end': '30.06.2025'},
+            'data': {
+              'total_absences': 4,
+              'excused_absences': 1,
+              'unexcused_absences': 3,
+            },
+          },
+        ],
+        'timestamp': DateTime.now().toUtc().toIso8601String(),
+      };
+
+  /// Обёртка как у бэка: `schedule`, `schedule_scope`, `schedule_for_date`.
+  static Map<String, dynamic> _scheduleEnvelope(String ymd) => {
+        'schedule': _scheduleForDate(ymd),
+        'week': null,
+        'is_cached': true,
+        'schedule_scope': 'today',
+        'schedule_for_date': ymd,
+      };
+
+  /// Пары на каждый будний день (чтобы «сегодня» и неделя не были пустыми).
   static List<Map<String, dynamic>> _scheduleForDate(String ymd) {
-    final parsed = DateTime.tryParse(ymd);
-    if (parsed == null) return [];
-    final day = DateTime(parsed.year, parsed.month, parsed.day);
-    if (day.weekday == DateTime.saturday || day.weekday == DateTime.sunday) {
+    final m = RegExp(r'^(\d{4})-(\d{2})-(\d{2})$').firstMatch(ymd.trim());
+    if (m == null) return [];
+    final y = int.tryParse(m.group(1)!);
+    final mo = int.tryParse(m.group(2)!);
+    final d = int.tryParse(m.group(3)!);
+    if (y == null || mo == null || d == null) return [];
+
+    final day = DateTime(y, mo, d);
+    final wd = day.weekday;
+    if (wd == DateTime.saturday || wd == DateTime.sunday) {
       return [];
     }
-    final dot = '${day.day.toString().padLeft(2, '0')}.'
-        '${day.month.toString().padLeft(2, '0')}.'
-        '${day.year}';
-    final seed = day.weekday;
+
+    const dayNames = [
+      '',
+      'Понедельник',
+      'Вторник',
+      'Среда',
+      'Четверг',
+      'Пятница',
+      'Суббота',
+      'Воскресенье',
+    ];
+    final dayLabel = dayNames[wd];
+
+    // Шаблоны по дню недели (как в 1С: разные дисциплины в разные дни).
+    final templates = switch (wd) {
+      DateTime.monday => [
+        ('08:30 - 10:05', 1, 'Веб-программирование', '214', 'Хангишиева Аида Хабибуллаевна'),
+        ('10:15 - 11:50', 2, 'Системное программирование', '105', 'Атаев Ахмед Арсенович'),
+        ('12:10 - 13:45', 3, 'Поддержка и тестирование программных модулей', '202', 'Багирова София Динмагомедовна'),
+      ],
+      DateTime.tuesday => [
+        ('08:30 - 10:05', 1, 'Технология разработки программного обеспечения', '202', 'Атаев Ахмед Арсенович'),
+        ('10:15 - 11:50', 2, 'Разработка мобильных приложений', '207', 'Хангишиева Аида Хабибуллаевна'),
+        ('12:10 - 13:45', 3, 'Инструментальные средства разработки программного обеспечения', '202', 'Багирова София Динмагомедовна'),
+      ],
+      DateTime.wednesday => [
+        ('08:30 - 10:05', 1, 'Разработка мобильных приложений', '214', 'Хангишиева Аида Хабибуллаевна'),
+        ('10:15 - 11:50', 2, 'Технология разработки программного обеспечения', '202', 'Атаев Ахмед Арсенович'),
+        ('12:10 - 13:45', 3, 'Разработка мобильных приложений', '207', 'Хангишиева Аида Хабибуллаевна'),
+        ('14:00 - 15:35', 4, 'Инструментальные средства разработки программного обеспечения', '202', 'Багирова София Динмагомедовна'),
+      ],
+      DateTime.thursday => [
+        ('08:30 - 10:05', 1, 'Веб-программирование', '214', 'Хангишиева Аида Хабибуллаевна'),
+        ('10:15 - 11:50', 2, 'Системное программирование', '105', 'Атаев Ахмед Арсенович'),
+        ('12:10 - 13:45', 3, 'Поддержка и тестирование программных модулей', '202', 'Багирова София Динмагомедовна'),
+      ],
+      DateTime.friday => [
+        ('08:30 - 10:05', 1, 'Веб-программирование', '214', 'Хангишиева Аида Хабибуллаевна'),
+        ('10:15 - 11:50', 2, 'Системное программирование', '105', 'Атаев Ахмед Арсенович'),
+        ('12:10 - 13:45', 3, 'Физическая культура', 'спортзал', 'Козлов Игорь Иванович'),
+      ],
+      _ => <(String, int, String, String, String)>[],
+    };
+
     return [
-      {
-        'pair_number': 1,
-        'subject': seed.isOdd ? 'Математика' : 'Базы данных',
-        'start_time': '08:30',
-        'end_time': '10:00',
-        'teacher': 'Петров А.С.',
-        'auditorium': '201',
-        'date': dot,
-      },
-      {
-        'pair_number': 2,
-        'subject': 'Программирование',
-        'start_time': '10:15',
-        'end_time': '11:45',
-        'teacher': 'Сидорова Е.В.',
-        'auditorium': '105',
-        'date': dot,
-      },
-      if (seed <= 5)
-        {
-          'pair_number': 3,
-          'subject': 'Физическая культура',
-          'start_time': '12:00',
-          'end_time': '13:30',
-          'teacher': 'Козлов И.И.',
-          'auditorium': 'спортзал',
-          'date': dot,
-        },
+      for (final t in templates)
+        _lessonRow(
+          ymd: ymd,
+          day: dayLabel,
+          pair: t.$2,
+          time: t.$1,
+          subject: t.$3,
+          room: t.$4,
+          teacher: t.$5,
+        ),
     ];
   }
+
+  static Map<String, dynamic> _lessonRow({
+    required String ymd,
+    required String day,
+    required int pair,
+    required String time,
+    required String subject,
+    required String room,
+    required String teacher,
+  }) =>
+      {
+        'date': ymd,
+        'day': day,
+        'pair_number': pair,
+        'time': time,
+        'subject': subject,
+        'room': room,
+        'auditorium': room,
+        'teacher': teacher,
+        'week_type': 'Нечетная (1 неделя)',
+        'subgroup': 0,
+        'semester': '2025-2026',
+      };
 
   static String _ymd(DateTime d) =>
       '${d.year.toString().padLeft(4, '0')}-'
@@ -338,11 +462,11 @@ abstract final class DemoMockResponses {
   static List<Map<String, dynamic>> _newsList() {
     final now = DateTime.now();
     return [
-      _newsItem(1, now: now),
+      _newsItem(1, now: now, title: 'Мобильное приложение колледжа ДГУ'),
       _newsItem(
         2,
-        now: now.subtract(const Duration(days: 2)),
-        title: 'Расписание на неделю обновлено',
+        now: now.subtract(const Duration(days: 3)),
+        title: 'График летней сессии опубликован',
       ),
     ];
   }
@@ -350,46 +474,61 @@ abstract final class DemoMockResponses {
   static Map<String, dynamic> _newsItem(
     int id, {
     DateTime? now,
-    String title = 'Добро пожаловать в приложение колледжа ДГУ',
+    String title = 'Новость колледжа',
   }) {
     final t = now ?? DateTime.now();
     return {
       'id': id,
       'title': title,
-      'content': '<p>Это демонстрационная новость для тестового аккаунта.</p>',
-      'excerpt': 'Демо-режим приложения',
+      'content': '<p>Информация для студентов колледжа ДГУ. Демонстрационная запись.</p>',
+      'excerpt': title,
       'is_published': true,
       'created_at': t.toIso8601String(),
     };
   }
 
   static List<Map<String, dynamic>> _eventsList() {
-    final start = DateTime.now().add(const Duration(days: 7));
+    final start = DateTime.now().add(const Duration(days: 14));
     return [
       {
         'id': 1,
         'title': 'День открытых дверей',
-        'description': 'Приглашаем абитуриентов на экскурсию по колледжу.',
-        'location': 'Главный корпус',
+        'description': 'Экскурсия по колледжу для абитуриентов и родителей.',
+        'location': 'г. Махачкала, ул. Дзержинского, 21',
         'start_at': start.toIso8601String(),
-        'end_at': start.add(const Duration(hours: 3)).toIso8601String(),
+        'end_at': start.add(const Duration(hours: 4)).toIso8601String(),
       },
     ];
   }
 
   static Map<String, dynamic> _help() => {
-        'hotline_phone': '+7 (8722) 00-00-00',
-        'email': 'info@college.dgu.ru',
-        'website_url': 'https://college.dgu.ru',
         'faq': [
           {
-            'title': 'Как войти в приложение?',
-            'answer': 'Используйте e-mail и пароль, выданные в приёмной комиссии, '
-                'или зарегистрируйтесь по номеру зачётной книжки.',
+            'question': 'Как восстановить пароль?',
+            'answer':
+                'На экране входа нажмите «Забыли пароль» или обратитесь в учебный отдел колледжа.',
           },
           {
-            'title': 'Демо-аккаунт',
-            'answer': 'Для проверки: test@test.ru / test1234 (только демо-данные).',
+            'question': 'Где посмотреть расписание?',
+            'answer':
+                'В разделе «Расписание» приложения или в личном кабинете на сайте college.dgu.ru.',
+          },
+          {
+            'question': 'Не приходят уведомления',
+            'answer':
+                'Проверьте настройки уведомлений в приложении и разрешения ОС для push.',
+          },
+        ],
+        'hotline': '+7 (8722) 67-XX-XX',
+        'email': 'colledgedsu@dgu.ru',
+        'website_url': 'https://college.dgu.ru',
+        'management_contacts': [
+          {
+            'unit_name': 'ФГБОУ ВО «Колледж ДГУ»',
+            'head_full_name': 'Пирбудагова Диана Шамильевна',
+            'address':
+                '367000, Россия, Республика Дагестан, г. Махачкала, ул. Дзержинского 21',
+            'email': 'collegedsu@mail.ru',
           },
         ],
       };
@@ -399,18 +538,27 @@ abstract final class DemoMockResponses {
         'push_schedule_change': true,
         'push_assignment_deadlines': true,
         'push_college_news': true,
-        'push_college_events': false,
+        'push_college_events': true,
+        'push_department_announcements': true,
       };
 
   static List<Map<String, dynamic>> _assignments() {
-    final dl = DateTime.now().add(const Duration(days: 5));
+    final dl = DateTime.now().add(const Duration(days: 7));
     return [
       {
         'id': 1,
-        'title': 'Лабораторная №3',
-        'subject': 'Базы данных',
-        'description': 'Подготовить отчёт по нормализации.',
+        'title': 'Лабораторная: REST API',
+        'subject': 'Веб-программирование',
+        'description': 'Реализовать CRUD для учебного модуля.',
         'deadline_at': dl.toIso8601String(),
+        'is_done': false,
+      },
+      {
+        'id': 2,
+        'title': 'Отчёт по тестированию',
+        'subject': 'Поддержка и тестирование программных модулей',
+        'description': 'Описать сценарии модульных тестов.',
+        'deadline_at': dl.add(const Duration(days: 5)).toIso8601String(),
         'is_done': false,
       },
     ];
@@ -429,25 +577,31 @@ abstract final class DemoMockResponses {
           'provider': 'profspo',
           'url': 'https://profspo.ru',
         },
+        {
+          'id': 3,
+          'title': 'Академия Москва',
+          'provider': 'academy',
+          'url': 'https://academymoscow.ru',
+        },
       ];
 
   static List<Map<String, dynamic>> _portfolioItems() => [
         {
           'id': 1,
-          'title': 'Дипломный проект (черновик)',
+          'title': 'Мобильное приложение «Колледж ДГУ»',
           'category': 'project',
-          'status': 'draft',
-          'created_at': DateTime.now().subtract(const Duration(days: 30)).toIso8601String(),
+          'status': 'published',
+          'created_at': DateTime.now().subtract(const Duration(days: 45)).toIso8601String(),
         },
       ];
 
   static List<Map<String, dynamic>> _deptAnnouncements() {
-    final t = DateTime.now().subtract(const Duration(hours: 5));
+    final t = DateTime.now().subtract(const Duration(days: 1));
     return [
       {
         'id': 1,
-        'title': 'Собрание студентов 2 курса',
-        'body': '15 июня в 14:00, ауд. 201. Явка обязательна.',
+        'title': 'Консультации перед сессией',
+        'body': 'Преподаватели отделения ИСиП проводят консультации по средам с 14:00 в ауд. 214.',
         'created_at': t.toIso8601String(),
         'is_read': false,
       },
@@ -455,15 +609,8 @@ abstract final class DemoMockResponses {
   }
 
   static List<Map<String, dynamic>> _scholarshipCatalog() => [
-        {
-          'id': 'sport',
-          'title': 'Спортивные достижения',
-          'max_points': 10,
-        },
-        {
-          'id': 'science',
-          'title': 'Научная деятельность',
-          'max_points': 15,
-        },
+        {'id': 'sport', 'title': 'Спортивные достижения', 'max_points': 10},
+        {'id': 'science', 'title': 'Научная и проектная деятельность', 'max_points': 15},
+        {'id': 'social', 'title': 'Общественная активность', 'max_points': 8},
       ];
 }

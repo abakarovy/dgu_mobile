@@ -2,12 +2,13 @@ import 'dart:convert';
 
 import '../../data/models/user_model.dart';
 import '../../data/services/token_storage.dart';
+import 'demo_persona.dart';
 
 /// Демо-аккаунт для проверки App Store / офлайн-демо без бэкенда.
 abstract final class DemoSession {
   static const demoToken = 'mock-demo-session-dgu';
 
-  static const email = 'test@test.ru';
+  static const email = DemoPersona.email;
   static const password = 'test1234';
 
   static bool _active = false;
@@ -26,17 +27,16 @@ abstract final class DemoSession {
   static void markInactive() => _active = false;
 
   static UserModel get demoUser => const UserModel(
-        id: 900001,
-        email: email,
-        fullName: 'Тестов Тест Тестович',
+        id: DemoPersona.userId,
+        email: DemoPersona.email,
+        fullName: DemoPersona.fullName,
         role: 'student',
-        studentBookNumber: '12345',
-        course: 2,
-        direction: '09.02.07 Информатика и вычислительная техника',
-        groupId: 101,
-        department: 'Отделение информационных технологий',
+        studentBookNumber: DemoPersona.studentBookNumber,
+        course: DemoPersona.course,
+        direction: DemoPersona.direction,
+        department: DemoPersona.department,
         isActive: true,
-        createdAt: '2024-09-01T00:00:00Z',
+        createdAt: DemoPersona.createdAt,
       );
 
   static Future<void> activate(TokenStorage tokenStorage) async {
