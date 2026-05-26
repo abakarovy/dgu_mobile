@@ -114,48 +114,41 @@ abstract final class DemoMockResponses {
       );
     }
     if (path == '/portfolio/my') {
-      return DemoMockPayload(statusCode: 200, data: {'items': _portfolioItems()});
+      return DemoMockPayload(statusCode: 200, data: _portfolioSelfUploads());
     }
     if (path == '/portfolio/my-complete') {
-      return DemoMockPayload(statusCode: 200, data: {'complete': false, 'missing': []});
+      return DemoMockPayload(statusCode: 200, data: _portfolioComplete());
     }
     if (path == '/portfolio/rating') {
       return DemoMockPayload(
         statusCode: 200,
-        data: {'position': 8, 'total_students': 32, 'score': 31.0},
+        data: {'total_points': 12},
       );
     }
     if (path == '/portfolio/share') {
-      return DemoMockPayload(statusCode: 200, data: {'enabled': false});
+      return DemoMockPayload(
+        statusCode: 200,
+        data: {
+          'enabled': true,
+          'public_url': 'https://college.dgu.ru/portfolio/demo-student',
+        },
+      );
     }
     if (path == '/students/department-announcements/my') {
-      return DemoMockPayload(statusCode: 200, data: _deptAnnouncements());
+      final archive = options.queryParameters['archive']?.toString() == 'true';
+      return DemoMockPayload(
+        statusCode: 200,
+        data: archive ? _deptAnnouncementsArchive() : _deptAnnouncements(),
+      );
     }
     if (path == '/scholarship-rating/catalog') {
       return DemoMockPayload(statusCode: 200, data: _scholarshipCatalog());
     }
     if (path == '/scholarship-rating/my/summary') {
-      return DemoMockPayload(
-        statusCode: 200,
-        data: {
-          'academic_year': '2025-2026',
-          'semester': 'spring',
-          'total_score': 22,
-          'entries': [],
-        },
-      );
+      return DemoMockPayload(statusCode: 200, data: _scholarshipSummary());
     }
     if (path == '/student-portal') {
-      return DemoMockPayload(
-        statusCode: 200,
-        data: {
-          'title': 'Студентам',
-          'links': [
-            {'title': 'Стипендия', 'href': '/svedeniya/students/scholarships/'},
-            {'title': 'Общежитие', 'href': '/svedeniya/students/dormitory/'},
-          ],
-        },
-      );
+      return DemoMockPayload(statusCode: 200, data: _studentPortal());
     }
     if (path == '/health') {
       return DemoMockPayload(statusCode: 200, data: {'status': 'ok', 'demo': true});
@@ -283,6 +276,12 @@ abstract final class DemoMockResponses {
                 'grade': '5',
                 'type': 'Зачёт',
                 'date': '2025-06-18',
+              },
+              {
+                'subject': 'История',
+                'grade': '2',
+                'type': 'Экзамен',
+                'date': '2025-06-22',
               },
             ],
           },
@@ -585,32 +584,265 @@ abstract final class DemoMockResponses {
         },
       ];
 
-  static List<Map<String, dynamic>> _portfolioItems() => [
+  static List<Map<String, dynamic>> _portfolioSelfUploads() => [
         {
           'id': 1,
-          'title': 'Мобильное приложение «Колледж ДГУ»',
-          'category': 'project',
-          'status': 'published',
-          'created_at': DateTime.now().subtract(const Duration(days: 45)).toIso8601String(),
+          'file_name': 'Сертификат Python.pdf',
+          'section': 'certificate',
+          'status': 'approved',
+          'description': 'Онлайн-курс программирования',
+          'points': 5,
+        },
+        {
+          'id': 2,
+          'file_name': 'Грамота_олимпиада.jpg',
+          'section': 'diploma',
+          'status': 'approved',
+          'description': 'Региональная олимпиада по информатике',
+          'points': 7,
+        },
+        {
+          'id': 3,
+          'file_name': 'Лабораторная_мобильные.docx',
+          'section': 'general',
+          'status': 'pending',
+          'description': 'Отчёт по разработке приложения',
         },
       ];
 
+  static Map<String, dynamic> _portfolioComplete() => {
+        'self_uploads': _portfolioSelfUploads(),
+        'official_final_works': [
+          {
+            'id': 101,
+            'subject_name': 'Веб-программирование',
+            'work_type': 'coursework',
+            'original_filename': 'Курсовая_Веб.pdf',
+            'upload_deadline_at': '2026-06-15T23:59:00Z',
+            'is_past_deadline': false,
+          },
+          {
+            'id': 102,
+            'subject_name': 'Разработка мобильных приложений',
+            'work_type': 'individual_project',
+            'original_filename': 'Проект_мобильное_приложение.pdf',
+            'upload_deadline_at': '2026-05-01T23:59:00Z',
+            'is_past_deadline': true,
+          },
+        ],
+      };
+
   static List<Map<String, dynamic>> _deptAnnouncements() {
     final t = DateTime.now().subtract(const Duration(days: 1));
+    final t2 = DateTime.now().subtract(const Duration(hours: 8));
     return [
       {
         'id': 1,
         'title': 'Консультации перед сессией',
-        'body': 'Преподаватели отделения ИСиП проводят консультации по средам с 14:00 в ауд. 214.',
+        'body':
+            'Преподаватели отделения ИСиП проводят консультации по средам с 14:00 в ауд. 214. '
+            'Запись у куратора группы.',
+        'group_code': DemoPersona.studyGroup,
         'created_at': t.toIso8601String(),
         'is_read': false,
+      },
+      {
+        'id': 2,
+        'title': 'Сдача итоговых работ',
+        'body':
+            'Курсовые и индивидуальные проекты принимаются до 15 июня. '
+            'Файлы загружайте в раздел «Портфолио».',
+        'group_code': DemoPersona.studyGroup,
+        'created_at': t2.toIso8601String(),
+        'is_read': true,
       },
     ];
   }
 
-  static List<Map<String, dynamic>> _scholarshipCatalog() => [
-        {'id': 'sport', 'title': 'Спортивные достижения', 'max_points': 10},
-        {'id': 'science', 'title': 'Научная и проектная деятельность', 'max_points': 15},
-        {'id': 'social', 'title': 'Общественная активность', 'max_points': 8},
-      ];
+  static List<Map<String, dynamic>> _deptAnnouncementsArchive() {
+    final t = DateTime.now().subtract(const Duration(days: 45));
+    return [
+      {
+        'id': 10,
+        'title': 'Расписание зимней сессии',
+        'body': 'График экзаменов опубликован на портале колледжа.',
+        'group_code': DemoPersona.studyGroup,
+        'created_at': t.toIso8601String(),
+        'is_read': true,
+      },
+    ];
+  }
+
+  /// Каталог стипендии: вложенная структура `categories → sections → criteria`.
+  static Map<String, dynamic> _scholarshipCatalog() => {
+        'categories': [
+          {
+            'id': 'study',
+            'short': 'Учёба',
+            'sections': [
+              {
+                'id': '1.1',
+                'title': 'Успеваемость и дисциплина',
+                'criteria': [
+                  {
+                    'id': 'study_gpa',
+                    'label': 'Средний балл без «удовл.» и «неуд.»',
+                    'points': 10,
+                    'allow_upload': false,
+                  },
+                  {
+                    'id': 'study_attendance',
+                    'label': 'Посещаемость без пропусков',
+                    'points': 5,
+                    'allow_upload': false,
+                  },
+                ],
+              },
+            ],
+          },
+          {
+            'id': 'science',
+            'short': 'Наука и проекты',
+            'sections': [
+              {
+                'id': '2.1',
+                'title': 'Научные и проектные работы',
+                'criteria': [
+                  {
+                    'id': 'science_project',
+                    'label': 'Участие в проекте / хакатоне',
+                    'points': 15,
+                    'allow_upload': true,
+                    'divide_by_coauthors': true,
+                  },
+                ],
+              },
+            ],
+          },
+          {
+            'id': 'sport',
+            'short': 'Спорт',
+            'sections': [
+              {
+                'id': '3.1',
+                'title': 'Спортивные достижения',
+                'criteria': [
+                  {
+                    'id': 'sport_medal',
+                    'label': 'Призовое место на соревнованиях',
+                    'points': 10,
+                    'allow_upload': true,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      };
+
+  static Map<String, dynamic> _scholarshipSummary() => {
+        'academic_year': '2025-2026',
+        'semester': 'spring',
+        'total_approved': 18,
+        'category_totals': {
+          'study': 8,
+          'science': 6,
+          'sport': 4,
+        },
+        'entries': [
+          {
+            'id': 501,
+            'status': 'approved',
+            'approved_points': 6,
+            'criterion_ref': 'science_project',
+            'notes': 'Хакатон «Цифровой Дагестан»',
+          },
+          {
+            'id': 502,
+            'status': 'pending',
+            'suggested_points': 4,
+            'criterion_ref': 'sport_medal',
+            'notes': 'Справка о соревнованиях',
+          },
+        ],
+      };
+
+  static Map<String, dynamic> _studentPortal() => {
+        'overview': {
+          'body_html':
+              '<p>На портале колледжа собраны расписания, материалы для подготовки к ВПР, '
+              'ссылки на электронные ресурсы и полезные разделы для студентов СПО.</p>',
+          'hub_links': [
+            {
+              'label': 'Стипендия и материальная поддержка',
+              'href': '/svedeniya/students/scholarships/',
+              'external': false,
+            },
+            {
+              'label': 'Общежитие',
+              'href': '/svedeniya/students/dormitory/',
+              'external': false,
+            },
+            {
+              'label': 'Сайт колледжа',
+              'href': 'https://college.dgu.ru',
+              'external': true,
+            },
+          ],
+        },
+        'schedule_semesters': [
+          {
+            'title': '1 семестр 2025–2026',
+            'entries': [
+              {
+                'label': 'Расписание очного отделения',
+                'original_filename': 'raspisanie_osen_2025.pdf',
+                'file_url': '/uploads/demo/raspisanie_osen_2025.pdf',
+              },
+              {
+                'label': 'Расписание заочного отделения',
+                'original_filename': 'raspisanie_zaochnoe.pdf',
+                'file_url': '/uploads/demo/raspisanie_zaochnoe.pdf',
+              },
+            ],
+          },
+          {
+            'title': '2 семестр 2025–2026',
+            'entries': [
+              {
+                'label': 'Расписание очное (весна)',
+                'original_filename': 'raspisanie_vesna_2026.pdf',
+                'file_url': '/uploads/demo/raspisanie_vesna_2026.pdf',
+              },
+            ],
+          },
+        ],
+        'vpr': {
+          'page_title': 'Внутренние промежуточные работы (ВПР)',
+          'body_html':
+              '<p>Материалы для подготовки к внутренним промежуточным работам по дисциплинам '
+              'общеобразовательного цикла.</p>',
+          'original_filename': 'vpr_materials_2026.pdf',
+          'file_url': '/uploads/demo/vpr_materials_2026.pdf',
+        },
+        'eresources': {
+          'body_html':
+              '<p>Электронные библиотечные системы и учебные платформы доступны по логину, '
+              'выданному в библиотеке колледжа.</p>',
+        },
+        'digital_resources': [
+          {
+            'title': 'ЭБС «Юрайт»',
+            'url': 'https://urait.ru',
+          },
+          {
+            'title': 'ПРОФ СПО',
+            'url': 'https://profspo.ru',
+          },
+          {
+            'title': 'Академия Москва',
+            'url': 'https://academymoscow.ru',
+          },
+        ],
+      };
 }

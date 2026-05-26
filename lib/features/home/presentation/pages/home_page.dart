@@ -738,38 +738,68 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _actionsSection({required double sf}) {
+    final isStudent = (_banner.me?.role ?? '').trim().toLowerCase() == 'student';
     // «Мои задания» и «Расписание»: в ряд пополам, пока обе подписи помещаются
     // в одну строку в своей половине; иначе — колонка на всю ширину.
     const labelFont = 11.72;
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final gap = 12 * sf;
-        final minTasks = _minActionCardWidth(context, sf, 'Мои задания', labelFont);
-        final minSchedule = _minActionCardWidth(context, sf, 'Расписание', labelFont);
-        // Половины равны: каждая должна вместить свою самую длинную подпись в одну строку.
-        final minHalf = max(minTasks, minSchedule);
-        final minRowTotal = 2 * minHalf + gap;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final gap = 12 * sf;
+            final minTasks = _minActionCardWidth(context, sf, 'Мои задания', labelFont);
+            final minSchedule = _minActionCardWidth(context, sf, 'Расписание', labelFont);
+            // Половины равны: каждая должна вместить свою самую длинную подпись в одну строку.
+            final minHalf = max(minTasks, minSchedule);
+            final minRowTotal = 2 * minHalf + gap;
 
-        if (constraints.maxWidth < minRowTotal) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _tasksCard(context, sf: sf),
-              SizedBox(height: gap),
-              _scheduleCard(context, sf: sf),
-            ],
-          );
-        }
+            if (constraints.maxWidth < minRowTotal) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _tasksCard(context, sf: sf),
+                  SizedBox(height: gap),
+                  _scheduleCard(context, sf: sf),
+                ],
+              );
+            }
 
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(child: _tasksCard(context, sf: sf)),
-            SizedBox(width: gap),
-            Expanded(child: _scheduleCard(context, sf: sf)),
-          ],
-        );
-      },
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: _tasksCard(context, sf: sf)),
+                SizedBox(width: gap),
+                Expanded(child: _scheduleCard(context, sf: sf)),
+              ],
+            );
+          },
+        ),
+        if (isStudent) ...[
+          SizedBox(height: 12 * sf),
+          _studentServicesCard(context, sf: sf),
+        ],
+      ],
+    );
+  }
+
+  Widget _studentServicesCard(BuildContext context, {required double sf}) {
+    final iconBg = const Color.fromRGBO(37, 99, 235, 0.1);
+    final iconColor = const Color.fromRGBO(37, 99, 235, 1);
+
+    return _homeActionCard(
+      sf: sf,
+      background: const Color.fromRGBO(239, 246, 255, 1),
+      withShadow: true,
+      iconBg: iconBg,
+      iconColor: iconColor,
+      iconAsset: 'assets/icons/str.svg',
+      iconW: 16,
+      iconH: 16,
+      label: 'Сервисы студента',
+      labelColor: iconColor,
+      labelFontSize: 11.72,
+      onPressed: () => context.push('/app/student'),
     );
   }
 
