@@ -5,7 +5,7 @@ abstract final class DemoPersona {
 
   static const firstName = 'Магомедгаджи';
   static const lastName = 'Гаджилаев';
-  static const patronymic = 'Гаджилаевич';
+  static const patronymic = 'Гаджилавович';
 
   /// Отображаемое ФИО: имя, фамилия, отчество (не капс, не «фамилия первая»).
   static const fullName = '$firstName $lastName $patronymic';
