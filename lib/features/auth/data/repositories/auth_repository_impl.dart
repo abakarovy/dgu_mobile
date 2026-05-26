@@ -14,6 +14,7 @@ import '../../domain/auth_flow_results.dart';
 import '../../domain/entities/user_entity.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../../../../data/api/auth_api_outcomes.dart';
+import '../../../../core/mock/demo_session.dart';
 
 /// Реализация AuthRepository через College DGU API и TokenStorage.
 class AuthRepositoryImpl implements AuthRepository {
@@ -35,6 +36,14 @@ class AuthRepositoryImpl implements AuthRepository {
     required String password,
     String? otpCode,
   }) async {
+    if (DemoSession.credentialsMatch(username, password)) {
+      await DemoSession.activate(_tokenStorage);
+      await _jsonCache.setJson('auth:me', DemoSession.demoUser.toJson());
+      PushRegistrar.instance.ensureRegistered();
+      AuthSession.bump();
+      return AuthLoginSuccess(DemoSession.demoUser.toEntity());
+    }
+
     final outcome = await _authApi.login(
       username: username.trim(),
       password: password,
@@ -144,6 +153,9 @@ class AuthRepositoryImpl implements AuthRepository {
 
   @override
   Future<void> logout() async {
+    final wasDemo = DemoSession.isActive;
+    if (wasDemo) DemoSession.markInactive();
+
     // FCM (Installations/Google) при плохом DNS может долго ждать [getToken] — без таймаута
     // локальная очистка сессии не наступает, а [GoRouter] снова отправляет на /bootstrap.
     try {

@@ -5,6 +5,7 @@ import '../../core/constants/api_constants.dart';
 import '../../core/auth/unauthorized_handler.dart';
 import '../../core/backend_access/backend_access_controller.dart';
 import '../../core/logging/app_log_file.dart';
+import '../../core/mock/demo_api_interceptor.dart';
 import 'backend_access_blocked_exception.dart';
 import '../services/token_storage.dart';
 
@@ -17,6 +18,9 @@ class ApiClient {
       receiveTimeout: ApiConstants.receiveTimeout,
       headers: {'Accept': 'application/json', 'Content-Type': 'application/json'},
     ));
+
+    // Демо-аккаунт (test@test.ru): моки до блокировки Remote Config и сети.
+    _dio.interceptors.add(DemoApiInterceptor());
 
     _dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) {

@@ -24,6 +24,7 @@ import '../auth/auth_session.dart';
 import '../../core/cache/json_cache.dart';
 import '../network/app_network_banner_controller.dart';
 import '../storage/local_user_storage_wipe.dart';
+import '../mock/demo_session.dart';
 import 'package:path_provider/path_provider.dart';
 
 /// Простой DI: инициализация один раз при старте, затем доступ к репозиториям.
@@ -56,6 +57,7 @@ abstract final class AppContainer {
       _appDocumentsDirPath = null;
     }
     final tokenStorage = await TokenStorage.create();
+    await DemoSession.restoreFromStorage(tokenStorage);
     final jsonCache = await JsonCache.create();
     final apiClient = ApiClient(tokenStorage: tokenStorage);
     _tokenStorage = tokenStorage;
@@ -200,6 +202,7 @@ abstract final class AppContainer {
 
   /// Локально "выкинуть" пользователя без сетевых запросов (для 401/истёкшей сессии).
   static Future<void> forceLogoutLocal() async {
+    DemoSession.markInactive();
     try {
       await tokenStorage.clear();
     } catch (_) {}
