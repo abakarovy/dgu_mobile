@@ -4,6 +4,7 @@ import 'package:flutter/material.dart' show Scaffold, Center, Text, GlobalKey, N
 import 'package:go_router/go_router.dart';
 
 import '../bootstrap/bootstrap_page.dart';
+import '../../data/api/edu_disclosure_api.dart';
 import '../../core/auth/auth_session.dart';
 import '../../core/di/app_container.dart';
 import '../../features/events/presentation/pages/events_page.dart';
@@ -11,6 +12,8 @@ import '../../features/events/data/event_item.dart';
 import '../../features/events/presentation/pages/event_detail_page.dart';
 import '../../features/grades/presentation/pages/grades_page.dart';
 import '../../features/home/presentation/pages/home_page.dart';
+import '../../features/applicant/presentation/pages/applicant_disclosure_page.dart';
+import '../../features/applicant/presentation/pages/applicant_home_page.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/pages/login_email_page.dart';
 import '../../features/auth/presentation/pages/login_role_page.dart';
@@ -67,6 +70,11 @@ final GoRouter appRouter = GoRouter(
       builder: (context, state) => const BootstrapPage(),
     ),
     GoRoute(
+      path: '/applicant',
+      name: 'applicant',
+      builder: (context, state) => const ApplicantHomePage(),
+    ),
+    GoRoute(
       path: '/login',
       name: 'login',
       builder: (context, state) => const LoginRolePage(),
@@ -80,6 +88,83 @@ final GoRouter appRouter = GoRouter(
           path: 'email',
           name: 'loginEmail',
           builder: (context, state) => LoginEmailPage(extra: state.extra),
+        ),
+        GoRoute(
+          path: 'applicant',
+          name: 'loginApplicant',
+          builder: (context, state) => const ApplicantHomePage(),
+          routes: [
+            GoRoute(
+              path: 'news',
+              name: 'applicantNews',
+              builder: (context, state) => NewsPage(
+                standalone: true,
+                initialTab: state.uri.queryParameters['tab'] == 'events'
+                    ? NewsTab.events
+                    : NewsTab.news,
+                newsDetailRoute: '/login/applicant/news/detail',
+                eventsDetailRoute: '/login/applicant/events/detail',
+                newsTabRoute: '/login/applicant/news',
+              ),
+              routes: [
+                GoRoute(
+                  path: 'detail',
+                  name: 'applicantNewsDetail',
+                  pageBuilder: (context, state) {
+                    final item = state.extra as NewsModel?;
+                    return _cupertinoSubpage(
+                      key: state.pageKey,
+                      name: state.name,
+                      child: item == null
+                          ? const NewsPage(standalone: true)
+                          : NewsDetailPage(item: item),
+                    );
+                  },
+                ),
+              ],
+            ),
+            GoRoute(
+              path: 'events/detail',
+              name: 'applicantEventDetail',
+              pageBuilder: (context, state) {
+                final item = state.extra as EventItem?;
+                return _cupertinoSubpage(
+                  key: state.pageKey,
+                  name: state.name,
+                  child: item == null
+                      ? const NewsPage(
+                          standalone: true,
+                          initialTab: NewsTab.events,
+                        )
+                      : EventDetailPage(item: item),
+                );
+              },
+            ),
+            GoRoute(
+              path: 'svedeniya',
+              name: 'applicantSvedeniya',
+              builder: (context, state) => const ApplicantDisclosurePage(),
+              routes: [
+                GoRoute(
+                  path: ':sectionId',
+                  name: 'applicantSvedeniyaSection',
+                  builder: (context, state) {
+                    final extra = state.extra;
+                    final data = extra is Map<String, dynamic>
+                        ? extra
+                        : extra is Map
+                            ? Map<String, dynamic>.from(extra)
+                            : AppContainer.jsonCache.getJsonMap(EduDisclosureApi.cacheKey) ??
+                                const <String, dynamic>{};
+                    return ApplicantDisclosureSectionPage(
+                      sectionId: state.pathParameters['sectionId'] ?? 'basic',
+                      data: data,
+                    );
+                  },
+                ),
+              ],
+            ),
+          ],
         ),
       ],
     ),
@@ -380,7 +465,15 @@ final GoRouter appRouter = GoRouter(
     // Не логин: запрещаем любые /app/*
     if (!isLoggedIn && path.startsWith('/app')) return '/login';
 
-    // Уже залогинен: не показываем /login
+    // Раздел абитуриента доступен без авторизации
+    if (path == '/applicant' ||
+        path.startsWith('/applicant/') ||
+        path == '/login/applicant' ||
+        path.startsWith('/login/applicant/')) {
+      return null;
+    }
+
+    // Уже залогинен: не показываем экраны входа (кроме абитуриента — см. выше)
     if (isLoggedIn && path.startsWith('/login')) return '/bootstrap';
 
     return null;

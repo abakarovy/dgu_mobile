@@ -89,6 +89,15 @@ abstract final class ApiConstants {
     return fromDefine.trim();
   }
 
+  /// Публичный сайт колледжа (главная, абитуриент, новости).
+  static String get collegeSiteOrigin {
+    final v = dotenv.env['COLLEGE_SITE_ORIGIN'];
+    if (v != null && v.trim().isNotEmpty) return _trimTrailingSlash(v.trim());
+    const fromDefine = String.fromEnvironment('COLLEGE_SITE_ORIGIN', defaultValue: '');
+    if (fromDefine.trim().isNotEmpty) return _trimTrailingSlash(fromDefine.trim());
+    return 'https://college.dgu.ru';
+  }
+
   /// Базовый сайт для относительных ссылок портала «Студентам» (`/svedeniya/...`).
   /// По умолчанию — основной сайт ДГУ.
   static String get portalSiteOrigin {

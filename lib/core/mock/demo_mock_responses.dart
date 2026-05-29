@@ -79,6 +79,9 @@ abstract final class DemoMockResponses {
     if (path == '/mobile/help') {
       return DemoMockPayload(statusCode: 200, data: _help());
     }
+    if (path == '/edu-disclosure') {
+      return DemoMockPayload(statusCode: 200, data: _eduDisclosure());
+    }
     if (path == '/mobile/notification-preferences') {
       return DemoMockPayload(statusCode: 200, data: _notificationPrefs());
     }
@@ -530,6 +533,42 @@ abstract final class DemoMockResponses {
             'email': 'collegedsu@mail.ru',
           },
         ],
+      };
+
+  static Map<String, dynamic> _eduDisclosure() => {
+        'basic': {
+          'org_created_date': '1967',
+          'founders': 'Министерство науки и высшего образования Российской Федерации',
+          'work_schedule': 'Пн–Пт: 9:00–18:00',
+          'phones': '+7 (872) 267-00-00',
+          'email': 'college@dgu.ru',
+        },
+        'basic_location_branches': {
+          'body_html':
+              '<p>367000, Республика Дагестан, г. Махачкала, ул. Дзержинского, 21</p>',
+        },
+        'management_units': [
+          {
+            'unit_name': 'ФГБОУ ВО «Колледж ДГУ»',
+            'head_full_name': 'Пирбудагова Диана Шамильевна',
+            'address': 'г. Махачкала, ул. Дзержинского 21',
+            'email': 'collegedsu@mail.ru',
+          },
+        ],
+        'education': {
+          'intro':
+              '<p>Колледж реализует программы среднего профессионального образования по очной форме.</p>',
+        },
+        'scholarship': {
+          'scholarships':
+              '<p>Информация о стипендиях и мерах поддержки обучающихся публикуется на сайте колледжа.</p>',
+        },
+        'finance': {
+          'activity_volume': '<p>Сведения о финансово-хозяйственной деятельности размещены в соответствии с требованиями законодательства.</p>',
+        },
+        'vacant': {
+          'admission_tables': '<p>Информация о вакантных местах для приёма обновляется в период приёмной кампании.</p>',
+        },
       };
 
   static Map<String, dynamic> _notificationPrefs() => {

@@ -16,10 +16,14 @@ class EventsPage extends StatefulWidget {
   const EventsPage({
     super.key,
     this.embedded = false,
+    this.eventsDetailRoute = '/app/news/events/detail',
+    this.newsTabRoute = '/app/news',
   });
 
   /// Если true — страница рисуется внутри `NewsPage` и не делает свою шапку-переключатель.
   final bool embedded;
+  final String eventsDetailRoute;
+  final String newsTabRoute;
 
   static const double _horizontalPadding = 24;
   static const double _cardsGap = 16;
@@ -64,7 +68,7 @@ class _EventsPageState extends State<EventsPage> {
                     child: _switcherTab(
                       label: 'Новости',
                       selected: false,
-                      onTap: () => context.go('/app/news'),
+                      onTap: () => context.go(widget.newsTabRoute),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -111,7 +115,7 @@ class _EventsPageState extends State<EventsPage> {
                         _EventCard(
                           data: EventItem.fromEventModel(events[i]),
                           onTap: () => context.push(
-                            '/app/news/events/detail',
+                            widget.eventsDetailRoute,
                             extra: EventItem.fromEventModel(events[i]),
                           ),
                         ),

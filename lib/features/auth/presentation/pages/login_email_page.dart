@@ -1097,6 +1097,19 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
                                             ),
                                           ),
                                         ),
+                                        const SizedBox(height: 24),
+                                        GestureDetector(
+                                          behavior: HitTestBehavior.opaque,
+                                          onTap: () => context.push('/login/applicant'),
+                                          child: SizedBox(
+                                            width: double.infinity,
+                                            child: Text(
+                                              'Войти как абитуриент',
+                                              textAlign: TextAlign.center,
+                                              style: linkStyle,
+                                            ),
+                                          ),
+                                        ),
                                       ],
                                     ] else ...[
                                       const SizedBox(height: 24),
@@ -1130,6 +1143,19 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
                                             width: double.infinity,
                                             child: Text(
                                               'Войти как родитель',
+                                              textAlign: TextAlign.center,
+                                              style: linkStyle,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 24),
+                                        GestureDetector(
+                                          behavior: HitTestBehavior.opaque,
+                                          onTap: () => context.push('/login/applicant'),
+                                          child: SizedBox(
+                                            width: double.infinity,
+                                            child: Text(
+                                              'Войти как абитуриент',
                                               textAlign: TextAlign.center,
                                               style: linkStyle,
                                             ),

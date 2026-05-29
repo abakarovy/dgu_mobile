@@ -25,6 +25,8 @@ import '../../core/cache/json_cache.dart';
 import '../network/app_network_banner_controller.dart';
 import '../storage/local_user_storage_wipe.dart';
 import '../mock/demo_session.dart';
+import '../../data/api/edu_disclosure_api.dart';
+import '../../data/college_site/college_site_service.dart';
 import 'package:path_provider/path_provider.dart';
 
 /// Простой DI: инициализация один раз при старте, затем доступ к репозиториям.
@@ -46,7 +48,9 @@ abstract final class AppContainer {
   static DocumentsApi? _documentsApi;
   static StudentTicketApi? _studentTicketApi;
   static StudentServicesApi? _studentServicesApi;
+  static EduDisclosureApi? _eduDisclosureApi;
   static JsonCache? _jsonCache;
+  static CollegeSiteService? _collegeSiteService;
   static String? _appDocumentsDirPath;
 
   static Future<void> init() async {
@@ -85,6 +89,7 @@ abstract final class AppContainer {
     _documentsApi = DocumentsApi(apiClient: apiClient);
     _studentTicketApi = StudentTicketApi(apiClient: apiClient);
     _studentServicesApi = StudentServicesApi(apiClient: apiClient);
+    _eduDisclosureApi = EduDisclosureApi(apiClient: apiClient);
     _jsonCache = jsonCache;
   }
 
@@ -188,6 +193,12 @@ abstract final class AppContainer {
     return a;
   }
 
+  static EduDisclosureApi get eduDisclosureApi {
+    final a = _eduDisclosureApi;
+    if (a == null) throw StateError('AppContainer.init() must be called before using eduDisclosureApi');
+    return a;
+  }
+
   static AuthApi get authApi {
     final a = _authApi;
     if (a == null) throw StateError('AppContainer.init() must be called before using authApi');
@@ -198,6 +209,10 @@ abstract final class AppContainer {
     final c = _jsonCache;
     if (c == null) throw StateError('AppContainer.init() must be called before using jsonCache');
     return c;
+  }
+
+  static CollegeSiteService get collegeSiteService {
+    return _collegeSiteService ??= CollegeSiteService(cache: jsonCache);
   }
 
   /// Локально "выкинуть" пользователя без сетевых запросов (для 401/истёкшей сессии).

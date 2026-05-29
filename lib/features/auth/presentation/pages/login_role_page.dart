@@ -7,7 +7,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_text_styles.dart';
 
-/// Выбор роли: студент или родитель.
+/// Выбор роли: студент, родитель или абитуриент.
 class LoginRolePage extends StatelessWidget {
   const LoginRolePage({super.key});
 
@@ -122,16 +122,21 @@ class LoginRolePage extends StatelessWidget {
                 flex: bottomFlex,
                 child: SafeArea(
                   top: false,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: _buttonHorizontalInset,
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      return SingleChildScrollView(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: _buttonHorizontalInset,
+                          vertical: 12,
+                        ),
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
                         SizedBox(
-                          height: 60,
+                          height: 52,
                           child: OutlinedButton(
                             onPressed: () => context.go('/login/student'),
                             style: noOverlay(
@@ -154,9 +159,9 @@ class LoginRolePage extends StatelessWidget {
                             ),
                           ),
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 12),
                         SizedBox(
-                          height: 60,
+                          height: 52,
                           child: FilledButton(
                             onPressed: () => context.go(
                               '/login/email',
@@ -184,8 +189,36 @@ class LoginRolePage extends StatelessWidget {
                             ),
                           ),
                         ),
-                      ],
-                    ),
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          height: 52,
+                          child: OutlinedButton(
+                            onPressed: () => context.push('/login/applicant'),
+                            style: noOverlay(
+                              OutlinedButton.styleFrom(
+                                foregroundColor: const Color(0xFF172446),
+                                backgroundColor: const Color(0xFFF4F6FB),
+                                side: const BorderSide(color: Color(0xFF172446), width: 1),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(46),
+                                ),
+                                padding: EdgeInsets.zero,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                visualDensity: VisualDensity.compact,
+                              ),
+                            ),
+                            child: Text(
+                              'Я абитуриент',
+                              textAlign: TextAlign.center,
+                              style: btnLabelStyle.copyWith(color: const Color(0xFF172446)),
+                            ),
+                          ),
+                        ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
                   ),
                 ),
               ),

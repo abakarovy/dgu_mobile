@@ -565,6 +565,19 @@ class _LoginPageState extends State<LoginPage> {
                                       ),
                                     ),
                                   ),
+                                  const SizedBox(height: 24),
+                                  GestureDetector(
+                                    behavior: HitTestBehavior.opaque,
+                                    onTap: () => context.push('/login/applicant'),
+                                    child: SizedBox(
+                                      width: double.infinity,
+                                      child: Text(
+                                        'Войти как абитуриент',
+                                        textAlign: TextAlign.center,
+                                        style: linkStyle,
+                                      ),
+                                    ),
+                                  ),
                                 ],
                               ),
                             ),

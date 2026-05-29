@@ -9,6 +9,7 @@ import '../../../../core/navigation/news_header_host.dart';
 import '../../../../core/navigation/news_refresh_host.dart';
 import '../../../../data/models/news_model.dart';
 import '../../../../core/theme/app_text_styles.dart';
+import '../../../../shared/widgets/app_header.dart';
 import '../../../events/presentation/pages/events_page.dart';
 import '../widgets/news_card.dart';
 
@@ -17,9 +18,18 @@ class NewsPage extends StatefulWidget {
   const NewsPage({
     super.key,
     this.initialTab = NewsTab.news,
+    this.standalone = false,
+    this.newsDetailRoute = '/app/news/detail',
+    this.eventsDetailRoute = '/app/news/events/detail',
+    this.newsTabRoute = '/app/news',
   });
 
   final NewsTab initialTab;
+  /// Полноэкранный режим с [AppHeader] (раздел абитуриента).
+  final bool standalone;
+  final String newsDetailRoute;
+  final String eventsDetailRoute;
+  final String newsTabRoute;
 
   @override
   State<NewsPage> createState() => _NewsPageState();
@@ -127,7 +137,7 @@ class _NewsPageState extends State<NewsPage> {
     final showNews = _tab == NewsTab.news;
     final headerTitle = showNews ? 'Новости' : 'Мероприятия';
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      NewsHeaderHost.setTitle(headerTitle);
+      if (!widget.standalone) NewsHeaderHost.setTitle(headerTitle);
     });
 
     final header = Padding(
@@ -139,23 +149,39 @@ class _NewsPageState extends State<NewsPage> {
       ),
     );
 
-    return ColoredBox(
-      color: Colors.white,
-      child: showNews
-          ? Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                header,
-                Expanded(child: _buildNewsContent()),
-              ],
-            )
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                header,
-                const Expanded(child: EventsPage(embedded: true)),
-              ],
-            ),
+    final body = showNews
+        ? Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              header,
+              Expanded(child: _buildNewsContent()),
+            ],
+          )
+        : Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              header,
+              Expanded(
+                child: EventsPage(
+                  embedded: true,
+                  eventsDetailRoute: widget.eventsDetailRoute,
+                  newsTabRoute: widget.newsTabRoute,
+                ),
+              ),
+            ],
+          );
+
+    if (!widget.standalone) {
+      return ColoredBox(color: Colors.white, child: body);
+    }
+
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppHeader(
+        leading: appHeaderNestedBackLeading(context),
+        headerTitle: Text(headerTitle, style: appHeaderNestedTitleStyle),
+      ),
+      body: body,
     );
   }
 
@@ -197,7 +223,7 @@ class _NewsPageState extends State<NewsPage> {
                       date: _items[i].createdAt.toIso8601String().split('T').first,
                       imageWidget: _buildNewsImage(_items[i].imageUrl),
                       onTap: () =>
-                          context.push('/app/news/detail', extra: _items[i]),
+                          context.push(widget.newsDetailRoute, extra: _items[i]),
                     ),
                   ),
                   if (i != _items.length - 1)
