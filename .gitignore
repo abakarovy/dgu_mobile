@@ -50,5 +50,9 @@ app.*.map.json
 # RuStore PEPK / PEM выгрузка (локально)
 /rustore_signing_out/
 
+# Локальный архив с ключами подписи (не коммитить)
+/dist/aab_signing_bundle.zip
+/tools/aab_signing_bundle/_staging/
+
 # Локальные логи при flutter run -d windows/linux/macos (debug)
 /logs/
