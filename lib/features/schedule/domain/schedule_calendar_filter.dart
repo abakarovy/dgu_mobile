@@ -1,5 +1,26 @@
 import '../data/schedule_lesson.dart';
 
+/// Заглушка от 1С/бэка вместо пустого списка («В этот день пар нет» и т.п.).
+bool isSchedulePlaceholderLesson(ScheduleLesson lesson) {
+  final subject = lesson.subject.trim().toLowerCase();
+  if (subject.isEmpty) return false;
+
+  if (RegExp(r'нет\s*пар|пар\s*нет|занятий\s*нет|нет\s*занятий').hasMatch(subject)) {
+    return true;
+  }
+
+  final time = lesson.time.trim();
+  final hasClockTime = RegExp(r'\d{1,2}:\d{2}').hasMatch(time);
+  if (!hasClockTime && subject.contains('этот день')) {
+    return true;
+  }
+
+  return false;
+}
+
+List<ScheduleLesson> withoutSchedulePlaceholders(List<ScheduleLesson> list) =>
+    list.where((e) => !isSchedulePlaceholderLesson(e)).toList(growable: false);
+
 /// День календаря без времени.
 DateTime dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 
@@ -9,6 +30,7 @@ List<ScheduleLesson> filterScheduleForCalendarToday(
   List<ScheduleLesson> all, {
   DateTime? now,
 }) {
+  all = withoutSchedulePlaceholders(all);
   final day = dateOnly(now ?? DateTime.now());
   final dayIdx = (now ?? DateTime.now()).weekday - 1;
 
@@ -32,6 +54,7 @@ List<ScheduleLesson> lessonsForSelectedCalendarDay(
   List<ScheduleLesson> all,
   DateTime selectedDay,
 ) {
+  all = withoutSchedulePlaceholders(all);
   final target = dateOnly(selectedDay);
   final idx = selectedDay.weekday - 1;
   final undatedSameWeekday =
@@ -49,7 +72,7 @@ List<ScheduleLesson> lessonsForSelectedCalendarDay(
 
 /// Сортировка по номеру пары (для ответа `/1c/schedule` без фильтра по календарю).
 List<ScheduleLesson> sortScheduleLessonsByPair(List<ScheduleLesson> list) =>
-    _sortedByPair(list);
+    _sortedByPair(withoutSchedulePlaceholders(list));
 
 List<ScheduleLesson> _sortedByPair(List<ScheduleLesson> list) {
   final copy = [...list];

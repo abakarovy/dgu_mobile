@@ -122,15 +122,17 @@ class _HomePageState extends State<HomePage> {
       };
       out.add(ScheduleLesson.fromJsonMap(map));
     }
-    return out;
+    return withoutSchedulePlaceholders(out);
   }
 
   List<ScheduleLesson> _mapCacheToLessons(List<dynamic>? cached) {
     if (cached == null) return const <ScheduleLesson>[];
-    return cached
-        .whereType<Map>()
-        .map((m) => ScheduleLesson.fromJsonMap(Map<String, dynamic>.from(m)))
-        .toList();
+    return withoutSchedulePlaceholders(
+      cached
+          .whereType<Map>()
+          .map((m) => ScheduleLesson.fromJsonMap(Map<String, dynamic>.from(m)))
+          .toList(),
+    );
   }
 
   Future<void> _refreshTodayScheduleSilent({required bool force}) async {

@@ -1,0 +1,113 @@
+# -*- coding: utf-8 -*-
+"""Generate figure-01-architecture.svg with proper UTF-8 encoding."""
+
+SVG = r'''<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="680" viewBox="0 0 1200 680">
+  <defs>
+    <linearGradient id="clientBg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#f4f8ff"/>
+      <stop offset="100%" stop-color="#e8f0fb"/>
+    </linearGradient>
+    <linearGradient id="serverBg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#fff8f0"/>
+      <stop offset="100%" stop-color="#fceee0"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#000000" flood-opacity="0.12"/>
+    </filter>
+    <marker id="arrowBlue" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#003882"/>
+    </marker>
+    <marker id="arrowGreen" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#2e7d32"/>
+    </marker>
+  </defs>
+
+  <rect width="1200" height="680" fill="#ffffff"/>
+
+  <g filter="url(#shadow)">
+    <rect x="80" y="48" width="150" height="56" rx="10" fill="#ffffff" stroke="#003882" stroke-width="2"/>
+    <text x="155" y="82" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="16" font-weight="600" fill="#003882">Пользователь</text>
+  </g>
+
+  <line x1="155" y1="104" x2="155" y2="138" stroke="#003882" stroke-width="2.5" marker-end="url(#arrowBlue)"/>
+  <text x="170" y="128" font-family="Segoe UI, Arial, sans-serif" font-size="12" fill="#555">взаимодействие с UI</text>
+
+  <rect x="40" y="140" width="520" height="470" rx="16" fill="url(#clientBg)" stroke="#003882" stroke-width="2.5" filter="url(#shadow)"/>
+  <text x="300" y="172" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="18" font-weight="700" fill="#003882">Мобильный клиент «Колледж ДГУ»</text>
+  <text x="300" y="194" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="13" fill="#555">Flutter / Dart · Android · iOS · объект разработки ВКР</text>
+
+  <rect x="70" y="215" width="460" height="72" rx="10" fill="#ffffff" stroke="#5b8fd9" stroke-width="1.8"/>
+  <text x="300" y="242" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="600" fill="#003882">Пользовательский интерфейс (UI)</text>
+  <text x="300" y="264" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="12" fill="#444">экраны · go_router · Material Design 3</text>
+
+  <line x1="300" y1="287" x2="300" y2="312" stroke="#003882" stroke-width="2" marker-end="url(#arrowBlue)"/>
+
+  <rect x="70" y="315" width="460" height="88" rx="10" fill="#ffffff" stroke="#5b8fd9" stroke-width="1.8"/>
+  <text x="300" y="342" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="600" fill="#003882">Сетевой слой ApiClient (Dio)</text>
+  <text x="300" y="364" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="12" fill="#444">HTTP GET/POST · JWT в заголовке · обработка 401 · JSON</text>
+  <text x="300" y="384" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="12" fill="#444">NewsApi · ScheduleApi · GradesApi · AuthApi · PushApi · …</text>
+
+  <line x1="300" y1="403" x2="300" y2="428" stroke="#003882" stroke-width="2" marker-end="url(#arrowBlue)"/>
+
+  <rect x="70" y="430" width="460" height="72" rx="10" fill="#ffffff" stroke="#5b8fd9" stroke-width="1.8"/>
+  <text x="300" y="457" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="600" fill="#003882">Локальное хранилище (SharedPreferences)</text>
+  <text x="300" y="479" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="12" fill="#444">JWT-токен · профиль · JSON-кэш ответов API</text>
+
+  <rect x="70" y="520" width="215" height="68" rx="10" fill="#ffffff" stroke="#2e7d32" stroke-width="1.8"/>
+  <text x="177" y="547" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="600" fill="#2e7d32">Firebase FCM</text>
+  <text x="177" y="568" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="11" fill="#444">push-уведомления</text>
+
+  <rect x="315" y="520" width="215" height="68" rx="10" fill="#ffffff" stroke="#2e7d32" stroke-width="1.8"/>
+  <text x="422" y="547" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="600" fill="#2e7d32">WebSocket-клиент</text>
+  <text x="422" y="568" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="11" fill="#444">сигналы обновления данных</text>
+
+  <rect x="640" y="140" width="520" height="470" rx="16" fill="url(#serverBg)" stroke="#c45c00" stroke-width="2.5" filter="url(#shadow)"/>
+  <text x="900" y="172" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="18" font-weight="700" fill="#c45c00">Внешняя серверная система</text>
+  <text x="900" y="194" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="13" fill="#555">college.dgu.ru · не входит в объект ВКР</text>
+
+  <rect x="670" y="230" width="460" height="120" rx="10" fill="#ffffff" stroke="#e09040" stroke-width="1.8"/>
+  <text x="900" y="260" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="16" font-weight="700" fill="#c45c00">REST API портала</text>
+  <text x="900" y="284" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="13" fill="#444">https://college.dgu.ru/api</text>
+  <text x="900" y="308" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="12" fill="#444">/auth · /news · /1c/schedule · /1c/sync-grades · /mobile/assignments · /health · …</text>
+  <text x="900" y="332" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="12" fill="#444">HTTPS · JSON · JWT-авторизация</text>
+
+  <rect x="670" y="380" width="460" height="110" rx="10" fill="#fffdf9" stroke="#e09040" stroke-width="1.8" stroke-dasharray="8 5"/>
+  <text x="900" y="410" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="600" fill="#888">Бизнес-логика · база данных · интеграция с 1С</text>
+  <text x="900" y="434" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="12" fill="#888">(реализованы на стороне портала, вне scope дипломной работы)</text>
+
+  <rect x="670" y="515" width="460" height="68" rx="10" fill="#ffffff" stroke="#e09040" stroke-width="1.8"/>
+  <text x="900" y="542" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="600" fill="#c45c00">Сервис push-уведомлений портала</text>
+  <text x="900" y="564" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="11" fill="#444">доставка через Firebase Cloud Messaging</text>
+
+  <line x1="530" y1="359" x2="665" y2="290" stroke="#003882" stroke-width="3" marker-end="url(#arrowBlue)"/>
+  <rect x="548" y="298" width="118" height="42" rx="6" fill="#ffffff" stroke="#003882" stroke-width="1.2"/>
+  <text x="607" y="317" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="600" fill="#003882">HTTPS</text>
+  <text x="607" y="333" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="11" fill="#444">REST / JSON</text>
+
+  <line x1="665" y1="310" x2="530" y2="375" stroke="#003882" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#arrowBlue)"/>
+  <text x="607" y="358" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="11" fill="#666">ответ JSON</text>
+
+  <path d="M 422 520 C 520 480, 560 460, 760 350" fill="none" stroke="#2e7d32" stroke-width="2.2" marker-end="url(#arrowGreen)"/>
+  <text x="590" y="448" font-family="Segoe UI, Arial, sans-serif" font-size="11" fill="#2e7d32">WebSocket /ws?token=…</text>
+
+  <path d="M 900 515 C 900 480, 680 430, 422 520" fill="none" stroke="#2e7d32" stroke-width="2.2" marker-end="url(#arrowGreen)"/>
+  <text x="660" y="488" font-family="Segoe UI, Arial, sans-serif" font-size="11" fill="#2e7d32">FCM push</text>
+
+  <rect x="40" y="628" width="1120" height="38" rx="8" fill="#f7f7f7" stroke="#dddddd" stroke-width="1"/>
+  <rect x="58" y="642" width="18" height="12" fill="#e8f0fb" stroke="#003882" stroke-width="1.2"/>
+  <text x="84" y="652" font-family="Segoe UI, Arial, sans-serif" font-size="11" fill="#333">объект разработки (мобильный клиент)</text>
+  <rect x="360" y="642" width="18" height="12" fill="#fceee0" stroke="#c45c00" stroke-width="1.2"/>
+  <text x="386" y="652" font-family="Segoe UI, Arial, sans-serif" font-size="11" fill="#333">внешняя система (REST API портала)</text>
+  <line x1="650" y1="648" x2="680" y2="648" stroke="#003882" stroke-width="2.5"/>
+  <text x="688" y="652" font-family="Segoe UI, Arial, sans-serif" font-size="11" fill="#333">основной обмен данными</text>
+  <line x1="860" y1="648" x2="890" y2="648" stroke="#2e7d32" stroke-width="2.2"/>
+  <text x="898" y="652" font-family="Segoe UI, Arial, sans-serif" font-size="11" fill="#333">оперативные уведомления</text>
+</svg>
+'''
+
+from pathlib import Path
+
+out = Path(__file__).with_name("figure-01-architecture.svg")
+out.write_text(SVG, encoding="utf-8")
+print(f"Wrote {out}")

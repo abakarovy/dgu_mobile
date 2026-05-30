@@ -441,11 +441,13 @@ class ScheduleApi {
                 ? (asMap['items'] as List)
                 : <dynamic>[];
 
-    return list
-        .whereType<Map>()
-        .map((m) => Map<String, dynamic>.from(m))
-        .map(_lessonFromJson)
-        .toList();
+    return withoutSchedulePlaceholders(
+      list
+          .whereType<Map>()
+          .map((m) => Map<String, dynamic>.from(m))
+          .map(_lessonFromJson)
+          .toList(),
+    );
   }
 
   static ScheduleLesson _lessonFromJson(Map<String, dynamic> json) {
