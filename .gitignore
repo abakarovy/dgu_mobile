@@ -51,7 +51,8 @@ app.*.map.json
 /rustore_signing_out/
 
 # Локальный архив с ключами подписи (не коммитить)
-/dist/aab_signing_bundle.zip
+/dist/
+/.aab_signing_backup_*/
 /tools/aab_signing_bundle/_staging/
 
 # Локальные логи при flutter run -d windows/linux/macos (debug)
