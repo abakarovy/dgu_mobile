@@ -82,6 +82,9 @@ abstract final class DemoMockResponses {
     if (path == '/edu-disclosure') {
       return DemoMockPayload(statusCode: 200, data: _eduDisclosure());
     }
+    if (path == '/upbringing') {
+      return DemoMockPayload(statusCode: 200, data: _upbringing());
+    }
     if (path == '/mobile/notification-preferences') {
       return DemoMockPayload(statusCode: 200, data: _notificationPrefs());
     }
@@ -547,6 +550,10 @@ abstract final class DemoMockResponses {
           'body_html':
               '<p>367000, Республика Дагестан, г. Махачкала, ул. Дзержинского, 21</p>',
         },
+        'struktura_kolledzha': {
+          'body_html':
+              '<p>Структура и органы управления образовательной организацией.</p>',
+        },
         'management_units': [
           {
             'unit_name': 'ФГБОУ ВО «Колледж ДГУ»',
@@ -555,20 +562,75 @@ abstract final class DemoMockResponses {
             'email': 'collegedsu@mail.ru',
           },
         ],
+        'documents': [
+          {
+            'title': 'Устав образовательной организации',
+            'file_url': '/uploads/edu_disclosure/demo-ustav.pdf',
+          },
+        ],
         'education': {
           'intro':
               '<p>Колледж реализует программы среднего профессионального образования по очной форме.</p>',
+        },
+        'fgos_standards': [
+          {
+            'title': 'ФГОС СПО по специальности 09.02.07',
+            'file_url': '/uploads/edu_disclosure/demo-fgos.pdf',
+          },
+        ],
+        'staff': [
+          {
+            'full_name': 'Иванов Иван Иванович',
+            'position': 'Преподаватель',
+            'subjects': 'Информатика',
+          },
+        ],
+        'mto': {
+          'libraries':
+              '<p>Библиотечный фонд колледжа включает учебную и научную литературу.</p>',
         },
         'scholarship': {
           'scholarships':
               '<p>Информация о стипендиях и мерах поддержки обучающихся публикуется на сайте колледжа.</p>',
         },
+        'paid_services': {
+          'procedure': '<p>Порядок оказания платных образовательных услуг.</p>',
+        },
         'finance': {
-          'activity_volume': '<p>Сведения о финансово-хозяйственной деятельности размещены в соответствии с требованиями законодательства.</p>',
+          'activity_volume':
+              '<p>Сведения о финансово-хозяйственной деятельности размещены в соответствии с требованиями законодательства.</p>',
         },
         'vacant': {
-          'admission_tables': '<p>Информация о вакантных местах для приёма обновляется в период приёмной кампании.</p>',
+          'admission_tables':
+              '<p>Информация о вакантных местах для приёма обновляется в период приёмной кампании.</p>',
         },
+        'vacant_seats': [
+          {
+            'program_name': 'Информационная безопасность',
+            'level': 'СПО',
+            'form': 'Очная',
+            'vacant_count': 25,
+          },
+        ],
+      };
+
+  static Map<String, dynamic> _upbringing() => {
+        'categories': [
+          {
+            'key': 'extremism',
+            'title': 'Противодействие экстремизму и терроризму',
+            'entries': [
+              {
+                'id': 1,
+                'category': 'extremism',
+                'title': 'Методические материалы',
+                'body_html': '<p>Демо-материал воспитательной работы.</p>',
+                'file_url': null,
+                'sort_order': 0,
+              },
+            ],
+          },
+        ],
       };
 
   static Map<String, dynamic> _notificationPrefs() => {

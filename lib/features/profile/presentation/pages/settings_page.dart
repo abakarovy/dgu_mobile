@@ -276,7 +276,7 @@ class _SettingsPageState extends State<SettingsPage> {
         );
         return;
       }
-      context.go('/login');
+      context.go('/public/home');
     } catch (e, st) {
       if (!mounted || !context.mounted) return;
       final stillIn = await AppContainer.authRepository.isLoggedIn();

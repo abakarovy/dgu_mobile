@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/di/app_container.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../data/api/api_exception.dart';
+import '../../../../core/constants/app_ui.dart';
 import '../../../../shared/widgets/dismiss_keyboard_on_tap.dart';
 import '../registration_support_flow.dart';
 
@@ -363,6 +364,25 @@ class _LoginPageState extends State<LoginPage> {
                               const ColoredBox(color: Colors.black12),
                         ),
                         Positioned(
+                          left: AppUi.screenPaddingH,
+                          top: safeTop + 12,
+                          child: GestureDetector(
+                            onTap: () => context.pop(),
+                            behavior: HitTestBehavior.opaque,
+                            child: const SizedBox(
+                              width: 44,
+                              height: 44,
+                              child: Center(
+                                child: Icon(
+                                  Icons.arrow_back_ios_new,
+                                  size: 20,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        Positioned(
                           left: 60 * sf,
                           top: safeTop + 56 * sf,
                           child: Column(
@@ -560,19 +580,6 @@ class _LoginPageState extends State<LoginPage> {
                                       width: double.infinity,
                                       child: Text(
                                         'Войти как родитель',
-                                        textAlign: TextAlign.center,
-                                        style: linkStyle,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 24),
-                                  GestureDetector(
-                                    behavior: HitTestBehavior.opaque,
-                                    onTap: () => context.push('/login/applicant'),
-                                    child: SizedBox(
-                                      width: double.infinity,
-                                      child: Text(
-                                        'Войти как абитуриент',
                                         textAlign: TextAlign.center,
                                         style: linkStyle,
                                       ),

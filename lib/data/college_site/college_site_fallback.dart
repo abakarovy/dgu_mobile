@@ -1,10 +1,9 @@
 import '../../core/constants/api_constants.dart';
+import '../../core/constants/college_public_links.dart';
 import 'college_site_content.dart';
 
 /// Статический контент с college.dgu.ru — офлайн и запасной вариант при ошибке сети.
 abstract final class CollegeSiteFallback {
-  static const _origin = 'https://college.dgu.ru';
-
   static CollegeSiteContent get defaultContent => CollegeSiteContent(
         heroTitle: 'Колледж ДГУ 2026',
         heroSubtitle:
@@ -52,19 +51,14 @@ abstract final class CollegeSiteFallback {
         quickLinks: [
           CollegeQuickLink(
             label: 'Подать заявление онлайн',
-            url: 'https://www.gosuslugi.ru/vuzonline',
+            url: CollegePublicLinks.gosuslugiVuzOnlineUrl,
             external: true,
             primary: true,
           ),
           CollegeQuickLink(
-            label: 'Узнать о специальностях',
-            url: '$_origin/abiturient#directions',
-          ),
-          CollegeQuickLink(
             label: 'Сведения об образовательной организации',
-            url:
-                'https://college.dgu.ru/svedeniya/osnovnye-svedeniya/obshaya-informatsiya',
-            external: true,
+            url: '',
+            inAppRoute: CollegePublicLinks.svedeniyaInAppRoute,
           ),
         ],
         fetchedAt: null,

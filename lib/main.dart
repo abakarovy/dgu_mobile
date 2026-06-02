@@ -82,7 +82,7 @@ void main() async {
     // Можем получить 401 в bootstrap/prefetch: важно убрать splash и отправить на логин.
     FlutterNativeSplash.remove();
     await AppContainer.forceLogoutLocal();
-    appRouter.go('/login');
+    appRouter.go('/public/profile');
   });
 
   await _requestNotificationsPermissionIfNeeded(firebaseReady: firebaseReady);

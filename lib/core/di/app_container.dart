@@ -26,6 +26,7 @@ import '../network/app_network_banner_controller.dart';
 import '../storage/local_user_storage_wipe.dart';
 import '../mock/demo_session.dart';
 import '../../data/api/edu_disclosure_api.dart';
+import '../../data/api/upbringing_api.dart';
 import '../../data/college_site/college_site_service.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -49,6 +50,7 @@ abstract final class AppContainer {
   static StudentTicketApi? _studentTicketApi;
   static StudentServicesApi? _studentServicesApi;
   static EduDisclosureApi? _eduDisclosureApi;
+  static UpbringingApi? _upbringingApi;
   static JsonCache? _jsonCache;
   static CollegeSiteService? _collegeSiteService;
   static String? _appDocumentsDirPath;
@@ -90,6 +92,7 @@ abstract final class AppContainer {
     _studentTicketApi = StudentTicketApi(apiClient: apiClient);
     _studentServicesApi = StudentServicesApi(apiClient: apiClient);
     _eduDisclosureApi = EduDisclosureApi(apiClient: apiClient);
+    _upbringingApi = UpbringingApi(apiClient: apiClient);
     _jsonCache = jsonCache;
   }
 
@@ -199,6 +202,12 @@ abstract final class AppContainer {
     return a;
   }
 
+  static UpbringingApi get upbringingApi {
+    final a = _upbringingApi;
+    if (a == null) throw StateError('AppContainer.init() must be called before using upbringingApi');
+    return a;
+  }
+
   static AuthApi get authApi {
     final a = _authApi;
     if (a == null) throw StateError('AppContainer.init() must be called before using authApi');
@@ -272,6 +281,26 @@ abstract final class AppContainer {
       _prefetchCurriculum,
     );
     return results.every((ok) => ok);
+  }
+
+  /// Splash: параллельный prefetch, минимум [minimumDisplay] на экране, до [maximumWait] на успех.
+  static Future<bool> prefetchDuringSplash({
+    Duration minimumDisplay = const Duration(seconds: 5),
+    Duration maximumWait = const Duration(seconds: 10),
+  }) async {
+    final sw = Stopwatch()..start();
+    var allOk = false;
+    while (sw.elapsed < maximumWait) {
+      allOk = await prefetchAll();
+      if (allOk) break;
+      if (sw.elapsed >= maximumWait) break;
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+    }
+    final minLeft = minimumDisplay - sw.elapsed;
+    if (minLeft > Duration.zero) {
+      await Future<void>.delayed(minLeft);
+    }
+    return allOk;
   }
 
   /// Родитель: сначала `GET /api/parents/student-data`, затем 1С с `student_id` ребёнка
@@ -395,6 +424,42 @@ abstract final class AppContainer {
   static Future<void> _prefetchEvents() async {
     final fresh = await eventsApi.getEvents();
     await jsonCache.setJson('events:list', [for (final e in fresh) e.toJson()]);
+  }
+
+  static Future<void> _prefetchEduDisclosure() async {
+    final fresh = await eduDisclosureApi.getDisclosure();
+    await jsonCache.setJson(EduDisclosureApi.cacheKey, fresh);
+  }
+
+  /// Публичный режим (гость): новости, мероприятия, сведения об ОО.
+  static Future<bool> prefetchPublic() async {
+    final t = ApiConstants.prefetchRequestTimeout;
+    final results = await Future.wait<bool>([
+      _timedPrefetch(t, _prefetchNews),
+      _timedPrefetch(t, _prefetchEvents),
+      _timedPrefetch(t, _prefetchEduDisclosure),
+    ]);
+    return results.every((ok) => ok);
+  }
+
+  /// Splash для гостя: минимум [minimumDisplay], до [maximumWait] на успех prefetch.
+  static Future<bool> prefetchPublicDuringSplash({
+    Duration minimumDisplay = const Duration(seconds: 5),
+    Duration maximumWait = const Duration(seconds: 10),
+  }) async {
+    final sw = Stopwatch()..start();
+    var allOk = false;
+    while (sw.elapsed < maximumWait) {
+      allOk = await prefetchPublic();
+      if (allOk) break;
+      if (sw.elapsed >= maximumWait) break;
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+    }
+    final minLeft = minimumDisplay - sw.elapsed;
+    if (minLeft > Duration.zero) {
+      await Future<void>.delayed(minLeft);
+    }
+    return allOk;
   }
 
   static Future<void> _prefetchHelp() async {

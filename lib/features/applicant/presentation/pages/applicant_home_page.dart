@@ -11,57 +11,45 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_ui.dart';
-import '../../../../core/di/app_container.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../data/college_site/college_site_content.dart';
 import '../../../../data/college_site/college_site_fallback.dart';
-import '../../../../shared/widgets/app_header.dart';
+/// Главная гостевого режима — контент college.dgu.ru (MOBILE_PUBLIC_SITE_DATA.md).
+class PublicHomePage extends StatefulWidget {
+  const PublicHomePage({super.key});
 
-/// Публичный раздел для абитуриентов — структура college.dgu.ru в стиле приложения.
-class ApplicantHomePage extends StatefulWidget {
-  const ApplicantHomePage({super.key});
-
-  static const Color _kBlue = Color(0xFF2E63D5);
-  static const svedeniyaEntryUrl =
-      'https://college.dgu.ru/svedeniya/osnovnye-svedeniya/obshaya-informatsiya';
+  static const Color kBlue = Color(0xFF2E63D5);
 
   @override
-  State<ApplicantHomePage> createState() => _ApplicantHomePageState();
+  State<PublicHomePage> createState() => _PublicHomePageState();
 }
 
-class _ApplicantHomePageState extends State<ApplicantHomePage> {
+/// Совместимость со старыми маршрутами.
+class ApplicantHomePage extends PublicHomePage {
+  const ApplicantHomePage({super.key});
+}
+
+class _PublicHomePageState extends State<PublicHomePage> {
   static const double _uiScaleBoost = 1.2;
 
-  CollegeSiteContent _content = CollegeSiteFallback.defaultContent;
-  bool _refreshing = false;
+  late final CollegeSiteContent _content = _contentForYear();
 
-  @override
-  void initState() {
-    super.initState();
-    unawaited(_load());
-  }
-
-  Future<void> _load({bool forceRefresh = false}) async {
-    if (forceRefresh) setState(() => _refreshing = true);
-    try {
-      final data = await AppContainer.collegeSiteService.loadHome(forceRefresh: forceRefresh);
-      if (!mounted) return;
-      setState(() {
-        _content = data;
-        _refreshing = false;
-      });
-    } catch (_) {
-      if (mounted) setState(() => _refreshing = false);
-    }
-  }
-
-  Future<void> _handleQuickLink(CollegeQuickLink link) async {
-    final label = link.label.toLowerCase();
-    if (link.url.contains('/svedeniya') || label.contains('сведения')) {
-      await _openUrl(ApplicantHomePage.svedeniyaEntryUrl);
-      return;
-    }
-    await _openUrl(link.url);
+  CollegeSiteContent _contentForYear() {
+    final base = CollegeSiteFallback.defaultContent;
+    final year = DateTime.now().year;
+    return CollegeSiteContent(
+      heroTitle: 'Колледж ДГУ $year',
+      heroSubtitle: base.heroSubtitle,
+      ecosystemTitle: base.ecosystemTitle,
+      ecosystemSubtitle: base.ecosystemSubtitle,
+      features: base.features,
+      directionsTitle: base.directionsTitle,
+      directionsSubtitle: base.directionsSubtitle,
+      directions: base.directions,
+      contacts: base.contacts,
+      quickLinks: base.quickLinks,
+      fetchedAt: null,
+    );
   }
 
   Future<void> _openUrl(String url) async {
@@ -70,7 +58,6 @@ class _ApplicantHomePageState extends State<ApplicantHomePage> {
     await launchUrl(u, mode: LaunchMode.externalApplication);
   }
 
-  /// Открывает адрес в картах — системный выбор приложения (Android/iOS).
   Future<void> _openMaps(String address) async {
     final query = Uri.encodeComponent(address.trim());
     if (query.isEmpty) return;
@@ -93,7 +80,8 @@ class _ApplicantHomePageState extends State<ApplicantHomePage> {
     }
   }
 
-  CollegeContacts _contactsForDisplay(CollegeContacts parsed) {
+  CollegeContacts _contactsForDisplay() {
+    final parsed = _content.contacts;
     final fb = CollegeSiteFallback.defaultContent.contacts;
     return CollegeContacts(
       address: parsed.address ?? fb.address,
@@ -114,141 +102,52 @@ class _ApplicantHomePageState extends State<ApplicantHomePage> {
   Widget build(BuildContext context) {
     final content = _content;
     final sf = _sf(context);
-    final linkStyle = AppTextStyle.inter(
-      fontWeight: FontWeight.w700,
-      fontSize: 14,
-      color: ApplicantHomePage._kBlue,
-    );
-
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.dark.copyWith(
-        statusBarColor: Colors.transparent,
-      ),
-      child: Scaffold(
-        backgroundColor: Colors.white,
-        appBar: AppHeader(
-          leading: appHeaderNestedBackLeading(context),
-          headerTitle: Text('Абитуриенту', style: appHeaderNestedTitleStyle),
-          actions: _refreshing
-              ? [
-                  const Padding(
-                    padding: EdgeInsets.only(right: AppUi.appBarPaddingH),
-                    child: SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                  ),
-                ]
-              : null,
-        ),
-        body: RefreshIndicator(
-          color: AppColors.primaryBlue,
-          onRefresh: () => _load(forceRefresh: true),
-          child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.symmetric(horizontal: AppUi.screenPaddingH),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                SizedBox(height: AppUi.spacingL),
-                _HeroBanner(content: content, sf: sf),
-                SizedBox(height: AppUi.spacingXl),
-                _buildQuickLinks(content),
-                SizedBox(height: AppUi.spacingXl),
-                _sectionTitle('Информация'),
-                SizedBox(height: AppUi.spacingM),
-                _SurfaceCard(
-                  child: _LinkRow(
-                    label: 'Новости и мероприятия',
-                    iconPath: 'assets/icons/nav_news.svg',
-                    onTap: () => context.push('/login/applicant/news'),
-                  ),
-                ),
-                SizedBox(height: 28),
-                _sectionTitle(content.ecosystemTitle, subtitle: content.ecosystemSubtitle),
-                SizedBox(height: AppUi.spacingM),
-                for (var i = 0; i < content.features.length; i++) ...[
-                  _FeatureCard(feature: content.features[i]),
-                  if (i != content.features.length - 1) SizedBox(height: AppUi.spacingM),
-                ],
-                SizedBox(height: 28),
-                _sectionTitle(content.directionsTitle, subtitle: content.directionsSubtitle),
-                SizedBox(height: AppUi.spacingM),
-                for (var i = 0; i < content.directions.length; i++) ...[
-                  _DirectionTile(
-                    direction: content.directions[i],
-                    onTap: () {
-                      final d = content.directions[i];
-                      _openUrl(
-                        d.sitePath ??
-                            '${ApiConstants.collegeSiteOrigin}/abiturient#directions',
-                      );
-                    },
-                  ),
-                  if (i != content.directions.length - 1) SizedBox(height: AppUi.spacingM),
-                ],
-                SizedBox(height: AppUi.spacingM),
-                TextButton.icon(
-                  onPressed: () => _openUrl(
-                    '${ApiConstants.collegeSiteOrigin}/abiturient#directions',
-                  ),
-                  icon: const Icon(Icons.open_in_new_rounded, size: 18),
-                  label: Text(
-                    'Все ${content.directions.length} направлений на сайте',
-                    style: AppTextStyle.inter(fontWeight: FontWeight.w600, fontSize: 14),
-                  ),
-                  style: TextButton.styleFrom(foregroundColor: ApplicantHomePage._kBlue),
-                ),
-                SizedBox(height: 28),
-                _sectionTitle('Контакты'),
-                SizedBox(height: AppUi.spacingM),
-                _ContactsCard(
-                  contacts: _contactsForDisplay(content.contacts),
-                  onOpen: _openUrl,
-                  onOpenMaps: _openMaps,
-                ),
-                SizedBox(height: AppUi.spacingXl),
-                Text(
-                  'Уже поступили или учитесь?',
-                  textAlign: TextAlign.center,
-                  style: AppTextStyle.inter(fontSize: 14, color: AppColors.caption),
-                ),
-                SizedBox(height: AppUi.spacingM),
-                SizedBox(
-                  height: 52,
-                  child: FilledButton(
-                    onPressed: () => context.go('/login/student'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: ApplicantHomePage._kBlue,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(46),
-                      ),
-                      elevation: 0,
-                    ),
-                    child: Text(
-                      'Войти как студент',
-                      style: AppTextStyle.inter(fontWeight: FontWeight.w700, fontSize: 16),
-                    ),
-                  ),
-                ),
-                SizedBox(height: AppUi.spacingM),
-                GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () => context.go(
-                    '/login/email',
-                    extra: const {'role': 'parent', 'mode': 'login'},
-                  ),
-                  child: Text(
-                    'Войти как родитель',
-                    textAlign: TextAlign.center,
-                    style: linkStyle,
-                  ),
-                ),
-                const SizedBox(height: 30),
+      value: SystemUiOverlayStyle.dark.copyWith(statusBarColor: Colors.transparent),
+      child: ColoredBox(
+        color: Colors.white,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: AppUi.screenPaddingH),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SizedBox(height: AppUi.spacingL),
+              _HeroBanner(content: content, sf: sf),
+              SizedBox(height: AppUi.spacingXl),
+              _buildQuickLinks(content),
+              SizedBox(height: AppUi.spacingXl),
+              _sectionTitle(content.ecosystemTitle, subtitle: content.ecosystemSubtitle),
+              SizedBox(height: AppUi.spacingM),
+              for (var i = 0; i < content.features.length; i++) ...[
+                _FeatureCard(feature: content.features[i]),
+                if (i != content.features.length - 1) SizedBox(height: AppUi.spacingM),
               ],
-            ),
+              SizedBox(height: 28),
+              _sectionTitle(content.directionsTitle, subtitle: content.directionsSubtitle),
+              SizedBox(height: AppUi.spacingM),
+              for (var i = 0; i < content.directions.length; i++) ...[
+                _DirectionTile(
+                  direction: content.directions[i],
+                  onTap: () {
+                    final d = content.directions[i];
+                    _openUrl(
+                      d.sitePath ??
+                          '${ApiConstants.collegeSiteOrigin}/abiturient#directions',
+                    );
+                  },
+                ),
+                if (i != content.directions.length - 1) SizedBox(height: AppUi.spacingM),
+              ],
+              SizedBox(height: 28),
+              _sectionTitle('Контакты'),
+              SizedBox(height: AppUi.spacingM),
+              _ContactsCard(
+                contacts: _contactsForDisplay(),
+                onOpen: _openUrl,
+                onOpenMaps: _openMaps,
+              ),
+              const SizedBox(height: 30),
+            ],
           ),
         ),
       ),
@@ -283,6 +182,17 @@ class _ApplicantHomePageState extends State<ApplicantHomePage> {
     );
   }
 
+  void _onQuickLink(CollegeQuickLink link) {
+    final route = link.inAppRoute;
+    if (route != null && route.isNotEmpty) {
+      context.push(route);
+      return;
+    }
+    if (link.url.isNotEmpty) {
+      unawaited(_openUrl(link.url));
+    }
+  }
+
   Widget _buildQuickLinks(CollegeSiteContent content) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -291,7 +201,7 @@ class _ApplicantHomePageState extends State<ApplicantHomePage> {
           if (i > 0) SizedBox(height: AppUi.spacingM),
           _QuickLinkButton(
             link: content.quickLinks[i],
-            onTap: () => _handleQuickLink(content.quickLinks[i]),
+            onTap: () => _onQuickLink(content.quickLinks[i]),
           ),
         ],
       ],
@@ -359,7 +269,7 @@ class _HeroBanner extends StatelessWidget {
                     borderRadius: BorderRadius.circular(20 * sf),
                   ),
                   child: Text(
-                    'Абитуриенту',
+                    'Колледж ДГУ',
                     style: AppTextStyle.inter(
                       fontSize: 11 * sf,
                       fontWeight: FontWeight.w600,
@@ -390,74 +300,6 @@ class _HeroBanner extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _LinkRow extends StatelessWidget {
-  const _LinkRow({
-    required this.label,
-    required this.iconPath,
-    required this.onTap,
-  });
-
-  final String label;
-  final String iconPath;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppUi.spacingM,
-            vertical: 14,
-          ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(AppUi.supportContactIconPadding),
-                decoration: BoxDecoration(
-                  color: AppColors.supportContactIconBg,
-                  borderRadius: BorderRadius.circular(AppUi.profileRowIconRadius),
-                ),
-                child: SvgPicture.asset(
-                  iconPath,
-                  width: AppUi.supportContactIconSize,
-                  height: AppUi.supportContactIconSize,
-                  colorFilter: const ColorFilter.mode(
-                    AppColors.supportContactTitle,
-                    BlendMode.srcIn,
-                  ),
-                ),
-              ),
-              const SizedBox(width: AppUi.spacingM),
-              Expanded(
-                child: Text(
-                  label,
-                  style: AppTextStyle.inter(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 15,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-              ),
-              SvgPicture.asset(
-                'assets/icons/chevron_right.svg',
-                width: 20,
-                height: 20,
-                colorFilter: const ColorFilter.mode(
-                  AppColors.chevronRight,
-                  BlendMode.srcIn,
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
@@ -523,17 +365,13 @@ class _DirectionTile extends StatelessWidget {
                   child: Image.network(
                     direction.imageUrl!,
                     fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => Container(
-                      color: AppColors.backgroundSecondary,
-                      child: const Center(
-                        child: Icon(
-                          Icons.school_outlined,
-                          color: AppColors.lightBlue,
-                          size: 40,
-                        ),
-                      ),
-                    ),
+                    errorBuilder: (_, _, _) => _directionImageFallback(),
                   ),
+                )
+              else
+                AspectRatio(
+                  aspectRatio: 16 / 9,
+                  child: _directionImageFallback(),
                 ),
               Padding(
                 padding: const EdgeInsets.all(AppUi.spacingL),
@@ -545,8 +383,7 @@ class _DirectionTile extends StatelessWidget {
                         spacing: 8,
                         runSpacing: 4,
                         children: [
-                          if (direction.code.isNotEmpty)
-                            _Chip(text: direction.code),
+                          if (direction.code.isNotEmpty) _Chip(text: direction.code),
                           if (direction.shortLabel.isNotEmpty)
                             _Chip(text: direction.shortLabel, muted: true),
                         ],
@@ -579,14 +416,14 @@ class _DirectionTile extends StatelessWidget {
                           style: AppTextStyle.inter(
                             fontWeight: FontWeight.w600,
                             fontSize: 13,
-                            color: ApplicantHomePage._kBlue,
+                            color: PublicHomePage.kBlue,
                           ),
                         ),
                         const SizedBox(width: 4),
                         Icon(
                           Icons.arrow_forward_ios_rounded,
                           size: 12,
-                          color: ApplicantHomePage._kBlue.withValues(alpha: 0.8),
+                          color: PublicHomePage.kBlue.withValues(alpha: 0.8),
                         ),
                       ],
                     ),
@@ -596,6 +433,15 @@ class _DirectionTile extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _directionImageFallback() {
+    return Container(
+      color: AppColors.backgroundSecondary,
+      child: const Center(
+        child: Icon(Icons.school_outlined, color: AppColors.lightBlue, size: 48),
       ),
     );
   }
@@ -840,13 +686,14 @@ class _QuickLinkButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final primary = link.primary;
+    final inApp = link.inAppRoute != null && link.inAppRoute!.isNotEmpty;
     return SizedBox(
       height: 52,
       child: primary
           ? FilledButton(
               onPressed: onTap,
               style: FilledButton.styleFrom(
-                backgroundColor: ApplicantHomePage._kBlue,
+                backgroundColor: PublicHomePage.kBlue,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(46),
@@ -863,24 +710,37 @@ class _QuickLinkButton extends StatelessWidget {
                       style: AppTextStyle.inter(fontWeight: FontWeight.w700, fontSize: 15),
                     ),
                   ),
-                  const SizedBox(width: 6),
-                  const Icon(Icons.open_in_new_rounded, size: 18),
+                  if (!inApp) ...[
+                    const SizedBox(width: 6),
+                    const Icon(Icons.open_in_new_rounded, size: 18),
+                  ],
                 ],
               ),
             )
           : OutlinedButton(
               onPressed: onTap,
               style: OutlinedButton.styleFrom(
-                foregroundColor: ApplicantHomePage._kBlue,
-                side: const BorderSide(color: ApplicantHomePage._kBlue),
+                foregroundColor: PublicHomePage.kBlue,
+                side: const BorderSide(color: PublicHomePage.kBlue),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(46),
                 ),
               ),
-              child: Text(
-                link.label,
-                textAlign: TextAlign.center,
-                style: AppTextStyle.inter(fontWeight: FontWeight.w700, fontSize: 14),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Flexible(
+                    child: Text(
+                      link.label,
+                      textAlign: TextAlign.center,
+                      style: AppTextStyle.inter(fontWeight: FontWeight.w700, fontSize: 14),
+                    ),
+                  ),
+                  if (inApp) ...[
+                    const SizedBox(width: 4),
+                    const Icon(Icons.chevron_right_rounded, size: 20),
+                  ],
+                ],
               ),
             ),
     );

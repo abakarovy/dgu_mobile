@@ -12,11 +12,12 @@ import '../../features/events/data/event_item.dart';
 import '../../features/events/presentation/pages/event_detail_page.dart';
 import '../../features/grades/presentation/pages/grades_page.dart';
 import '../../features/home/presentation/pages/home_page.dart';
-import '../../features/applicant/presentation/pages/applicant_disclosure_page.dart';
+import '../../features/svedeniya/svedeniya_pages.dart';
 import '../../features/applicant/presentation/pages/applicant_home_page.dart';
+import '../../features/public/presentation/pages/public_shell_page.dart';
+import '../../features/public/presentation/pages/public_profile_page.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/pages/login_email_page.dart';
-import '../../features/auth/presentation/pages/login_role_page.dart';
 import '../../data/models/news_model.dart';
 import '../../features/news/presentation/pages/news_detail_page.dart';
 import '../../features/news/presentation/pages/news_page.dart';
@@ -60,6 +61,12 @@ final GlobalKey<NavigatorState> appRootNavigatorKey =
 
 /// Конфигурация маршрутизации приложения.
 /// StatefulShellRoute.indexedStack устраняет дублирование GlobalKey при переключении вкладок.
+Map<String, dynamic> _svedeniyaExtraMap(Object? extra) {
+  if (extra is Map<String, dynamic>) return extra;
+  if (extra is Map) return Map<String, dynamic>.from(extra);
+  return AppContainer.jsonCache.getJsonMap(EduDisclosureApi.cacheKey) ?? const {};
+}
+
 final GoRouter appRouter = GoRouter(
   navigatorKey: appRootNavigatorKey,
   initialLocation: '/bootstrap',
@@ -71,13 +78,120 @@ final GoRouter appRouter = GoRouter(
     ),
     GoRoute(
       path: '/applicant',
-      name: 'applicant',
-      builder: (context, state) => const ApplicantHomePage(),
+      redirect: (_, _) => '/public/home',
+    ),
+    StatefulShellRoute.indexedStack(
+      builder: (context, state, navigationShell) =>
+          PublicShellPage(navigationShell: navigationShell),
+      branches: [
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/public/home',
+              name: 'publicHome',
+              builder: (context, state) => const PublicHomePage(),
+              routes: [
+                GoRoute(
+                  path: 'svedeniya',
+                  name: 'publicSvedeniya',
+                  builder: (context, state) => const SvedeniyaHubPage(),
+                  routes: [
+                    GoRoute(
+                      path: ':rootId',
+                      name: 'publicSvedeniyaRoot',
+                      builder: (context, state) {
+                        final extra = state.extra;
+                        final data = _svedeniyaExtraMap(extra);
+                        return SvedeniyaRootPage(
+                          rootId: state.pathParameters['rootId'] ?? '',
+                          disclosure: data,
+                        );
+                      },
+                      routes: [
+                        GoRoute(
+                          path: ':childId',
+                          name: 'publicSvedeniyaChild',
+                          builder: (context, state) {
+                            final extra = state.extra;
+                            final data = _svedeniyaExtraMap(extra);
+                            return SvedeniyaContentPage(
+                              rootId: state.pathParameters['rootId'] ?? '',
+                              childId: state.pathParameters['childId'] ?? '',
+                              disclosure: data,
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        ),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/public/news',
+              name: 'publicNews',
+              builder: (context, state) => const NewsPage(
+                newsDetailRoute: '/public/news/detail',
+                eventsDetailRoute: '/public/news/events/detail',
+                newsTabRoute: '/public/news',
+              ),
+              routes: [
+                GoRoute(
+                  path: 'detail',
+                  name: 'publicNewsDetail',
+                  pageBuilder: (context, state) {
+                    final item = state.extra as NewsModel?;
+                    return _cupertinoSubpage(
+                      key: state.pageKey,
+                      name: state.name,
+                      child: item == null
+                          ? const NewsPage()
+                          : NewsDetailPage(item: item),
+                    );
+                  },
+                ),
+                GoRoute(
+                  path: 'events/detail',
+                  name: 'publicEventDetail',
+                  pageBuilder: (context, state) {
+                    final item = state.extra as EventItem?;
+                    return _cupertinoSubpage(
+                      key: state.pageKey,
+                      name: state.name,
+                      child: item == null
+                          ? const NewsPage(initialTab: NewsTab.events)
+                          : EventDetailPage(item: item),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ],
+        ),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/public/profile',
+              name: 'publicProfile',
+              builder: (context, state) => const PublicProfilePage(),
+            ),
+          ],
+        ),
+      ],
     ),
     GoRoute(
       path: '/login',
       name: 'login',
-      builder: (context, state) => const LoginRolePage(),
+      redirect: (context, state) {
+        if (state.uri.path == '/login' || state.uri.path == '/login/') {
+          return '/public/profile';
+        }
+        return null;
+      },
       routes: [
         GoRoute(
           path: 'student',
@@ -88,83 +202,6 @@ final GoRouter appRouter = GoRouter(
           path: 'email',
           name: 'loginEmail',
           builder: (context, state) => LoginEmailPage(extra: state.extra),
-        ),
-        GoRoute(
-          path: 'applicant',
-          name: 'loginApplicant',
-          builder: (context, state) => const ApplicantHomePage(),
-          routes: [
-            GoRoute(
-              path: 'news',
-              name: 'applicantNews',
-              builder: (context, state) => NewsPage(
-                standalone: true,
-                initialTab: state.uri.queryParameters['tab'] == 'events'
-                    ? NewsTab.events
-                    : NewsTab.news,
-                newsDetailRoute: '/login/applicant/news/detail',
-                eventsDetailRoute: '/login/applicant/events/detail',
-                newsTabRoute: '/login/applicant/news',
-              ),
-              routes: [
-                GoRoute(
-                  path: 'detail',
-                  name: 'applicantNewsDetail',
-                  pageBuilder: (context, state) {
-                    final item = state.extra as NewsModel?;
-                    return _cupertinoSubpage(
-                      key: state.pageKey,
-                      name: state.name,
-                      child: item == null
-                          ? const NewsPage(standalone: true)
-                          : NewsDetailPage(item: item),
-                    );
-                  },
-                ),
-              ],
-            ),
-            GoRoute(
-              path: 'events/detail',
-              name: 'applicantEventDetail',
-              pageBuilder: (context, state) {
-                final item = state.extra as EventItem?;
-                return _cupertinoSubpage(
-                  key: state.pageKey,
-                  name: state.name,
-                  child: item == null
-                      ? const NewsPage(
-                          standalone: true,
-                          initialTab: NewsTab.events,
-                        )
-                      : EventDetailPage(item: item),
-                );
-              },
-            ),
-            GoRoute(
-              path: 'svedeniya',
-              name: 'applicantSvedeniya',
-              builder: (context, state) => const ApplicantDisclosurePage(),
-              routes: [
-                GoRoute(
-                  path: ':sectionId',
-                  name: 'applicantSvedeniyaSection',
-                  builder: (context, state) {
-                    final extra = state.extra;
-                    final data = extra is Map<String, dynamic>
-                        ? extra
-                        : extra is Map
-                            ? Map<String, dynamic>.from(extra)
-                            : AppContainer.jsonCache.getJsonMap(EduDisclosureApi.cacheKey) ??
-                                const <String, dynamic>{};
-                    return ApplicantDisclosureSectionPage(
-                      sectionId: state.pathParameters['sectionId'] ?? 'basic',
-                      data: data,
-                    );
-                  },
-                ),
-              ],
-            ),
-          ],
         ),
       ],
     ),
@@ -462,18 +499,21 @@ final GoRouter appRouter = GoRouter(
 
     final isLoggedIn = await AppContainer.authRepository.isLoggedIn();
 
-    // Не логин: запрещаем любые /app/*
-    if (!isLoggedIn && path.startsWith('/app')) return '/login';
+    // Гость: только публичный режим
+    if (!isLoggedIn && path.startsWith('/app')) return '/public/home';
+    if (!isLoggedIn && (path == '/login' || path == '/login/')) return '/public/profile';
 
-    // Раздел абитуриента доступен без авторизации
+    // Старые маршруты абитуриента → главная гостя
     if (path == '/applicant' ||
         path.startsWith('/applicant/') ||
-        path == '/login/applicant' ||
-        path.startsWith('/login/applicant/')) {
-      return null;
+        path.startsWith('/login/applicant')) {
+      return '/public/home';
     }
 
-    // Уже залогинен: не показываем экраны входа (кроме абитуриента — см. выше)
+    if (path == '/public' || path == '/public/') return '/public/home';
+
+    // Залогинен: не показываем гостевой shell и экран выбора роли
+    if (isLoggedIn && path.startsWith('/public')) return '/bootstrap';
     if (isLoggedIn && path.startsWith('/login')) return '/bootstrap';
 
     return null;

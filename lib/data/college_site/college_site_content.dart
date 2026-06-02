@@ -165,18 +165,22 @@ class CollegeQuickLink {
     required this.url,
     this.external = false,
     this.primary = false,
+    this.inAppRoute,
   });
 
   final String label;
   final String url;
   final bool external;
   final bool primary;
+  /// Маршрут GoRouter внутри приложения (без внешнего браузера).
+  final String? inAppRoute;
 
   Map<String, dynamic> toJson() => {
         'label': label,
         'url': url,
         'external': external,
         'primary': primary,
+        'in_app_route': inAppRoute,
       };
 
   factory CollegeQuickLink.fromJson(Map<String, dynamic> j) => CollegeQuickLink(
@@ -184,5 +188,6 @@ class CollegeQuickLink {
         url: '${j['url'] ?? ''}',
         external: j['external'] == true,
         primary: j['primary'] == true,
+        inAppRoute: j['in_app_route']?.toString(),
       );
 }

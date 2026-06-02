@@ -1,0 +1,152 @@
+Задача: аудит раздела «Сведения об образовательной организации» (college.dgu.ru/svedeniya) 
+для мобильного приложения Flutter (dgu_mobile). 
+
+ВАЖНО: мне НЕ нужно описание «что видит пользователь на экране» и НЕ нужен 
+скриншот/UI. Нужна техническая карта: какие HTTP-запросы к бэкенду делает сайт, 
+какие поля JSON читает каждая страница, и какие данные подставляются из 
+статических констант/дефолтов на фронте (без запроса к API).
+
+Контекст мобилки:
+- Список корневых разделов и подразделов должен совпадать с EDU_DISCLOSURE_NAV 
+  (файл frontend/src/lib/eduDisclosureNav.ts).
+- Мобилка уже вызывает: GET /api/edu-disclosure, GET /api/upbringing, 
+  GET /api/student-portal.
+- Проблема: часть страниц на сайте заполнена дефолтами из 
+  okollegeSvedeniyaPayload.ts / externalLinks.ts, а в GET /api/edu-disclosure 
+  этих полей нет — мобилка показывает пусто.
+
+---
+
+## Часть 1. Дерево навигации (все «кнопки»)
+
+Выгрузи полное дерево меню сведений в таблице:
+
+| № | Корневой segment | URL path | Заголовок в UI | Тип страницы |
+|---|------------------|----------|----------------|--------------|
+|   |                  | /svedeniya/{root}/{child} | | |
+
+Тип страницы — один из:
+- `api_edu_disclosure` — только данные из GET /api/edu-disclosure
+- `api_upbringing` — GET /api/upbringing (указать category key)
+- `api_student_portal` — GET /api/student-portal (указать блок: overview, schedule, …)
+- `external_redirect` — Next.js redirect (куда ведёт, env-переменная)
+- `static_frontend` — контент только из TS-констант, API не используется
+- `mixed` — API + статика/дефолты (описать оба источника)
+
+Источник: eduDisclosureNav.ts, SvedeniyaSectionBody.tsx, EduDisclosureSidebar.tsx, 
+vospitanieNav.ts, next.config.ts redirects.
+
+---
+
+## Часть 2. Один запрос layout — что кладётся в Context
+
+Файл: EduDisclosureShell.tsx (или аналог).
+
+Ответь:
+1. Какой единственный запрос при входе в /svedeniya/* (метод, path, headers, auth)?
+2. Куда кладётся ответ (React Context name, тип)?
+3. Перечисли ВСЕ ключи верхнего уровня ответа, которые реально читает фронт 
+   (не только из OpenAPI — по grep по коду).
+
+Приложи пример JSON-скелета (без бинарников), с пометкой 
+«используется на публичных страницах / только админка / не используется на сайте».
+
+---
+
+## Часть 3. Каждый подраздел — источник данных
+
+Для КАЖДОГО pathKey `{root}/{child}` из меню заполни таблицу:
+
+| pathKey | Компонент React (файл) | API запросы (path, когда) | Поля JSON (точные пути, dot notation) | Статика (файл + ключи) | Условия видимости |
+|---------|------------------------|---------------------------|--------------------------------------|------------------------|-------------------|
+| osnovnye-svedeniya/obshaya-informatsiya | | | | okollegeSvedeniyaPayload? | section_visibility? |
+
+Правила:
+- Если страница читает `svedeniya_extended.okollege_svedeniya.obshaya_informatsiya.main_html` — 
+  укажи именно этот путь.
+- Если при пустом API подставляется DEFAULT из okollegeSvedeniyaPayload.ts — 
+  укажи имя константы и вставь фрагмент дефолтного HTML/текста (первые 200 символов) 
+  или скажи «полный текст в файле X строка Y».
+- Если PDF: откуда href — file_rel, file_url, href; как собирается полный URL 
+  (college.dgu.ru/uploads/...).
+- Если section_visibility[pathKey] === false — страница «в разработке»: 
+  перечисли все pathKey, которые сейчас false в проде (если есть доступ к БД 
+  edu_disclosure_sections или snapshot админки).
+
+Отдельно блоки:
+- **О колледже** (osnovnye-svedeniya/*) — все 8 подразделов
+- **Структура** (struktura/*)
+- **Документы** (dokumenty/*) — katalog redirect vs arhiv documents[]
+- **МТО** (mto/*) — поля mto.financial_support, *_tabs, *_pdf
+- **Стипендии** (stipendii/*) — только внешние ссылки или scholarship из API?
+- **Библиотека и спорт** (biblioteka-i-sport/*)
+- **Воспитание** — маппинг child segment → upbringing category key
+- **Наука** (nauchnaya-zhizn/*)
+- **Преподавателям** — TEACHER_MENU_LINKS
+- **Студентам** — student-portal + блоки из edu-disclosure 
+  (studentam_department_sessions, studentam_department_gia)
+
+---
+
+## Часть 4. Дополнительные API (не edu-disclosure)
+
+| API | Кто вызывает (файл/хук) | На каких URL | Что из ответа рендерится |
+|-----|-------------------------|--------------|--------------------------|
+| GET /api/upbringing | | | |
+| GET /api/student-portal | | | |
+| GET /api/mobile/help | | | (если связано со сведениями) |
+
+Для student-portal: логика «если body_html пустой — показываем schedule_semesters PDF» 
+— опиши точное условие из кода (функция, файл, строка).
+
+---
+
+## Часть 5. Статика для мобилки (экспорт)
+
+Выгрузи в отдельные JSON/MD файлы (можно приложить к ответу):
+
+1. **edu_disclosure_nav.json** — копия EDU_DISCLOSURE_NAV (id, title, children).
+2. **external_links.json** — все URL из externalLinks.ts, используемые в сведениях 
+   (образование, ndoc, grants, sno, elib, urait, teacher links).
+3. **okollege_defaults.json** — полный merged payload из okollegeSvedeniyaPayload.ts 
+   (то, что сайт показывает при пустом API).
+4. **vospitanie_nav.json** — segment → category key.
+5. **mto_field_map.json** — URL segment → поле в объекте mto 
+   (finansovoe-obespechenie → financial_support).
+
+Если дефолты мержатся в svedeniyaExtended.ts — опиши функцию merge и порядок приоритета 
+(API перекрывает дефолт или наоборот).
+
+---
+
+## Часть 6. Бэкенд (FastAPI)
+
+Файл: backend/routers/edu_disclosure.py (+ модели).
+
+1. Схема ответа EduDisclosurePublicOut — список полей Pydantic.
+2. Таблица PostgreSQL: section_key → что хранится (basic, mto, svedeniya_extended, …).
+3. Какие таблицы CRUD (management_units, documents, staff, …) попадают в публичный ответ.
+4. Что сейчас НЕ отдаётся в публичный API, но есть в админке 
+   (GET /api/edu-disclosure/admin/snapshot).
+5. Рекомендация: какие поля нужно заполнить в админке, чтобы мобилка = сайт 
+   (без фронтовых дефолтов).
+
+Приложи **реальный** ответ GET /api/edu-disclosure с прода или staging 
+(можно обрезать длинные HTML до 500 символов), с выделением:
+- пустые строки / null
+- есть PDF (file_rel)
+- есть okollege_svedeniya (да/нет)
+
+---
+
+## Часть 7. Итог для мобильной команды
+
+В конце дай раздел «Mobile parity checklist»:
+
+- [ ] Раздел X: только API поле Y — мобилка должна читать Y
+- [ ] Раздел X: сайт = static Z — мобилка должна вшить Z в assets или college_site_fallback
+- [ ] Раздел X: external URL — открывать в браузере
+- [ ] Раздел X: не показывать на сайте (fgos_standards, staff в публичном UI) — 
+      мобилка может не дублировать
+
+Формат ответа: Markdown, таблицы, без воды. Кодовые пути и имена файлов обязательны.
