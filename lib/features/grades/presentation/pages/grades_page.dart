@@ -11,10 +11,12 @@ import 'package:dgu_mobile/core/utils/parent_child_name.dart';
 import 'package:flutter/material.dart';
 
 import '../models/session_grade_breakdown.dart';
+import '../widgets/grade_item_tile.dart';
 import '../widgets/grades_list_view.dart';
 import '../widgets/learning_route_view.dart';
 import '../widgets/subject_grades_sheet.dart';
 import '../../domain/entities/grade_entity.dart';
+import '../../domain/grade_type_labels.dart';
 import '../../domain/merge_journal_absence_rows.dart';
 
 /// Вкладка «Оценки»: 3 таба (Текущие, Сессия, Учебный маршрут).
@@ -52,26 +54,17 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
   List<String> _semesterOrder = const <String>[];
   bool _refreshing = false;
   int _sessionSemesterIndex = 0;
+  bool _sessionSemesterIndexInitialized = false;
 
   /// Типы итогов сессии (аттестации, зачёты, экзамены и т.п.). Контрольные, к/р — во «Текущие», не сюда.
-  static bool _isSessionType(String? t) {
-    final raw = (t ?? '').trim();
-    if (raw.isEmpty) return false;
-    final s = raw.toLowerCase();
-    if (s.contains('ответ у доски')) return false;
-    if (s.contains('пропуск')) return false;
-    if (s.contains('контрольная')) return false;
-    if (s.contains('к/р')) return false;
-    // В ответах 1С встречаются "Юрайт", "Практика", "Опрос терминов", "1 АТ"/"2 АТ" —
-    // это текущие активности/аттестации, а не "сессия" в смысле зачётов/экзаменов.
-    // Поэтому здесь оставляем только явные итоги: зачёт/экзамен/дифф.зачёт/курсовая/итоговая аттестация.
-    return s.contains('экзам') ||
-        s.contains('зач') ||
-        s.contains('дифф') ||
-        s.contains('курсов') ||
-        s.contains('итог') ||
-        s.contains('гэк') ||
-        s.contains('гос');
+  static bool _isSessionType(String? t) =>
+      GradeTypeLabels.isSessionOutcome((t ?? '').trim());
+
+  /// Оценка для вкладки «Сессия»: только если в API есть значение.
+  static String? _sessionGradeValue(String raw) {
+    final g = raw.trim();
+    if (g.isEmpty || g == '-' || g == '—') return null;
+    return g;
   }
 
   /// В журнале с бэка часто приходят строки без оценки (grade_value: null) — для «Текущие» их не показываем,
@@ -309,6 +302,8 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
                         onPrev: _prevSessionSemester,
                         onNext: _nextSessionSemester,
                         onTap: () => _showSessionSemesterPicker(context),
+                        canGoPrev: _canGoPrevSessionSemester(),
+                        canGoNext: _canGoNextSessionSemester(),
                       ),
                     ),
                   Expanded(
@@ -362,19 +357,66 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
     );
   }
 
-  /// Семестры как в ответе 1С, иначе уникальные из загруженных оценок.
+  /// Семестры: от нового к старому (как в `sync-grades` и в выборе семестра).
   List<String> _effectiveSemesters() {
-    if (_semesterOrder.isNotEmpty) return _semesterOrder;
-    return _uniqueSemesters(_grades);
+    final raw = _semesterOrder.isNotEmpty
+        ? List<String>.from(_semesterOrder)
+        : _uniqueSemesters(_grades);
+    raw.sort(_compareSemestersNewestFirst);
+    return raw;
+  }
+
+  /// Ключ для сортировки: «2 сем 2025-2026» → 20252 (год начала × 10 + номер семестра).
+  static int? _semesterSortKey(String raw) {
+    final t = raw.trim().toLowerCase().replaceAll('семестр', 'сем');
+    final m = RegExp(
+      r'^(\d+)\s*(?:сем|sem)\.?\s+(\d{4})\s*-\s*(\d{4})',
+      caseSensitive: false,
+    ).firstMatch(t);
+    if (m == null) return null;
+    final semNum = int.tryParse(m.group(1)!);
+    final yearStart = int.tryParse(m.group(2)!);
+    if (semNum == null || yearStart == null) return null;
+    return yearStart * 10 + semNum;
+  }
+
+  static int _compareSemestersNewestFirst(String a, String b) {
+    final ka = _semesterSortKey(a);
+    final kb = _semesterSortKey(b);
+    if (ka != null && kb != null) return kb.compareTo(ka);
+    if (ka != null) return -1;
+    if (kb != null) return 1;
+    return b.compareTo(a);
   }
 
   void _clampSemesterIndex() {
     final sems = _effectiveSemesters();
     if (sems.isEmpty) {
       _sessionSemesterIndex = 0;
+      _sessionSemesterIndexInitialized = false;
       return;
     }
-    if (_sessionSemesterIndex >= sems.length) _sessionSemesterIndex = 0;
+    if (!_sessionSemesterIndexInitialized) {
+      // Индекс 0 — самый новый семестр после сортировки.
+      _sessionSemesterIndex = 0;
+      _sessionSemesterIndexInitialized = true;
+    } else if (_sessionSemesterIndex >= sems.length) {
+      _sessionSemesterIndex = 0;
+    }
+  }
+
+  /// Стрелка влево — на один семестр «назад» по времени (старее).
+  bool _canGoPrevSessionSemester() {
+    final n = _effectiveSemesters().length;
+    if (n <= 1) return false;
+    return _sessionSemesterIndex < n - 1;
+  }
+
+  /// Стрелка вправо — на один семестр «вперёд» по времени (новее).
+  bool _canGoNextSessionSemester() {
+    final n = _effectiveSemesters().length;
+    if (n <= 1) return false;
+    return _sessionSemesterIndex > 0;
   }
 
   List<String> _uniqueSemesters(List<GradeEntity> items) {
@@ -428,64 +470,142 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
       bySubject.putIfAbsent(g.subjectName, () => []).add(g);
     }
     final subjects = bySubject.keys.toList()..sort();
+    final visibleSubjects = <String>[
+      for (final name in subjects)
+        if (_sessionSubjectHasVisibleOutcomes(bySubject[name]!)) name,
+    ];
 
+    if (visibleSubjects.isEmpty) {
+      return Center(
+        child: Text(
+          'Нет итогов за сессию',
+          style: Theme.of(context)
+              .textTheme
+              .bodyLarge
+              ?.copyWith(color: AppColors.caption),
+        ),
+      );
+    }
+
+    const sessionCardSpacing = 16.0;
     return ListView.separated(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      itemCount: subjects.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 16),
+      padding: const EdgeInsets.fromLTRB(8, 0, 8, sessionCardSpacing),
+      itemCount: visibleSubjects.length,
+      separatorBuilder: (_, _) => const SizedBox(height: sessionCardSpacing),
       itemBuilder: (context, i) {
-        final name = subjects[i];
+        final name = visibleSubjects[i];
         final list = bySubject[name]!;
         final breakdown = _breakdownFor(list);
+        final extraForms = _extraSessionForms(list, breakdown);
         final teacher = _pickAnyTeacher(list);
         return _SessionGradeCard(
           subjectName: name,
           teacherName: teacher,
           breakdown: breakdown,
+          extraForms: extraForms,
           onTap: () => _showSubjectGrades(context, name, sessionTab: true),
         );
       },
     );
   }
 
+  bool _sessionSubjectHasVisibleOutcomes(List<GradeEntity> grades) {
+    final breakdown = _breakdownFor(grades);
+    if (breakdown.att1 != null ||
+        breakdown.att2 != null ||
+        _SessionGradeCard.hasSessionForms(breakdown)) {
+      return true;
+    }
+    return _extraSessionForms(grades, breakdown).isNotEmpty;
+  }
+
+  String? _sessionOutcomeSlot(String typeRaw) =>
+      GradeTypeLabels.sessionSlot(typeRaw);
+
+  Set<String> _coveredSessionSlots(SessionGradeBreakdown b) {
+    final slots = <String>{};
+    if (b.att1 != null) slots.add('att1');
+    if (b.att2 != null) slots.add('att2');
+    if (b.dfk != null) slots.add('dfk');
+    if (b.kurs != null) slots.add('kurs');
+    if (b.ekz != null) slots.add('ekz');
+    if (b.zach != null) slots.add('zach');
+    return slots;
+  }
+
+  List<({String label, String value})> _extraSessionForms(
+    List<GradeEntity> grades,
+    SessionGradeBreakdown breakdown,
+  ) {
+    final covered = _coveredSessionSlots(breakdown);
+    final out = <({String label, String value})>[];
+    final sorted = List<GradeEntity>.from(grades)
+      ..sort(
+        (a, b) => (b.date ?? DateTime(2000)).compareTo(a.date ?? DateTime(2000)),
+      );
+    for (final g in sorted) {
+      final typeRaw = (g.gradeType ?? '').trim();
+      if (!_isSessionType(typeRaw)) continue;
+      final slot = _sessionOutcomeSlot(typeRaw);
+      if (slot == null || slot.startsWith('att')) continue;
+      if (covered.contains(slot)) continue;
+      final value = _sessionGradeValue(g.grade);
+      if (value == null) continue;
+      covered.add(slot);
+      out.add((
+        label: GradeTypeLabels.displayLabel(typeRaw),
+        value: value,
+      ));
+    }
+    return out;
+  }
+
   SessionGradeBreakdown _breakdownFor(List<GradeEntity> grades) {
-    String? pick(bool Function(String s) p) {
-      for (final g in grades) {
-        final t = (g.gradeType ?? '').toLowerCase();
-        if (p(t)) return g.grade;
+    final sorted = List<GradeEntity>.from(grades)
+      ..sort(
+        (a, b) => (b.date ?? DateTime(2000)).compareTo(a.date ?? DateTime(2000)),
+      );
+
+    String? pickForSlot(String slot) {
+      for (final g in sorted) {
+        final t = g.gradeType ?? '';
+        if (!GradeTypeLabels.matchesSlot(t, slot)) continue;
+        final v = _sessionGradeValue(g.grade);
+        if (v != null) return v;
       }
       return null;
     }
 
-    bool hasAtt1(String s) =>
-        s.contains('аттестация 1') ||
-        s.contains('атт 1') ||
-        (s.contains('1 ат') && !s.contains('ответ'));
-    bool hasAtt2(String s) =>
-        s.contains('аттестация 2') || s.contains('атт 2') || s.contains('2 ат');
 
     return SessionGradeBreakdown(
-      att1: pick((s) => hasAtt1(s)) != null ? 'атт' : null,
-      att2: pick((s) => hasAtt2(s)) != null ? 'атт' : null,
-      dfk: pick((s) => s.contains('дифф')),
-      kurs: pick((s) => s.contains('курсов')),
-      zach: pick(
-        (s) =>
-            s.contains('зач') &&
-            !s.contains('незач') &&
-            !s.contains('дифф') &&
-            !s.contains('дифференц'),
-      ),
-      ekz: pick((s) => s.contains('экзам')),
+      att1: pickForSlot('att1'),
+      att2: pickForSlot('att2'),
+      dfk: pickForSlot('dfk'),
+      kurs: pickForSlot('kurs'),
+      zach: pickForSlot('zach'),
+      ekz: pickForSlot('ekz'),
     );
   }
 
   String _pickAnyTeacher(List<GradeEntity> grades) {
     for (final g in grades) {
       final t = (g.teacherName ?? '').trim();
-      if (t.isNotEmpty) return _shortTeacherName(t);
+      if (t.isEmpty) continue;
+      if (_looksLikeGradeType(t)) continue;
+      return _shortTeacherName(t);
     }
     return '';
+  }
+
+  bool _looksLikeGradeType(String raw) {
+    final s = raw.toLowerCase();
+    return s.contains('экзам') ||
+        s.contains('зач') ||
+        s.contains('дифф') ||
+        s.contains('аттест') ||
+        s.contains('пропуск') ||
+        s.contains('контроль') ||
+        s.contains('балль');
   }
 
   String _shortTeacherName(String raw) {
@@ -644,6 +764,7 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
                                         Navigator.of(ctx).pop();
                                         setState(() {
                                           _sessionSemesterIndex = i;
+                                          _sessionSemesterIndexInitialized = true;
                                         });
                                       },
                                       child: Padding(
@@ -716,23 +837,13 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
   }
 
   void _prevSessionSemester() {
-    final semesters = _effectiveSemesters();
-    if (semesters.isEmpty) return;
-    setState(() {
-      final n = semesters.length;
-      final i = _sessionSemesterIndex.clamp(0, n - 1);
-      _sessionSemesterIndex = (i - 1 + n) % n;
-    });
+    if (!_canGoPrevSessionSemester()) return;
+    setState(() => _sessionSemesterIndex += 1);
   }
 
   void _nextSessionSemester() {
-    final semesters = _effectiveSemesters();
-    if (semesters.isEmpty) return;
-    setState(() {
-      final n = semesters.length;
-      final i = _sessionSemesterIndex.clamp(0, n - 1);
-      _sessionSemesterIndex = (i + 1) % n;
-    });
+    if (!_canGoNextSessionSemester()) return;
+    setState(() => _sessionSemesterIndex -= 1);
   }
 
   GradeListItem _toListItem(GradeEntity e) {
@@ -846,12 +957,14 @@ class _SessionGradeCard extends StatelessWidget {
     required this.subjectName,
     required this.teacherName,
     required this.breakdown,
+    this.extraForms = const [],
     required this.onTap,
   });
 
   final String subjectName;
   final String teacherName;
   final SessionGradeBreakdown breakdown;
+  final List<({String label, String value})> extraForms;
   final VoidCallback onTap;
 
   @override
@@ -898,98 +1011,72 @@ class _SessionGradeCard extends StatelessWidget {
                 ),
               ),
             ],
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(child: _attChip('1', isAtt: breakdown.att1 != null)),
-                const SizedBox(width: 6),
-                Expanded(child: _attChip('2', isAtt: breakdown.att2 != null)),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: [
-                if ((breakdown.ekz ?? '').trim().isNotEmpty)
-                  _gradeChip('Экз', breakdown.ekz!.trim()),
-                if ((breakdown.zach ?? '').trim().isNotEmpty)
-                  _gradeChip('Зачёт', breakdown.zach!.trim()),
-                if ((breakdown.dfk ?? '').trim().isNotEmpty)
-                  _gradeChip('Диф.зачёт', breakdown.dfk!.trim()),
-                if ((breakdown.kurs ?? '').trim().isNotEmpty)
-                  _gradeChip('Кур.', breakdown.kurs!.trim()),
-              ],
-            ),
+            if (breakdown.att1 != null || breakdown.att2 != null) ...[
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  if (breakdown.att1 != null)
+                    Expanded(child: _attChip('1', value: breakdown.att1!)),
+                  if (breakdown.att1 != null && breakdown.att2 != null)
+                    const SizedBox(width: 6),
+                  if (breakdown.att2 != null)
+                    Expanded(child: _attChip('2', value: breakdown.att2!)),
+                ],
+              ),
+            ],
+            if (_SessionGradeCard.hasSessionForms(breakdown) ||
+                extraForms.isNotEmpty) ...[
+              SizedBox(height: breakdown.att1 != null || breakdown.att2 != null ? 6 : 10),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  if ((breakdown.ekz ?? '').trim().isNotEmpty)
+                    _gradeChip('Экзамен', breakdown.ekz!.trim()),
+                  if ((breakdown.zach ?? '').trim().isNotEmpty)
+                    _gradeChip('Зачёт', breakdown.zach!.trim()),
+                  if ((breakdown.dfk ?? '').trim().isNotEmpty)
+                    _gradeChip('Диф. зачёт', breakdown.dfk!.trim()),
+                  if ((breakdown.kurs ?? '').trim().isNotEmpty)
+                    _gradeChip('Курсовая', breakdown.kurs!.trim()),
+                  for (final f in extraForms)
+                    _gradeChip(f.label, f.value),
+                ],
+              ),
+            ],
           ],
         ),
       ),
     );
   }
 
-  Widget _attChip(String n, {required bool isAtt}) {
-    final bg = isAtt ? const Color(0x242563EB) : const Color(0x17C84547);
-    final border = isAtt ? const Color(0xFF2563EB) : const Color(0xFFC84547);
-    final text = isAtt ? const Color(0xFF2563EB) : const Color(0xFFC84547);
-    final label = isAtt ? 'Атт $n' : 'неАтт $n';
+  static bool _hasChipValue(String? v) {
+    final t = (v ?? '').trim();
+    return t.isNotEmpty && t != '-' && t != '—';
+  }
+
+  static bool hasSessionForms(SessionGradeBreakdown b) =>
+      _hasChipValue(b.ekz) ||
+      _hasChipValue(b.zach) ||
+      _hasChipValue(b.dfk) ||
+      _hasChipValue(b.kurs);
+
+  Widget _attChip(String n, {required String value}) {
+    const bg = Color(0x242563EB);
+    const border = Color(0xFF2563EB);
+    const text = Color(0xFF2563EB);
+    final label = 'Аттестация $n · $value';
     return _pill(label, bg: bg, border: border, textColor: text);
   }
 
-  Widget _gradeChip(String kind, String rawValue) {
-    final abbr = _abbrValue(rawValue);
-    final shown = '$kind • $abbr';
+  Widget _gradeChip(String label, String rawValue) {
+    final shown = '$label · ${rawValue.trim()}';
     final (text, bg, border) = _colorsForValue(rawValue);
     return _pill(shown, bg: bg, border: border, textColor: text);
   }
 
-  String _abbrValue(String raw) {
-    final t = raw.trim();
-    if (t.isEmpty) return '—';
-    final lower = t.toLowerCase();
-    if (RegExp(r'^[1-5]$').hasMatch(t)) {
-      return switch (t) {
-        '5' => 'отл',
-        '4' => 'хор',
-        '3' => 'удовл',
-        _ => 'неуд',
-      };
-    }
-    if (lower.contains('отл')) return 'отл';
-    if (lower.contains('хор')) return 'хор';
-    if (lower.contains('удов')) return 'удовл';
-    if (lower.contains('неуд')) return 'неуд';
-    if (lower.contains('зач')) return 'зач';
-    if (lower.contains('незач')) return 'незач';
-    return t;
-  }
-
   (Color text, Color bg, Color border) _colorsForValue(String raw) {
-    final t = raw.trim();
-    final lower = t.toLowerCase();
-    final code = RegExp(r'^[1-5]$').hasMatch(t)
-        ? t
-        : (lower.contains('отл') || lower.contains('зач'))
-            ? '5'
-            : (lower.contains('хор'))
-                ? '4'
-                : (lower.contains('удов'))
-                    ? '3'
-                    : (lower.contains('неуд') || lower.contains('незач'))
-                        ? '2'
-                        : null;
-    if (code == '5') {
-      return (const Color(0xFF10B981), const Color(0x1C10B981), const Color(0xFF10B981));
-    }
-    if (code == '4') {
-      return (const Color(0xFFDF9D3F), const Color(0x2BFFD900), const Color(0xFFDF9D3F));
-    }
-    if (code == '3') {
-      return (const Color(0xFF3B82F6), const Color(0x1C3B82F6), const Color(0xFF3B82F6));
-    }
-    if (code == '2' || code == '1') {
-      return (const Color(0xFFC84547), const Color(0x17C84547), const Color(0xFFC84547));
-    }
-    return (const Color(0xFF64748B), const Color(0x1464748B), const Color(0xFF64748B));
+    return GradeItemTile.colorsForGradeChip(raw);
   }
 
   Widget _pill(
@@ -999,8 +1086,8 @@ class _SessionGradeCard extends StatelessWidget {
     required Color textColor,
   }) {
     return Container(
-      height: 30,
-      padding: const EdgeInsets.symmetric(horizontal: 15),
+      constraints: const BoxConstraints(minHeight: 32),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(8),
@@ -1009,12 +1096,13 @@ class _SessionGradeCard extends StatelessWidget {
       child: Center(
         child: Text(
           label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
+          maxLines: 3,
+          softWrap: true,
           style: AppTextStyle.inter(
             fontWeight: FontWeight.w700,
-            fontSize: 8.69,
-            height: 1.0,
+            fontSize: 11,
+            height: 1.2,
             color: textColor,
           ),
         ),
@@ -1031,12 +1119,16 @@ class _PeriodSelector extends StatelessWidget {
     required this.onPrev,
     required this.onNext,
     required this.onTap,
+    this.canGoPrev = true,
+    this.canGoNext = true,
   });
 
   final String periodLabel;
   final VoidCallback onPrev;
   final VoidCallback onNext;
   final VoidCallback onTap;
+  final bool canGoPrev;
+  final bool canGoNext;
 
   @override
   Widget build(BuildContext context) {
@@ -1062,12 +1154,17 @@ class _PeriodSelector extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            GestureDetector(
-              onTap: onPrev,
-              child: Padding(
-                padding: const EdgeInsets.all(4),
-                child: const Icon(Icons.chevron_left, size: 18, color: Colors.white),
-              ),
+            SizedBox(
+              width: 26,
+              child: canGoPrev
+                  ? GestureDetector(
+                      onTap: onPrev,
+                      child: const Padding(
+                        padding: EdgeInsets.all(4),
+                        child: Icon(Icons.chevron_left, size: 18, color: Colors.white),
+                      ),
+                    )
+                  : null,
             ),
             Expanded(
               child: GestureDetector(
@@ -1077,8 +1174,8 @@ class _PeriodSelector extends StatelessWidget {
                   child: Text(
                     periodLabel,
                     textAlign: TextAlign.center,
-                    maxLines: 1,
-                    softWrap: false,
+                    maxLines: 2,
+                    softWrap: true,
                     overflow: TextOverflow.ellipsis,
                     style: AppTextStyle.inter(
                       fontWeight: FontWeight.w700,
@@ -1090,12 +1187,17 @@ class _PeriodSelector extends StatelessWidget {
                 ),
               ),
             ),
-            GestureDetector(
-              onTap: onNext,
-              child: Padding(
-                padding: const EdgeInsets.all(4),
-                child: const Icon(Icons.chevron_right, size: 18, color: Colors.white),
-              ),
+            SizedBox(
+              width: 26,
+              child: canGoNext
+                  ? GestureDetector(
+                      onTap: onNext,
+                      child: const Padding(
+                        padding: EdgeInsets.all(4),
+                        child: Icon(Icons.chevron_right, size: 18, color: Colors.white),
+                      ),
+                    )
+                  : null,
             ),
           ],
         ),

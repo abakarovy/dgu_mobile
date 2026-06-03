@@ -21,9 +21,9 @@ class SessionGradeItemTile extends StatelessWidget {
   static const List<({String key, String label})> _keys = [
     (key: 'att1', label: 'Аттестация 1'),
     (key: 'att2', label: 'Аттестация 2'),
-    (key: 'dfk', label: 'ДФК'),
+    (key: 'dfk', label: 'Диф. зачёт'),
     (key: 'kurs', label: 'Курсовая'),
-    (key: 'zach', label: 'Зачет'),
+    (key: 'zach', label: 'Зачёт'),
     (key: 'ekz', label: 'Экзамен'),
   ];
 
@@ -212,19 +212,7 @@ class _SessionPill extends StatelessWidget {
     return 24 + tp.width;
   }
 
-  /// неуд → 2, удовл → 3, хор → 4, отл → 5; цифры 1–5 как есть.
-  static String? _gradeCodeForValue(String raw) {
-    final t = raw.trim();
-    if (t.isEmpty) return null;
-    if (RegExp(r'^[1-5]$').hasMatch(t)) return t;
-    final lower = t.toLowerCase();
-    if (lower == 'неуд') return '2';
-    if (lower == 'удовл') return '3';
-    if (lower == 'хор') return '4';
-    if (lower == 'отл') return '5';
-    if (lower == 'зачет' || lower == 'зачёт') return '5';
-    return null;
-  }
+  static String? _gradeCodeForValue(String raw) => GradeItemTile.normalizeToGradeCode(raw);
 
   static (Color text, Color bg, Color border) _colorsFor(
     String value,

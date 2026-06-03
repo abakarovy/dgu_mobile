@@ -139,7 +139,9 @@ class ScheduleLessonTile extends StatelessWidget {
     final vPad = 15.0 * sc;
     final dividerGap = 16.0 * sc;
     final gap2 = 2.0 * sc;
-    final gap20 = 20.0 * sc;
+    final gapAfterTime = 12.0 * sc;
+    /// Фиксированная ширина колонки времени — иначе «08:30» и «10:15» сдвигают текст предмета.
+    final timeColumnWidth = 62.0 * sc;
     final topPad = isFirstInList ? vPad : 0.0;
     final bottomPad = showBottomDivider ? 0.0 : vPad;
 
@@ -178,16 +180,27 @@ class ScheduleLessonTile extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(_startTimeText(), style: timeStyle),
-                  SizedBox(height: gap2),
-                  Text(_pairLabel(), style: pairStyle),
-                ],
+              SizedBox(
+                width: timeColumnWidth,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _startTimeText(),
+                      textAlign: TextAlign.center,
+                      style: timeStyle,
+                    ),
+                    SizedBox(height: gap2),
+                    Text(
+                      _pairLabel(),
+                      textAlign: TextAlign.center,
+                      style: pairStyle,
+                    ),
+                  ],
+                ),
               ),
-              SizedBox(width: gap20),
+              SizedBox(width: gapAfterTime),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

@@ -1,19 +1,16 @@
 import 'package:dgu_mobile/core/constants/app_colors.dart';
+import 'package:dgu_mobile/core/constants/lms_resource_links.dart';
 import 'package:dgu_mobile/core/theme/app_text_styles.dart';
 import 'package:dgu_mobile/shared/widgets/app_header.dart';
 import 'package:dgu_mobile/shared/widgets/network_degraded_banner.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-/// Внешние учебные ресурсы (фиксированные ссылки).
+/// Внешние мои курсы (фиксированные ссылки).
 class LmsCredentialsPage extends StatelessWidget {
   const LmsCredentialsPage({super.key});
 
-  static const List<({String title, String url})> _links = [
-    (title: 'Юрайт', url: 'https://urait.ru/'),
-    (title: 'ПРОФ СПО', url: 'https://profspo.ru/'),
-    (title: 'Академия Москва', url: 'https://academia-moscow.ru/'),
-  ];
+  static const List<({String title, String url})> _links = LmsResourceLinks.fallback;
 
   Future<void> _openUrl(BuildContext context, String url) async {
     final u = Uri.tryParse(url);

@@ -48,7 +48,7 @@ class PublicShellPage extends StatelessWidget {
                 ? null
                 : AppHeader(
                     headerTitle: switch (branchIndex) {
-                      _indexHome => const HomeHeaderTitle(),
+                      _indexHome => const HomeHeaderTitle(guestMode: true),
                       _indexNews => Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [

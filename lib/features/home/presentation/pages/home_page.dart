@@ -514,7 +514,7 @@ class _HomePageState extends State<HomePage> {
                 MediaQuery.sizeOf(context).height / 874,
               )),
               _actionsSection(sf: sf),
-              SizedBox(height: 40 * sf),
+              SizedBox(height: AppUi.spacingBetweenCards * sf),
               _todayLessonsSection(sf: sf),
             ],
           ),
@@ -741,7 +741,7 @@ class _HomePageState extends State<HomePage> {
 
   Widget _actionsSection({required double sf}) {
     final isStudent = (_banner.me?.role ?? '').trim().toLowerCase() == 'student';
-    // «Мои задания» и «Расписание»: в ряд пополам, пока обе подписи помещаются
+    // «Мои курсы» и «Расписание»: в ряд пополам, пока обе подписи помещаются
     // в одну строку в своей половине; иначе — колонка на всю ширину.
     const labelFont = 11.72;
     return Column(
@@ -750,7 +750,7 @@ class _HomePageState extends State<HomePage> {
         LayoutBuilder(
           builder: (context, constraints) {
             final gap = 12 * sf;
-            final minTasks = _minActionCardWidth(context, sf, 'Мои задания', labelFont);
+            final minTasks = _minActionCardWidth(context, sf, 'Мои курсы', labelFont);
             final minSchedule = _minActionCardWidth(context, sf, 'Расписание', labelFont);
             // Половины равны: каждая должна вместить свою самую длинную подпись в одну строку.
             final minHalf = max(minTasks, minSchedule);
@@ -820,7 +820,7 @@ class _HomePageState extends State<HomePage> {
       iconAsset: 'assets/icons/book_icon.svg',
       iconW: 14.749685287475586,
       iconH: 18.437108993530273,
-      label: 'Мои задания',
+      label: 'Мои курсы',
       labelColor: iconColor,
       labelFontSize: 11.72,
       onPressed: () => context.push('/app/tasks'),
@@ -941,8 +941,8 @@ class _HomePageState extends State<HomePage> {
   Widget _todayLessonsSection({required double sf}) {
     final items = _todayLessons;
     if (items.isEmpty) {
-      return SizedBox(
-        height: 220 * sf,
+      return Padding(
+        padding: EdgeInsets.symmetric(vertical: 20 * sf),
         child: Center(
           child: Text(
             'Пар нет',

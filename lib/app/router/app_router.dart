@@ -94,34 +94,27 @@ final GoRouter appRouter = GoRouter(
                 GoRoute(
                   path: 'svedeniya',
                   name: 'publicSvedeniya',
-                  builder: (context, state) => const SvedeniyaHubPage(),
+                  pageBuilder: (context, state) => _cupertinoSubpage(
+                    key: state.pageKey,
+                    name: state.name,
+                    child: const SvedeniyaHubPage(),
+                  ),
                   routes: [
                     GoRoute(
                       path: ':rootId',
-                      name: 'publicSvedeniyaRoot',
-                      builder: (context, state) {
+                      name: 'publicSvedeniyaSection',
+                      pageBuilder: (context, state) {
                         final extra = state.extra;
                         final data = _svedeniyaExtraMap(extra);
-                        return SvedeniyaRootPage(
-                          rootId: state.pathParameters['rootId'] ?? '',
-                          disclosure: data,
+                        return _cupertinoSubpage(
+                          key: state.pageKey,
+                          name: state.name,
+                          child: SvedeniyaSectionPage(
+                            rootId: state.pathParameters['rootId'] ?? '',
+                            disclosure: data,
+                          ),
                         );
                       },
-                      routes: [
-                        GoRoute(
-                          path: ':childId',
-                          name: 'publicSvedeniyaChild',
-                          builder: (context, state) {
-                            final extra = state.extra;
-                            final data = _svedeniyaExtraMap(extra);
-                            return SvedeniyaContentPage(
-                              rootId: state.pathParameters['rootId'] ?? '',
-                              childId: state.pathParameters['childId'] ?? '',
-                              disclosure: data,
-                            );
-                          },
-                        ),
-                      ],
                     ),
                   ],
                 ),
@@ -196,12 +189,20 @@ final GoRouter appRouter = GoRouter(
         GoRoute(
           path: 'student',
           name: 'loginStudent',
-          builder: (context, state) => const LoginPage(),
+          pageBuilder: (context, state) => _cupertinoSubpage(
+            key: state.pageKey,
+            name: state.name,
+            child: const LoginPage(),
+          ),
         ),
         GoRoute(
           path: 'email',
           name: 'loginEmail',
-          builder: (context, state) => LoginEmailPage(extra: state.extra),
+          pageBuilder: (context, state) => _cupertinoSubpage(
+            key: state.pageKey,
+            name: state.name,
+            child: LoginEmailPage(extra: state.extra),
+          ),
         ),
       ],
     ),

@@ -3,6 +3,7 @@ import 'package:dgu_mobile/core/constants/app_ui.dart';
 import 'package:dgu_mobile/core/theme/app_text_styles.dart';
 import 'package:flutter/material.dart';
 
+import '../../domain/grade_type_labels.dart';
 import 'grade_item_tile.dart';
 import 'grades_list_view.dart';
 
@@ -237,7 +238,10 @@ class _GradeRow extends StatelessWidget {
     final dateStr = item.date != null
         ? '${item.date!.day} ${_months[item.date!.month - 1]}'
         : '';
-    final typeStr = item.type ?? item.subtitle;
+    final rawType = item.type;
+    final typeStr = rawType != null && rawType.trim().isNotEmpty
+        ? GradeTypeLabels.displayLabel(rawType)
+        : item.subtitle;
     final (gradeTextColor, gradeBgColor) = GradeItemTile.colorsForGrade(item.grade);
     final subtitleColor = item.isSpecialType ? gradeTextColor : AppColors.caption;
 

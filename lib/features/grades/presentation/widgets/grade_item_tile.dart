@@ -21,12 +21,54 @@ class GradeItemTile extends StatelessWidget {
   final bool isSpecialType;
 
   /// Публичный для использования в subject_grades_sheet.
+  static String? normalizeToGradeCode(String raw) {
+    final t = raw.trim();
+    if (t.isEmpty) return null;
+    if (RegExp(r'^[1-5]$').hasMatch(t)) return t;
+    final lower = t.toLowerCase();
+    if (lower.contains('неуд') || lower.contains('незач')) return '2';
+    if (lower.contains('удовл')) return '3';
+    if (lower.contains('хор')) return '4';
+    if (lower.contains('отл') || lower.contains('зач')) return '5';
+    return null;
+  }
+
+  static (Color textColor, Color bgColor) _colorsForCode(String code) {
+    switch (code) {
+      case '5':
+        return (AppColors.grade5Text, AppColors.grade5Bg);
+      case '4':
+        return (AppColors.grade4Text, AppColors.grade4Bg);
+      case '3':
+        return (AppColors.grade3Text, AppColors.grade3Bg);
+      case '2':
+      case '1':
+        return (AppColors.grade2Text, AppColors.grade2Bg);
+      default:
+        return (AppColors.gradeDefaultText, AppColors.gradeDefaultBg);
+    }
+  }
+
+  /// Цвета чипа на вкладке «Сессия» (с полупрозрачным фоном и обводкой).
+  static (Color text, Color bg, Color border) colorsForGradeChip(String grade) {
+    final (text, _) = colorsForGrade(grade);
+    if (normalizeToGradeCode(grade) != null ||
+        double.tryParse(grade.trim().replaceFirst(',', '.')) != null) {
+      return (text, text.withValues(alpha: 0.11), text);
+    }
+    return (
+      AppColors.gradeDefaultText,
+      AppColors.gradeDefaultBg,
+      AppColors.lightGrey,
+    );
+  }
+
+  /// Публичный для использования в subject_grades_sheet.
   static (Color textColor, Color bgColor) colorsForGrade(String grade) {
+    final code = normalizeToGradeCode(grade);
+    if (code != null) return _colorsForCode(code);
+
     final g = grade.trim();
-    if (g == '5') return (const Color(0xFF10B981), const Color(0x2B10B981));
-    if (g == '4') return (const Color(0xFFDF9D3F), const Color(0x2BFFD900));
-    if (g == '3') return (const Color(0xFF3B82F6), const Color(0x2B3B82F6)); // придумали для 3
-    if (g == '2' || g == '1') return (const Color(0xFFC84547), const Color(0x26C84547));
     // Средний балл (4.67 и т.д.) — цвет по диапазону
     final value = double.tryParse(g.replaceFirst(',', '.'));
     if (value != null) {

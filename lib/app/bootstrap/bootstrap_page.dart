@@ -35,6 +35,7 @@ class _BootstrapPageState extends State<BootstrapPage> {
     if (!isLoggedIn) {
       final offline = await AppNetworkBannerController.checkDeviceOffline();
       final allOk = await AppContainer.prefetchPublicDuringSplash(
+        imageContext: mounted ? context : null,
         minimumDisplay: BootstrapPage.kMinSplash,
         maximumWait: BootstrapPage.kMaxPrefetch,
       );

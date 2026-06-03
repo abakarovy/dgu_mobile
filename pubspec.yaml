@@ -1,7 +1,7 @@
 name: dgu_mobile
 description: "Мобильное приложение Колледж ДГУ."
 publish_to: 'none'
-version: 1.0.0+26
+version: 1.1.0+27
 
 environment:
   sdk: ^3.10.7

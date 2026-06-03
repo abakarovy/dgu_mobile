@@ -347,12 +347,12 @@ class _RoutePill extends StatelessWidget {
       child: Text(
         text,
         textAlign: TextAlign.center,
-        maxLines: 3,
-        overflow: TextOverflow.ellipsis,
+        maxLines: 4,
+        softWrap: true,
         style: AppTextStyle.inter(
           fontWeight: FontWeight.w700,
-          fontSize: 8.65,
-          height: 1.15,
+          fontSize: 11,
+          height: 1.2,
           color: tc,
         ),
       ),

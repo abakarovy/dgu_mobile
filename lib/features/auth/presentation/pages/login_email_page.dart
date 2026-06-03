@@ -7,13 +7,13 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/constants/app_colors.dart';
-import '../../../../core/constants/app_ui.dart';
 import '../../../../core/di/app_container.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../data/api/api_exception.dart';
 import '../../../../shared/widgets/dismiss_keyboard_on_tap.dart';
 import '../../domain/auth_flow_results.dart';
 import '../registration_support_flow.dart';
+import '../widgets/login_photo_hero_header.dart';
 
 /// Вход / регистрация по E-mail — те же поля и кнопки, что на экране «Студент».
 class LoginEmailPage extends StatefulWidget {
@@ -742,51 +742,12 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
                               const ColoredBox(color: Colors.black12),
                         ),
                         Positioned(
-                          left: AppUi.screenPaddingH,
-                          top: safeTop + 12,
-                          child: GestureDetector(
-                            onTap: () => context.pop(),
-                            behavior: HitTestBehavior.opaque,
-                            child: const SizedBox(
-                              width: 44,
-                              height: 44,
-                              child: Center(
-                                child: Icon(
-                                  Icons.arrow_back_ios_new,
-                                  size: 20,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        Positioned(
-                          left: 60 * sf,
-                          top: safeTop + 56 * sf,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                _topTitle,
-                                style: AppTextStyle.inter(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 111.73 * sf,
-                                  height: 1.0,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              SizedBox(height: 10 * sf),
-                              Text(
-                                'КОЛЛЕДЖ ДГУ',
-                                style: AppTextStyle.inter(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 32.96 * sf * 1.25,
-                                  height: 1.0,
-                                  letterSpacing: -0.82 * sf * 1.25,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ],
+                          left: 0,
+                          top: safeTop + 8,
+                          right: 60 * sf,
+                          child: LoginPhotoHeroHeader(
+                            sf: sf,
+                            title: _topTitle,
                           ),
                         ),
                         Positioned(

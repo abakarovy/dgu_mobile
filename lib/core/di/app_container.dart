@@ -1,3 +1,6 @@
+import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
+
 import '../../core/constants/api_constants.dart';
 import '../../features/auth/domain/repositories/auth_repository.dart';
 import '../../data/api/api_client.dart';
@@ -27,8 +30,8 @@ import '../storage/local_user_storage_wipe.dart';
 import '../mock/demo_session.dart';
 import '../../data/api/edu_disclosure_api.dart';
 import '../../data/api/upbringing_api.dart';
+import '../../data/college_site/college_site_image_prefetch.dart';
 import '../../data/college_site/college_site_service.dart';
-import 'package:path_provider/path_provider.dart';
 
 /// Простой DI: инициализация один раз при старте, затем доступ к репозиториям.
 abstract final class AppContainer {
@@ -444,17 +447,33 @@ abstract final class AppContainer {
 
   /// Splash для гостя: минимум [minimumDisplay], до [maximumWait] на успех prefetch.
   static Future<bool> prefetchPublicDuringSplash({
+    BuildContext? imageContext,
     Duration minimumDisplay = const Duration(seconds: 5),
     Duration maximumWait = const Duration(seconds: 10),
   }) async {
     final sw = Stopwatch()..start();
-    var allOk = false;
-    while (sw.elapsed < maximumWait) {
-      allOk = await prefetchPublic();
-      if (allOk) break;
-      if (sw.elapsed >= maximumWait) break;
-      await Future<void>.delayed(const Duration(milliseconds: 300));
+
+    Future<bool> runApiPrefetch() async {
+      var allOk = false;
+      while (sw.elapsed < maximumWait) {
+        allOk = await prefetchPublic();
+        if (allOk) return true;
+        if (sw.elapsed >= maximumWait) break;
+        await Future<void>.delayed(const Duration(milliseconds: 300));
+      }
+      return allOk;
     }
+
+    Future<void> runImagePrefetch() async {
+      final ctx = imageContext;
+      if (ctx == null || !ctx.mounted) return;
+      await CollegeSiteImagePrefetch.prefetchDirectionImages(ctx);
+    }
+
+    final allOk = await Future.wait([runApiPrefetch(), runImagePrefetch()]).then(
+      (r) => r.first as bool,
+    );
+
     final minLeft = minimumDisplay - sw.elapsed;
     if (minLeft > Duration.zero) {
       await Future<void>.delayed(minLeft);

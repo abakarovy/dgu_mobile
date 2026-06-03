@@ -9,6 +9,7 @@ import 'package:dgu_mobile/core/constants/app_constants.dart';
 import 'package:dgu_mobile/core/di/app_container.dart';
 import 'package:dgu_mobile/core/storage/profile_1c_photo_cache.dart';
 import 'package:dgu_mobile/core/utils/parent_child_name.dart';
+import 'package:dgu_mobile/core/utils/person_name_format.dart';
 import 'package:dgu_mobile/core/theme/app_text_styles.dart';
 import 'package:dgu_mobile/data/api/api_exception.dart';
 import 'package:flutter/material.dart';
@@ -512,7 +513,7 @@ class _ProfilePageState extends State<ProfilePage> {
       if (line != null && line.trim().isNotEmpty) return line.trim();
     }
     final n = (me.fullName).trim();
-    return n.isEmpty ? '—' : n;
+    return n.isEmpty ? '—' : formatPersonNameDisplay(n);
   }
 
   void _showAppSnackBar(BuildContext context, String message) {

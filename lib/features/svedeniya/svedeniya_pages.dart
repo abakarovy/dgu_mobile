@@ -8,11 +8,30 @@ import '../../core/di/app_container.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../data/api/edu_disclosure_api.dart';
 import '../../data/api/upbringing_api.dart';
+import '../../data/svedeniya/svedeniya_merge.dart';
 import '../../shared/widgets/app_header.dart';
 import 'edu_disclosure_nav.dart';
 import 'svedeniya_content_builder.dart';
 
-/// Хаб «Сведения об ОО» — 11 корневых разделов (SVEDENIYA_OO_FULL.md §4).
+/// Общий фон экранов сведений.
+abstract final class SvedeniyaPageStyle {
+  static const background = BoxDecoration(
+    gradient: LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: [Color(0xFFEFF6FF), Color(0xFFF8FAFC), Colors.white],
+      stops: [0.0, 0.18, 0.45],
+    ),
+  );
+
+  static const hubHeroGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFF1E40AF), Color(0xFF3B82F6)],
+  );
+}
+
+/// Хаб «Сведения об ОО» — разделы без промежуточных подменю.
 class SvedeniyaHubPage extends StatefulWidget {
   const SvedeniyaHubPage({super.key});
 
@@ -48,135 +67,110 @@ class _SvedeniyaHubPageState extends State<SvedeniyaHubPage> {
     }
   }
 
+  void _openSection(String rootId) {
+    if (_disclosure.isEmpty) return;
+    context.push('/public/home/svedeniya/$rootId', extra: _disclosure);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Colors.transparent,
+      extendBodyBehindAppBar: false,
       appBar: AppHeader(
         leading: appHeaderNestedBackLeading(context),
         headerTitle: Text('Сведения об ОО', style: appHeaderNestedTitleStyle),
       ),
-      body: RefreshIndicator(
-        color: AppColors.primaryBlue,
-        onRefresh: _load,
-        child: _loading && _disclosure.isEmpty
-            ? ListView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                children: const [
-                  SizedBox(height: 120),
-                  Center(child: CircularProgressIndicator()),
-                ],
-              )
-            : ListView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(
-                  AppUi.screenPaddingH,
-                  AppUi.spacingL,
-                  AppUi.screenPaddingH,
-                  30,
-                ),
-                children: [
-                  Text(
-                    'ФГБОУ ВО «ДГУ» — колледж',
-                    style: AppTextStyle.inter(
-                      fontSize: 14,
-                      color: AppColors.caption,
-                    ),
-                  ),
-                  const SizedBox(height: AppUi.spacingM),
-                  for (var i = 0; i < EduDisclosureNav.roots.length; i++) ...[
-                    _NavTile(
-                      title: EduDisclosureNav.roots[i].title,
-                      enabled: _disclosure.isNotEmpty,
-                      onTap: _disclosure.isEmpty
-                          ? null
-                          : () => context.push(
-                                '/public/home/svedeniya/${EduDisclosureNav.roots[i].id}',
-                                extra: _disclosure,
-                              ),
-                    ),
-                    if (i != EduDisclosureNav.roots.length - 1)
-                      const SizedBox(height: AppUi.spacingM),
+      body: DecoratedBox(
+        decoration: SvedeniyaPageStyle.background,
+        child: RefreshIndicator(
+          color: AppColors.primaryBlue,
+          onRefresh: _load,
+          child: _loading && _disclosure.isEmpty
+              ? ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  children: const [
+                    SizedBox(height: 120),
+                    Center(child: CircularProgressIndicator()),
                   ],
-                ],
-              ),
+                )
+              : ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(
+                    AppUi.screenPaddingH,
+                    AppUi.spacingL,
+                    AppUi.screenPaddingH,
+                    32,
+                  ),
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(AppUi.spacingL),
+                      decoration: BoxDecoration(
+                        gradient: SvedeniyaPageStyle.hubHeroGradient,
+                        borderRadius: BorderRadius.circular(AppUi.radiusL),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.lightBlue.withValues(alpha: 0.2),
+                            blurRadius: 16,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Сведения об образовательной организации',
+                            style: AppTextStyle.inter(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 17,
+                              height: 1.25,
+                              color: AppColors.textOnBanner,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Официальная информация о колледже ДГУ: структура, документы, '
+                            'материально-техническая база и сервисы для студентов.',
+                            style: AppTextStyle.inter(
+                              fontSize: 13,
+                              height: 1.4,
+                              color: AppColors.textOnBanner.withValues(alpha: 0.9),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: AppUi.spacingXl),
+                    for (var i = 0; i < EduDisclosureNav.roots.length; i++) ...[
+                      _HubSectionTile(
+                        root: EduDisclosureNav.roots[i],
+                        enabled: _disclosure.isNotEmpty,
+                        onTap: () => _openSection(EduDisclosureNav.roots[i].id),
+                      ),
+                      if (i != EduDisclosureNav.roots.length - 1)
+                        const SizedBox(height: AppUi.spacingM),
+                    ],
+                  ],
+                ),
+        ),
       ),
     );
   }
 }
 
-/// Подразделы корневого пункта меню.
-class SvedeniyaRootPage extends StatelessWidget {
-  const SvedeniyaRootPage({super.key, required this.rootId, this.disclosure = const {}});
+/// Один раздел: весь контент подразделов на одной прокручиваемой странице.
+class SvedeniyaSectionPage extends StatefulWidget {
+  const SvedeniyaSectionPage({super.key, required this.rootId, this.disclosure = const {}});
 
   final String rootId;
   final Map<String, dynamic> disclosure;
 
   @override
-  Widget build(BuildContext context) {
-    final root = EduDisclosureNav.rootById(rootId);
-    if (root == null) {
-      return Scaffold(
-        appBar: AppHeader(
-          leading: appHeaderNestedBackLeading(context),
-          headerTitle: Text('Раздел', style: appHeaderNestedTitleStyle),
-        ),
-        body: Center(child: Text('Раздел не найден', style: AppTextStyle.inter())),
-      );
-    }
-
-    final data = disclosure.isNotEmpty
-        ? disclosure
-        : AppContainer.jsonCache.getJsonMap(EduDisclosureApi.cacheKey) ?? const {};
-
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppHeader(
-        leading: appHeaderNestedBackLeading(context),
-        headerTitle: Text(root.title, style: appHeaderNestedTitleStyle),
-      ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(
-          AppUi.screenPaddingH,
-          AppUi.spacingL,
-          AppUi.screenPaddingH,
-          30,
-        ),
-        children: [
-          for (var i = 0; i < root.children.length; i++) ...[
-            _NavTile(
-              title: root.children[i].title,
-              onTap: () => context.push(
-                '/public/home/svedeniya/$rootId/${root.children[i].id}',
-                extra: data,
-              ),
-            ),
-            if (i != root.children.length - 1) const SizedBox(height: AppUi.spacingM),
-          ],
-        ],
-      ),
-    );
-  }
+  State<SvedeniyaSectionPage> createState() => _SvedeniyaSectionPageState();
 }
 
-/// Контент подраздела.
-class SvedeniyaContentPage extends StatefulWidget {
-  const SvedeniyaContentPage({
-    super.key,
-    required this.rootId,
-    required this.childId,
-    this.disclosure = const {},
-  });
-
-  final String rootId;
-  final String childId;
-  final Map<String, dynamic> disclosure;
-
-  @override
-  State<SvedeniyaContentPage> createState() => _SvedeniyaContentPageState();
-}
-
-class _SvedeniyaContentPageState extends State<SvedeniyaContentPage> {
+class _SvedeniyaSectionPageState extends State<SvedeniyaSectionPage> {
   Map<String, dynamic> _disclosure = const {};
   Map<String, dynamic> _upbringing = const {};
   Map<String, dynamic> _studentPortal = const {};
@@ -216,95 +210,174 @@ class _SvedeniyaContentPageState extends State<SvedeniyaContentPage> {
       _disclosure = _resolveDisclosure();
       _upbringing = AppContainer.jsonCache.getJsonMap(UpbringingApi.cacheKey) ?? const {};
     } finally {
-      if (mounted) {
-        setState(() {
-          _loading = false;
-        });
-      }
+      if (mounted) setState(() => _loading = false);
     }
-  }
-
-  String get _title {
-    return EduDisclosureNav.childById(widget.rootId, widget.childId)?.title ?? 'Раздел';
   }
 
   @override
   Widget build(BuildContext context) {
-    final widgets = SvedeniyaContentBuilder(
-      rootId: widget.rootId,
-      childId: widget.childId,
-      disclosure: _disclosure,
-      upbringing: _upbringing,
-      studentPortal: _studentPortal,
-    ).build();
+    final root = EduDisclosureNav.rootById(widget.rootId);
+    if (root == null) {
+      return Scaffold(
+        appBar: AppHeader(
+          leading: appHeaderNestedBackLeading(context),
+          headerTitle: Text('Раздел', style: appHeaderNestedTitleStyle),
+        ),
+        body: Center(child: Text('Раздел не найден', style: AppTextStyle.inter())),
+      );
+    }
+
+    final merged = MergedSvedeniyaPayload.fromApi(_disclosure);
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Colors.transparent,
       appBar: AppHeader(
         leading: appHeaderNestedBackLeading(context),
-        headerTitle: Text(_title, style: appHeaderNestedTitleStyle),
+        headerTitle: Text(root.title, style: appHeaderNestedTitleStyle),
       ),
-      body: RefreshIndicator(
-        color: AppColors.primaryBlue,
-        onRefresh: _load,
-        child: _loading
-            ? ListView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                children: const [
-                  SizedBox(height: 120),
-                  Center(child: CircularProgressIndicator()),
-                ],
-              )
-            : ListView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(
-                  AppUi.screenPaddingH,
-                  AppUi.spacingL,
-                  AppUi.screenPaddingH,
-                  30,
+      body: DecoratedBox(
+        decoration: SvedeniyaPageStyle.background,
+        child: RefreshIndicator(
+          color: AppColors.primaryBlue,
+          onRefresh: _load,
+          child: _loading
+              ? ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  children: const [
+                    SizedBox(height: 120),
+                    Center(child: CircularProgressIndicator()),
+                  ],
+                )
+              : ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(
+                    AppUi.screenPaddingH,
+                    AppUi.spacingL,
+                    AppUi.screenPaddingH,
+                    32,
+                  ),
+                  children: [
+                    for (var i = 0; i < root.children.length; i++) ...[
+                      _ContentBlock(
+                        title: root.children[i].title,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: SvedeniyaContentBuilder(
+                            rootId: widget.rootId,
+                            childId: root.children[i].id,
+                            merged: merged,
+                            upbringing: _upbringing,
+                            studentPortal: _studentPortal,
+                          ).build(),
+                        ),
+                      ),
+                      if (i != root.children.length - 1)
+                        const SizedBox(height: AppUi.spacingXl),
+                    ],
+                  ],
                 ),
-                children: widgets,
-              ),
+        ),
       ),
     );
   }
 }
 
-class _NavTile extends StatelessWidget {
-  const _NavTile({required this.title, required this.onTap, this.enabled = true});
+/// Совместимость: старый маршрут с подразделом → якорь на объединённой странице.
+class SvedeniyaContentPage extends StatelessWidget {
+  const SvedeniyaContentPage({
+    super.key,
+    required this.rootId,
+    required this.childId,
+    this.disclosure = const {},
+  });
 
-  final String title;
-  final VoidCallback? onTap;
-  final bool enabled;
+  final String rootId;
+  final String childId;
+  final Map<String, dynamic> disclosure;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surfaceLight,
+    return SvedeniyaSectionPage(rootId: rootId, disclosure: disclosure);
+  }
+}
+
+/// @deprecated Используйте [SvedeniyaSectionPage].
+typedef SvedeniyaRootPage = SvedeniyaSectionPage;
+
+class _HubSectionTile extends StatelessWidget {
+  const _HubSectionTile({
+    required this.root,
+    required this.onTap,
+    this.enabled = true,
+  });
+
+  final SvedeniyaRoot root;
+  final VoidCallback onTap;
+  final bool enabled;
+
+  static IconData _iconFor(String id) {
+    return switch (id) {
+      'osnovnye-svedeniya' => Icons.apartment_outlined,
+      'struktura' => Icons.account_tree_outlined,
+      'dokumenty' => Icons.description_outlined,
+      'obrazovanie' => Icons.school_outlined,
+      'mto' => Icons.precision_manufacturing_outlined,
+      'stipendii' => Icons.volunteer_activism_outlined,
+      'biblioteka-i-sport' => Icons.local_library_outlined,
+      'vospitatelnaya-deyatelnost' => Icons.groups_outlined,
+      'nauchnaya-zhizn' => Icons.science_outlined,
+      'pedagogam-resursy' => Icons.menu_book_outlined,
+      'studentam' => Icons.person_outline,
+      _ => Icons.folder_outlined,
+    };
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: enabled ? onTap : null,
         borderRadius: BorderRadius.circular(AppUi.radiusL),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            offset: const Offset(0, 4),
-            blurRadius: 12,
+        child: Ink(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(AppUi.radiusL),
+            border: Border.all(color: AppColors.lightGrey.withValues(alpha: 0.4)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                offset: const Offset(0, 2),
+                blurRadius: 10,
+              ),
+            ],
           ),
-        ],
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: enabled ? onTap : null,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppUi.spacingL, vertical: 16),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppUi.spacingL,
+              vertical: 14,
+            ),
             child: Row(
               children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: AppColors.backgroundBlue,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    _iconFor(root.id),
+                    color: enabled ? AppColors.lightBlue : AppColors.caption,
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: AppUi.spacingM),
                 Expanded(
                   child: Text(
-                    title,
+                    root.title,
                     style: AppTextStyle.inter(
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w700,
                       fontSize: 15,
                       color: enabled ? AppColors.textPrimary : AppColors.caption,
                     ),
@@ -314,8 +387,8 @@ class _NavTile extends StatelessWidget {
                   'assets/icons/chevron_right.svg',
                   width: 20,
                   height: 20,
-                  colorFilter: const ColorFilter.mode(
-                    AppColors.chevronRight,
+                  colorFilter: ColorFilter.mode(
+                    enabled ? AppColors.chevronRight : AppColors.lightGrey,
                     BlendMode.srcIn,
                   ),
                 ),
@@ -328,5 +401,62 @@ class _NavTile extends StatelessWidget {
   }
 }
 
-/// Совместимость со старым импортом роутера.
+class _ContentBlock extends StatelessWidget {
+  const _ContentBlock({required this.title, required this.child});
+
+  final String title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              width: 4,
+              height: 22,
+              decoration: BoxDecoration(
+                color: AppColors.lightBlue,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(width: AppUi.spacingM),
+            Expanded(
+              child: Text(
+                title,
+                style: AppTextStyle.inter(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 17,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppUi.spacingM),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(AppUi.spacingL),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(AppUi.radiusL),
+            border: Border.all(color: AppColors.lightGrey.withValues(alpha: 0.35)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.03),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: child,
+        ),
+      ],
+    );
+  }
+}
+
 typedef ApplicantDisclosurePage = SvedeniyaHubPage;

@@ -3,29 +3,38 @@ import 'package:flutter/material.dart';
 import '../../core/constants/api_constants.dart';
 import '../../core/constants/app_ui.dart';
 import '../../core/constants/college_public_links.dart';
-import '../../data/college_site/college_site_fallback.dart';
+import '../../data/svedeniya/svedeniya_merge.dart';
+import '../../data/svedeniya/svedeniya_static_defaults.dart';
 import 'edu_disclosure_nav.dart';
 import 'svedeniya_widgets.dart';
 
-/// Сборка экрана подраздела по SVEDENIYA_OO_FULL.md.
+/// Сборка экрана подраздела — паритет с SvedeniyaSectionBody + merge на клиенте.
 class SvedeniyaContentBuilder {
   SvedeniyaContentBuilder({
     required this.rootId,
     required this.childId,
-    required this.disclosure,
+    required this.merged,
     this.upbringing = const {},
     this.studentPortal = const {},
   });
 
   final String rootId;
   final String childId;
-  final Map<String, dynamic> disclosure;
+  final MergedSvedeniyaPayload merged;
   final Map<String, dynamic> upbringing;
   final Map<String, dynamic> studentPortal;
 
   String get pathKey => EduDisclosureNav.pathKey(rootId, childId);
 
+  Map<String, dynamic> get _ext => merged.extended;
+
+  Map<String, dynamic> get _okollege => merged.okollege;
+
   List<Widget> build() {
+    if (!merged.isPathPublished(pathKey)) {
+      return [SvedeniyaWidgets.hiddenOnSite()];
+    }
+
     final out = <Widget>[];
     switch (rootId) {
       case 'osnovnye-svedeniya':
@@ -52,33 +61,15 @@ class SvedeniyaContentBuilder {
         _buildStudentam(out, childId);
     }
     _appendMicroPosts(out, pathKey);
-    if (out.isEmpty) {
-      if (!_isVisible(pathKey)) return [SvedeniyaWidgets.hiddenOnSite()];
-      return [SvedeniyaWidgets.empty()];
-    }
+    if (out.isEmpty) return [SvedeniyaWidgets.empty()];
     return out;
   }
 
-  Map<String, dynamic> get _ext => _map('svedeniya_extended');
-
-  Map<String, dynamic> get _okollege {
-    final raw = _ext['okollege_svedeniya'];
-    if (raw is Map) return Map<String, dynamic>.from(raw);
-    return _ext;
-  }
-
-  Map<String, dynamic> _map(String key) {
-    final v = disclosure[key];
+  Map<String, dynamic> _mapFrom(Map<String, dynamic> parent, String key) {
+    final v = parent[key];
     if (v is Map<String, dynamic>) return v;
     if (v is Map) return Map<String, dynamic>.from(v);
     return const {};
-  }
-
-  bool _isVisible(String key) {
-    final vis = _ext['section_visibility'];
-    if (vis is! Map) return true;
-    final m = Map<String, dynamic>.from(vis);
-    return m[key] != false;
   }
 
   void _appendMicroPosts(List<Widget> out, String key) {
@@ -116,16 +107,12 @@ class SvedeniyaContentBuilder {
     switch (child) {
       case 'obshaya-informatsiya':
         final block = _mapFrom(o, 'obshaya_informatsiya');
-        SvedeniyaWidgets.appendHtml(out, SvedeniyaWidgets.str(block['main_html']));
-        final intro = SvedeniyaWidgets.str(block['eyebrow_intro']);
-        if (intro != null) SvedeniyaWidgets.appendHtml(out, intro);
-        if (out.isEmpty) {
-          final site = CollegeSiteFallback.defaultContent;
-          out.add(SvedeniyaWidgets.card(
-            title: site.heroTitle,
-            child: SvedeniyaWidgets.plain(site.heroSubtitle),
-          ));
+        final eyebrow = SvedeniyaWidgets.str(block['eyebrow']);
+        if (eyebrow != null) {
+          out.add(SvedeniyaWidgets.plain(eyebrow));
         }
+        SvedeniyaWidgets.appendHtml(out, SvedeniyaWidgets.str(block['eyebrow_intro']));
+        SvedeniyaWidgets.appendHtml(out, SvedeniyaWidgets.str(block['main_html']));
       case 'data-sozdaniya':
         final block = _mapFrom(o, 'data_sozdaniya');
         final title = SvedeniyaWidgets.str(block['highlight_title']);
@@ -147,21 +134,22 @@ class SvedeniyaContentBuilder {
           }
         }
       case 'uchreditel':
-        SvedeniyaWidgets.appendHtml(out, SvedeniyaWidgets.str(o['uchreditel_html']));
+        final html = SvedeniyaWidgets.str(o['uchreditel_html']);
+        if (html != null && SvedeniyaWidgets.hasMeaningfulHtml(html)) {
+          SvedeniyaWidgets.appendHtml(out, html);
+        } else {
+          SvedeniyaWidgets.appendHtml(out, SvedeniyaStaticDefaults.founderHtml);
+        }
       case 'mestonakhozhdenie':
-        SvedeniyaWidgets.appendHtml(out, SvedeniyaWidgets.str(o['mestonakhozhdenie_html']));
-        final c = CollegeSiteFallback.defaultContent.contacts;
-        out.add(SvedeniyaWidgets.card(
-          title: 'Контакты',
-          child: SvedeniyaWidgets.plain('${c.address}\n${c.phone}\n${c.email}'),
-        ));
+        final html = SvedeniyaWidgets.str(o['mestonakhozhdenie_html']);
+        SvedeniyaWidgets.appendHtml(out, html ?? SvedeniyaStaticDefaults.locationHtml);
       case 'rezhim-grafik':
         final blocks = o['rezhim_grafik_blocks'];
         if (blocks is List) {
           for (final raw in blocks) {
             if (raw is! Map) continue;
             final m = Map<String, dynamic>.from(raw);
-            final lines = m['lines'];
+            final lines = m['lines'] ?? m['paragraphs'];
             final body = lines is List ? lines.map((e) => '$e').join('\n') : '';
             out.add(SvedeniyaWidgets.card(
               title: SvedeniyaWidgets.str(m['title']) ?? 'Режим работы',
@@ -169,46 +157,39 @@ class SvedeniyaContentBuilder {
             ));
           }
         }
+        out.add(SvedeniyaWidgets.externalLinkTile(
+          title: 'Расписание занятий',
+          url: '${ApiConstants.collegeSiteOrigin}/svedeniya/studentam/raspisanie-zanyatiy',
+        ));
       case 'sotrudnichestvo':
         final block = _mapFrom(o, 'sotrudnichestvo');
         SvedeniyaWidgets.appendHtml(out, SvedeniyaWidgets.str(block['main_html']));
         SvedeniyaWidgets.appendPdfList(out, block['bottom_documents']);
       case 'vypuskniki':
-        SvedeniyaWidgets.appendHtml(out, SvedeniyaWidgets.str(o['vypuskniki_html']));
+        final html = SvedeniyaWidgets.str(o['vypuskniki_html']);
+        if (html != null && SvedeniyaWidgets.hasMeaningfulHtml(html)) {
+          SvedeniyaWidgets.appendHtml(out, html);
+        } else {
+          out.add(SvedeniyaWidgets.plain(SvedeniyaStaticDefaults.vypusknikiPlaceholder));
+        }
       case 'kontaktnaya-informatsiya':
         final block = _mapFrom(o, 'kontaktnaya_informatsiya');
         final lines = <String>[
-          if (SvedeniyaWidgets.str(block['full_name']) != null)
-            SvedeniyaWidgets.str(block['full_name'])!,
-          if (SvedeniyaWidgets.str(block['postal_address']) != null)
-            SvedeniyaWidgets.str(block['postal_address'])!,
-          if (SvedeniyaWidgets.str(block['phone']) != null)
-            'Тел.: ${SvedeniyaWidgets.str(block['phone'])}',
-          if (SvedeniyaWidgets.str(block['email']) != null)
-            SvedeniyaWidgets.str(block['email'])!,
+          if (SvedeniyaWidgets.str(block['full_org_html']) != null)
+            SvedeniyaWidgets.str(block['full_org_html'])!.replaceAll(RegExp(r'<[^>]*>'), ' ').trim(),
+          if (SvedeniyaWidgets.str(block['short_org_name']) != null)
+            '${block['short_prefix'] ?? ''} ${block['short_org_name']}'.trim(),
+          if (block['postal_lines'] is List)
+            ...(block['postal_lines'] as List).map((e) => '$e'),
+          if (SvedeniyaWidgets.str(block['phone_display']) != null)
+            'Тел.: ${block['phone_display']}',
+          if (SvedeniyaWidgets.str(block['email']) != null) '${block['email']}',
         ];
-        if (lines.isEmpty) {
-          final c = CollegeSiteFallback.defaultContent.contacts;
-          for (final line in [c.address, c.phone, c.email]) {
-            if (line != null && line.isNotEmpty) lines.add(line);
-          }
-        }
         out.add(SvedeniyaWidgets.card(
           title: 'Контактная информация',
-          child: SvedeniyaWidgets.plain(lines.join('\n')),
+          child: SvedeniyaWidgets.plain(lines.where((e) => e.trim().isNotEmpty).join('\n')),
         ));
     }
-    _appendOkollegeSiteLink(out, child);
-  }
-
-  void _appendOkollegeSiteLink(List<Widget> out, String child) {
-    if (out.isNotEmpty) return;
-    final url = '${ApiConstants.collegeSiteOrigin}/svedeniya/osnovnye-svedeniya/$child';
-    out.add(SvedeniyaWidgets.externalLinkTile(
-      title: 'Открыть на сайте колледжа',
-      url: url,
-      subtitle: url,
-    ));
   }
 
   void _buildStruktura(List<Widget> out, String child) {
@@ -217,26 +198,6 @@ class SvedeniyaContentBuilder {
         _buildStrukturaKolledzha(out);
       case 'kadrovy-sostav':
         SvedeniyaWidgets.appendPdfList(out, _ext['struktura_kadrovy_cards']);
-        final cards = _ext['struktura_kadrovy_cards'];
-        if (cards is! List || cards.isEmpty) {
-          for (final raw in disclosure['staff'] as List? ?? const []) {
-            if (raw is! Map) continue;
-            final m = Map<String, dynamic>.from(raw);
-            final title = SvedeniyaWidgets.str(m['full_name']) ?? 'Сотрудник';
-            final lines = <String>[
-              if (SvedeniyaWidgets.str(m['position']) != null)
-                SvedeniyaWidgets.str(m['position'])!,
-              if (SvedeniyaWidgets.str(m['degree_rank']) != null)
-                SvedeniyaWidgets.str(m['degree_rank'])!,
-            ];
-            if (lines.isNotEmpty) {
-              out.add(SvedeniyaWidgets.card(
-                title: title,
-                child: SvedeniyaWidgets.plain(lines.join('\n')),
-              ));
-            }
-          }
-        }
       case 'otchyot-o-samoobsledovanii':
         SvedeniyaWidgets.appendHtml(out, SvedeniyaWidgets.str(_ext['struktura_samoobsledovanie_html']));
         SvedeniyaWidgets.appendPdfList(out, _ext['struktura_samoobsledovanie_pdfs']);
@@ -268,7 +229,7 @@ class SvedeniyaContentBuilder {
   }
 
   void _buildStrukturaKolledzha(List<Widget> out) {
-    final sk = _map('struktura_kolledzha');
+    final sk = merged.strukturaKolledzha;
     final lead = SvedeniyaWidgets.str(sk['intro_lead']);
     final heading = SvedeniyaWidgets.str(sk['intro_heading']);
     if (lead != null) out.add(SvedeniyaWidgets.plain(lead));
@@ -348,8 +309,8 @@ class SvedeniyaContentBuilder {
       }
     }
 
-    final units = disclosure['management_units'];
-    if (units is List && units.isNotEmpty) {
+    final units = merged.managementUnits;
+    if (units.isNotEmpty) {
       out.add(const SizedBox(height: AppUi.spacingM));
       for (final raw in units) {
         if (raw is! Map) continue;
@@ -387,18 +348,16 @@ class SvedeniyaContentBuilder {
           subtitle: CollegePublicLinks.ndocJurkolUrl,
         ));
       case 'arhiv':
-        final docs = disclosure['documents'];
+        final docs = merged.documents;
         var hasDocs = false;
-        if (docs is List) {
-          for (final raw in docs) {
-            if (raw is! Map) continue;
-            final m = Map<String, dynamic>.from(raw);
-            final title = SvedeniyaWidgets.str(m['title'] ?? m['label']) ?? 'Документ';
-            final file = SvedeniyaWidgets.str(m['file_url'] ?? m['file_rel'] ?? m['href']);
-            if (file != null) {
-              hasDocs = true;
-              out.add(SvedeniyaWidgets.pdfTile(title: title, fileRel: file));
-            }
+        for (final raw in docs) {
+          if (raw is! Map) continue;
+          final m = Map<String, dynamic>.from(raw);
+          final title = SvedeniyaWidgets.str(m['title'] ?? m['label']) ?? 'Документ';
+          final file = SvedeniyaWidgets.str(m['file_url'] ?? m['file_rel'] ?? m['href']);
+          if (file != null) {
+            hasDocs = true;
+            out.add(SvedeniyaWidgets.pdfTile(title: title, fileRel: file));
           }
         }
         if (!hasDocs) {
@@ -427,7 +386,7 @@ class SvedeniyaContentBuilder {
   void _buildMto(List<Widget> out, String child) {
     final field = MtoNav.fieldByChild[child];
     if (field == null) return;
-    final mto = _map('mto');
+    final mto = merged.mto;
     final html = SvedeniyaWidgets.str(mto[field]);
     final sectionTitle =
         EduDisclosureNav.childById('mto', child)?.title ?? child;
@@ -481,10 +440,14 @@ class SvedeniyaContentBuilder {
           title: 'ЭБС «Юрайт»',
           url: CollegePublicLinks.libraryUraitUrl,
         ));
+        out.add(SvedeniyaWidgets.externalLinkTile(
+          title: 'Интернет-ресурсы',
+          url: '${ApiConstants.collegeSiteOrigin}/svedeniya/studentam/elektronnye-resursy',
+        ));
       case 'sportkompleks':
         out.add(SvedeniyaWidgets.card(
           title: 'Спорткомплекс',
-          child: SvedeniyaWidgets.plain('Раздел в подготовке.'),
+          child: SvedeniyaWidgets.plain(SvedeniyaStaticDefaults.sportkompleksPlaceholder),
         ));
     }
   }
@@ -553,15 +516,14 @@ class SvedeniyaContentBuilder {
 
   void _buildPedagogam(List<Widget> out, String child) {
     if (child != 'vneshnie-ssylki') return;
-    const links = <(String, String)>[
-      ('Оценка качества', CollegePublicLinks.teacherRateUrl),
-      ('Наука', CollegePublicLinks.teacherScienceUrl),
-      ('Образование', CollegePublicLinks.teacherEdUrl),
-      ('ЭИОС', CollegePublicLinks.teacherEiosUrl),
-      ('Электронная библиотека', CollegePublicLinks.libraryElibUrl),
-    ];
-    for (final (title, url) in links) {
-      out.add(SvedeniyaWidgets.externalLinkTile(title: title, url: url));
+    for (final raw in SvedeniyaStaticDefaults.teacherLinks) {
+      final m = Map<String, dynamic>.from(raw);
+      final href = SvedeniyaWidgets.str(m['href']);
+      if (href == null) continue;
+      out.add(SvedeniyaWidgets.externalLinkTile(
+        title: SvedeniyaWidgets.str(m['label']) ?? 'Ссылка',
+        url: href,
+      ));
     }
   }
 
@@ -571,17 +533,21 @@ class SvedeniyaContentBuilder {
         final overview = _mapFrom(studentPortal, 'overview');
         SvedeniyaWidgets.appendHtml(out, SvedeniyaWidgets.str(overview['body_html']));
         final hub = overview['hub_links'];
-        if (hub is List) {
-          for (final raw in hub) {
-            if (raw is! Map) continue;
-            final m = Map<String, dynamic>.from(raw);
-            final href = SvedeniyaWidgets.str(m['href']);
-            if (href == null) continue;
-            out.add(SvedeniyaWidgets.externalLinkTile(
-              title: SvedeniyaWidgets.str(m['label']) ?? 'Ссылка',
-              url: href.startsWith('http') ? href : SvedeniyaWidgets.resolveFile(href),
-            ));
-          }
+        final links = hub is List && hub.isNotEmpty
+            ? hub
+            : SvedeniyaStaticDefaults.defaultStudentHubLinks;
+        for (final raw in links) {
+          if (raw is! Map) continue;
+          final m = Map<String, dynamic>.from(raw);
+          final href = SvedeniyaWidgets.str(m['href']);
+          if (href == null) continue;
+          final url = href.startsWith('http')
+              ? href
+              : '${ApiConstants.collegeSiteOrigin}$href';
+          out.add(SvedeniyaWidgets.externalLinkTile(
+            title: SvedeniyaWidgets.str(m['label']) ?? 'Ссылка',
+            url: url,
+          ));
         }
       case 'raspisanie-zanyatiy':
         _studentSchedule(out, 'schedule_page', 'schedule_semesters');
@@ -609,7 +575,7 @@ class SvedeniyaContentBuilder {
   void _studentSchedule(List<Widget> out, String pageKey, String semestersKey) {
     final page = _mapFrom(studentPortal, pageKey);
     final html = SvedeniyaWidgets.str(page['body_html']);
-    if (html != null && SvedeniyaWidgets.hasMeaningfulHtml(html)) {
+    if (studentPortalHtmlOverridesPdfGrid(html)) {
       SvedeniyaWidgets.appendHtml(out, html);
       return;
     }
@@ -683,11 +649,5 @@ class SvedeniyaContentBuilder {
       inner.add(const SizedBox(height: AppUi.spacingM));
     }
     out.add(SvedeniyaWidgets.card(title: blockTitle, child: Column(children: inner)));
-  }
-
-  Map<String, dynamic> _mapFrom(Map<String, dynamic> parent, String key) {
-    final v = parent[key];
-    if (v is Map) return Map<String, dynamic>.from(v);
-    return const {};
   }
 }

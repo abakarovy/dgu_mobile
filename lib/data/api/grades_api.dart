@@ -110,7 +110,30 @@ class GradesApi {
       final s = (e['semester'] ?? '').toString().trim();
       if (s.isNotEmpty) out.add(s);
     }
+    out.sort(_compareSemestersNewestFirst);
     return out;
+  }
+
+  static int? _semesterSortKey(String raw) {
+    final t = raw.trim().toLowerCase().replaceAll('семестр', 'сем');
+    final m = RegExp(
+      r'^(\d+)\s*(?:сем|sem)\.?\s+(\d{4})\s*-\s*(\d{4})',
+      caseSensitive: false,
+    ).firstMatch(t);
+    if (m == null) return null;
+    final semNum = int.tryParse(m.group(1)!);
+    final yearStart = int.tryParse(m.group(2)!);
+    if (semNum == null || yearStart == null) return null;
+    return yearStart * 10 + semNum;
+  }
+
+  static int _compareSemestersNewestFirst(String a, String b) {
+    final ka = _semesterSortKey(a);
+    final kb = _semesterSortKey(b);
+    if (ka != null && kb != null) return kb.compareTo(ka);
+    if (ka != null) return -1;
+    if (kb != null) return 1;
+    return b.compareTo(a);
   }
 
   static List<String> _uniqueSortedSemestersFromEntities(List<GradeEntity> items) {
@@ -119,7 +142,7 @@ class GradesApi {
       final s = (g.semester ?? '').trim();
       if (s.isNotEmpty) set.add(s);
     }
-    final list = set.toList()..sort();
+    final list = set.toList()..sort(_compareSemestersNewestFirst);
     return list;
   }
 
@@ -270,9 +293,7 @@ class GradesApi {
       grade: shownGrade,
       gradeType: gradeType.isNotEmpty ? gradeType : null,
       date: date,
-      teacherName: teacher.isNotEmpty
-          ? teacher
-          : (gradeType.isNotEmpty ? gradeType : null),
+      teacherName: teacher.isNotEmpty ? teacher : null,
       semester: semester.isNotEmpty ? semester : null,
     );
   }

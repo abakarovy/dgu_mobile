@@ -17,10 +17,10 @@ abstract final class CollegePublicLinks {
   static const dguSvedenGrantsUrl = 'https://dgu.ru/sveden/grants/';
 
   static const libraryElibUrl = 'https://elib.dgu.ru/';
-  static const libraryUraitUrl = 'https://urait.ru/';
+  static const libraryUraitUrl = 'https://biblio-online.ru';
 
   static const teacherRateUrl = 'https://rate.dgu.ru/';
   static const teacherScienceUrl = 'https://science.dgu.ru/';
   static const teacherEdUrl = 'https://ed.dgu.ru/';
-  static const teacherEiosUrl = 'https://eios.dgu.ru/';
+  static const teacherEiosUrl = 'https://bitrix.dgu.ru/eios/';
 }
