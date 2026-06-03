@@ -30,6 +30,10 @@ abstract final class ApiConstants {
   static const String authLoginPath = '/auth/login';
   static const String authMePath = '/auth/me';
 
+  /// POST `/auth/student/register`: в БД пишется `registration_source` (не путать с web).
+  static const String registrationClientHeader = 'X-Registration-Client';
+  static const String registrationClientMobile = 'mobile';
+
   /// Профиль студента из 1С (HTTP-сервис зачётки + оценки).
   /// Руководство backend: `GET /api/1c/my-profile?mobile=true`.
   static const String oneCMyProfilePath = '/1c/my-profile';

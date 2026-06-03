@@ -248,11 +248,18 @@ class AuthApi {
           'student_book_number': studentBookNumber.trim(),
           'email': email.trim(),
           'password': password,
+          'registration_client': ApiConstants.registrationClientMobile,
           if (registrationToken != null && registrationToken.trim().isNotEmpty)
             'registration_token': registrationToken.trim(),
           if (otpCode != null && otpCode.trim().isNotEmpty) 'otp_code': otpCode.trim(),
         },
-        options: Options(validateStatus: (s) => s != null && s < 500),
+        options: Options(
+          validateStatus: (s) => s != null && s < 500,
+          headers: {
+            ApiConstants.registrationClientHeader:
+                ApiConstants.registrationClientMobile,
+          },
+        ),
       );
 
       final code = response.statusCode ?? 0;
