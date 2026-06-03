@@ -34,7 +34,7 @@ dependencies:
   cupertino_icons: ^1.0.8
   html: ^0.15.6
   firebase_remote_config: ^6.4.0
-  yandex_mobileads: ^8.0.0
+  # yandex_mobileads: ^8.0.0  # временно отключено — см. YandexAdsConfig.kGloballyDisabled
 
 dev_dependencies:
   flutter_test:

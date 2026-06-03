@@ -32,9 +32,11 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <!-- Yandex Ads отключены
         <meta-data
             android:name="com.yandex.mobile.ads.APPLICATION_ID"
             android:value="19381333" />
+        -->
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

@@ -22,6 +22,9 @@ class NativeFeedAdCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (!YandexAdsConfig.showNativeFeedAds) {
+      return const SizedBox.shrink();
+    }
     return Material(
       color: Colors.white,
       clipBehavior: Clip.antiAlias,

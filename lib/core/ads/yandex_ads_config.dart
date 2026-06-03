@@ -5,6 +5,10 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 abstract final class YandexAdsConfig {
   YandexAdsConfig._();
 
+  /// Временно отключить всю рекламу Yandex (SDK, слоты в лентах, нативные view).
+  /// Чтобы включить снова: `false` + раскомментировать зависимости в pubspec / MainActivity / AppDelegate.
+  static const bool kGloballyDisabled = true;
+
   static const String demoNativeAdUnitId = 'demo-native-content-yandex';
 
   static final RegExp _productionAdUnitId =
@@ -92,7 +96,8 @@ abstract final class YandexAdsConfig {
     return true;
   }
 
-  static bool get showNativeFeedAds => adsEnabled && !kIsWeb;
+  static bool get showNativeFeedAds =>
+      !kGloballyDisabled && adsEnabled && !kIsWeb;
 
   /// ID приложения в РСЯ для Android (meta-data в манифесте).
   static String get androidApplicationId {

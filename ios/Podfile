@@ -68,7 +68,8 @@ def flutter_install_ios_fluttermacos_placeholder_pod(ios_application_path)
 end
 
 target 'Runner' do
-  use_frameworks!
+  # Статическая линковка: YandexMobileAds.xcframework и Firebase без конфликта с use_frameworks!.
+  use_frameworks! :linkage => :static
 
   flutter_install_ios_fluttermacos_placeholder_pod(File.dirname(File.realpath(__FILE__)))
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
