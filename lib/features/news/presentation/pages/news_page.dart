@@ -4,6 +4,7 @@ import 'package:dgu_mobile/core/constants/app_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/ads/yandex_ads_config.dart';
 import '../../../../core/di/app_container.dart';
 import '../../../../core/navigation/news_header_host.dart';
 import '../../../../core/navigation/news_refresh_host.dart';
@@ -11,6 +12,8 @@ import '../../../../data/models/news_model.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../shared/widgets/app_header.dart';
 import '../../../events/presentation/pages/events_page.dart';
+import '../../../../core/ads/feed_ad_slots.dart';
+import '../widgets/native_feed_ad_card.dart';
 import '../widgets/news_card.dart';
 
 /// Вкладка «Новости» — список карточек новостей.
@@ -186,18 +189,31 @@ class _NewsPageState extends State<NewsPage> {
   }
 
   Widget _buildNewsContent() {
-    if (_loading && _items.isEmpty) {
+    if (_loading && _items.isEmpty && !YandexAdsConfig.showNativeFeedAds) {
       return const Center(child: CircularProgressIndicator());
     }
-    if (_items.isEmpty) {
+
+    final slots = FeedAdSlots.build(
+      contentCount: _items.length,
+      insertAds: YandexAdsConfig.showNativeFeedAds,
+    );
+
+    if (_loading && _items.isEmpty) {
       return RefreshIndicator(
         onRefresh: _refresh,
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: AppUi.screenPaddingAll.copyWith(top: 0),
-          children: const [
-            SizedBox(height: 24),
-            Center(child: Text('Нет новостей')),
+          children: [
+            const SizedBox(height: 24),
+            const Center(child: CircularProgressIndicator()),
+            if (YandexAdsConfig.showNativeFeedAds) ...[
+              const SizedBox(height: AppUi.spacingBetweenNews),
+              const Align(
+                alignment: Alignment.topCenter,
+                child: NativeFeedAdCard(slotId: 0),
+              ),
+            ],
           ],
         ),
       );
@@ -213,21 +229,33 @@ class _NewsPageState extends State<NewsPage> {
             padding: AppUi.screenPaddingAll.copyWith(top: 0),
             child: Column(
               children: [
-                for (var i = 0; i < _items.length; i++) ...[
+                if (_items.isEmpty && !YandexAdsConfig.showNativeFeedAds) ...[
+                  const SizedBox(height: 24),
+                  const Center(child: Text('Нет новостей')),
+                ],
+                for (var s = 0; s < slots.length; s++) ...[
+                  if (s > 0) const SizedBox(height: AppUi.spacingBetweenNews),
                   Align(
                     alignment: Alignment.topCenter,
-                    child: NewsCard(
-                      category: 'Новости',
-                      title: _items[i].title,
-                      excerpt: _items[i].cardExcerptPlain,
-                      date: _items[i].createdAt.toIso8601String().split('T').first,
-                      imageWidget: _buildNewsImage(_items[i].imageUrl),
-                      onTap: () =>
-                          context.push(widget.newsDetailRoute, extra: _items[i]),
-                    ),
+                    child: switch (slots[s]) {
+                      FeedAdContentSlot(:final contentIndex) => NewsCard(
+                          category: 'Новости',
+                          title: _items[contentIndex].title,
+                          excerpt: _items[contentIndex].cardExcerptPlain,
+                          date: _items[contentIndex]
+                              .createdAt
+                              .toIso8601String()
+                              .split('T')
+                              .first,
+                          imageWidget: _buildNewsImage(_items[contentIndex].imageUrl),
+                          onTap: () => context.push(
+                            widget.newsDetailRoute,
+                            extra: _items[contentIndex],
+                          ),
+                        ),
+                      FeedAdAdSlot(:final slotId) => NativeFeedAdCard(slotId: slotId),
+                    },
                   ),
-                  if (i != _items.length - 1)
-                    const SizedBox(height: AppUi.spacingBetweenNews),
                 ],
               ],
             ),

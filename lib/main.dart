@@ -6,8 +6,10 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
+import 'package:yandex_mobileads/mobile_ads.dart';
 
 import 'app/app.dart';
+import 'core/ads/yandex_ads_config.dart';
 import 'app/router/app_router.dart';
 import 'core/auth/unauthorized_handler.dart';
 import 'core/di/app_container.dart';
@@ -50,6 +52,23 @@ void main() async {
   AppLogFile.writeln(
     'старт: API_BASE_URL=${dotenv.env['API_BASE_URL'] ?? '(через ApiConstants)'}',
   );
+
+  if (YandexAdsConfig.showNativeFeedAds) {
+    final adWarn = YandexAdsConfig.adUnitIdConfigWarning;
+    if (adWarn != null) {
+      AppLogFile.writeln(adWarn);
+      debugPrint(adWarn);
+    }
+    try {
+      await YandexAds.initialize();
+      AppLogFile.writeln(
+        'Yandex Ads SDK: adUnitId=${YandexAdsConfig.nativeAdUnitId}',
+      );
+    } catch (e, st) {
+      AppLogFile.writeln('Yandex Ads init пропущен: $e');
+      AppLogFile.writeln('$st');
+    }
+  }
 
   // Firebase опционален (Windows/Web без конфига — без FCM, без падений).
   var firebaseReady = false;

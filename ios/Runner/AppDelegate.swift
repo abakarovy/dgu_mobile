@@ -7,10 +7,18 @@ import UIKit
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
-    return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+    let ok = super.application(application, didFinishLaunchingWithOptions: launchOptions)
+    registerNativeFeedAdPlatformView()
+    return ok
   }
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+    registerNativeFeedAdPlatformView()
+  }
+
+  private func registerNativeFeedAdPlatformView() {
+    guard let registrar = registrar(forPlugin: "NativeFeedAdPlugin") else { return }
+    registrar.register(NativeFeedAdPlatformViewFactory(), withId: "dgu_feed_native_ad")
   }
 }

@@ -7,7 +7,10 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../data/event_item.dart';
+import '../../../../core/ads/feed_ad_slots.dart';
+import '../../../../core/ads/yandex_ads_config.dart';
 import '../../../../core/di/app_container.dart';
+import '../../../news/presentation/widgets/native_feed_ad_card.dart';
 import '../../../../data/models/event_model.dart';
 import '../../../../data/models/news_model.dart';
 
@@ -87,6 +90,11 @@ class _EventsPageState extends State<EventsPage> {
       future: _eventsFuture,
       builder: (context, snap) {
         final events = snap.data ?? const <EventModel>[];
+        final showAds = YandexAdsConfig.showNativeFeedAds;
+        final slots = FeedAdSlots.build(
+          contentCount: events.length,
+          insertAds: showAds,
+        );
 
         return SingleChildScrollView(
           child: Column(
@@ -100,27 +108,35 @@ class _EventsPageState extends State<EventsPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    if (snap.connectionState != ConnectionState.done && events.isEmpty)
+                    if (snap.connectionState != ConnectionState.done &&
+                        events.isEmpty)
                       const Padding(
                         padding: EdgeInsets.only(top: 20),
                         child: Center(child: CircularProgressIndicator()),
                       )
-                    else if (events.isEmpty)
+                    else if (events.isEmpty && !showAds)
                       const Padding(
                         padding: EdgeInsets.only(top: 10),
                         child: Center(child: Text('Нет мероприятий')),
                       )
+                    else if (events.isEmpty && showAds)
+                      const NativeFeedAdCard(slotId: 0, borderRadius: 24)
                     else
-                      for (int i = 0; i < events.length; i++) ...[
-                        _EventCard(
-                          data: EventItem.fromEventModel(events[i]),
-                          onTap: () => context.push(
-                            widget.eventsDetailRoute,
-                            extra: EventItem.fromEventModel(events[i]),
-                          ),
-                        ),
-                        if (i != events.length - 1)
-                          const SizedBox(height: EventsPage._cardsGap),
+                      for (var s = 0; s < slots.length; s++) ...[
+                        if (s > 0) const SizedBox(height: EventsPage._cardsGap),
+                        switch (slots[s]) {
+                          FeedAdContentSlot(:final contentIndex) => _EventCard(
+                              data: EventItem.fromEventModel(events[contentIndex]),
+                              onTap: () => context.push(
+                                widget.eventsDetailRoute,
+                                extra: EventItem.fromEventModel(events[contentIndex]),
+                              ),
+                            ),
+                          FeedAdAdSlot(:final slotId) => NativeFeedAdCard(
+                              slotId: slotId,
+                              borderRadius: 24,
+                            ),
+                        },
                       ],
                     const SizedBox(height: EventsPage._cardsGap),
                   ],
