@@ -47,6 +47,9 @@ dependency_overrides:
     path: packages/firebase_core
 
 flutter:
+  # Все iOS-плагины через CocoaPods (иначе Xcode: Module 'connectivity_plus' not found).
+  config:
+    enable-swift-package-manager: false
   uses-material-design: true
   # Не указывать `assets/fonts/` и не включать весь `assets/` целиком: те же файлы
   # уже задаются в `fonts:` и дубли ломают сборку APK на Windows (errno 183).

@@ -159,18 +159,17 @@ DEPENDENCIES:
 
 SPEC REPOS:
   https://github.com/CocoaPods/Specs.git:
-    - FirebaseABTesting
-    - FirebaseRemoteConfig
-    - FirebaseRemoteConfigInterop
-    - FirebaseSharedSwift
-  trunk:
     - DKImagePickerController
     - DKPhotoGallery
     - Firebase
+    - FirebaseABTesting
     - FirebaseCore
     - FirebaseCoreInternal
     - FirebaseInstallations
     - FirebaseMessaging
+    - FirebaseRemoteConfig
+    - FirebaseRemoteConfigInterop
+    - FirebaseSharedSwift
     - GoogleDataTransport
     - GoogleUtilities
     - nanopb
