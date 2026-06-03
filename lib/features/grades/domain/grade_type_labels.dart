@@ -44,11 +44,14 @@ abstract final class GradeTypeLabels {
         isPlainCredit(typeRaw);
   }
 
-  /// Короткая подпись для чипов и списков: «Диф. зачёт», «Зачёт», «Экзамен»…
+  /// Короткая подпись дифференцированного зачёта (форма сдачи, сессия, маршрут).
+  static const String differentiatedCreditShort = 'Диф.зачет';
+
+  /// Короткая подпись для чипов и списков: «Диф.зачет», «Зачёт», «Экзамен»…
   static String displayLabel(String typeRaw) {
     final t = _norm(typeRaw);
     if (t.isEmpty) return '';
-    if (isDifferentiatedCredit(typeRaw)) return 'Диф. зачёт';
+    if (isDifferentiatedCredit(typeRaw)) return differentiatedCreditShort;
     if (isCoursework(typeRaw)) return 'Курсовая';
     if (t.contains('экзам')) return 'Экзамен';
     if (isPlainCredit(typeRaw)) return 'Зачёт';

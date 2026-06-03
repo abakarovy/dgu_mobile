@@ -156,17 +156,14 @@ flutter:
           weight: 700
           style: italic
 
+# Только белый фон при старте (без картинки). Обновление: dart run flutter_native_splash:create
 flutter_native_splash:
   color: "#FFFFFF"
-  image_android: assets/splash/android_image.png
-  image_ios: assets/splash/ios_image.png
-  image: assets/splash/ios_image.png
   android: true
   ios: true
   web: true
   android_12:
     color: "#FFFFFF"
-    image: assets/splash/android_image.png
 
 # Генерация иконки на рабочем столе: dart run flutter_launcher_icons
 flutter_launcher_icons:

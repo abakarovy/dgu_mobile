@@ -1036,7 +1036,10 @@ class _SessionGradeCard extends StatelessWidget {
                   if ((breakdown.zach ?? '').trim().isNotEmpty)
                     _gradeChip('Зачёт', breakdown.zach!.trim()),
                   if ((breakdown.dfk ?? '').trim().isNotEmpty)
-                    _gradeChip('Диф. зачёт', breakdown.dfk!.trim()),
+                    _gradeChip(
+                      GradeTypeLabels.differentiatedCreditShort,
+                      breakdown.dfk!.trim(),
+                    ),
                   if ((breakdown.kurs ?? '').trim().isNotEmpty)
                     _gradeChip('Курсовая', breakdown.kurs!.trim()),
                   for (final f in extraForms)

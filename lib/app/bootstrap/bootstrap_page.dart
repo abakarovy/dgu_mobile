@@ -9,11 +9,10 @@ import 'package:go_router/go_router.dart';
 
 import 'app_splash_view.dart';
 
-/// Splash ≥5 с, prefetch до 10 с, затем гостевой режим или ЛК.
+/// Белый экран на долю секунды, затем сразу гость или ЛК; prefetch — в фоне.
 class BootstrapPage extends StatefulWidget {
   const BootstrapPage({super.key});
 
-  static const Duration kMinSplash = Duration(seconds: 5);
   static const Duration kMaxPrefetch = Duration(seconds: 10);
 
   @override
@@ -32,37 +31,18 @@ class _BootstrapPageState extends State<BootstrapPage> {
 
   Future<void> _boot() async {
     final isLoggedIn = await AppContainer.authRepository.isLoggedIn();
-    if (!isLoggedIn) {
-      final offline = await AppNetworkBannerController.checkDeviceOffline();
-      final allOk = await AppContainer.prefetchPublicDuringSplash(
-        imageContext: mounted ? context : null,
-        minimumDisplay: BootstrapPage.kMinSplash,
-        maximumWait: BootstrapPage.kMaxPrefetch,
-      );
-      AppNetworkBannerController.instance.applyAfterBootstrap(
-        deviceOffline: offline,
-        allPrefetchOk: allOk,
-      );
-      if (mounted) context.go('/public/home');
-      return;
-    }
-
     final offline = await AppNetworkBannerController.checkDeviceOffline();
-    final allOk = await AppContainer.prefetchDuringSplash(
-      minimumDisplay: BootstrapPage.kMinSplash,
-      maximumWait: BootstrapPage.kMaxPrefetch,
-    );
 
-    final stillLoggedIn = await AppContainer.authRepository.isLoggedIn();
-    if (!stillLoggedIn) {
+    if (!isLoggedIn) {
       if (mounted) context.go('/public/home');
+      unawaited(_prefetchGuest(offline));
       return;
     }
 
-    AppNetworkBannerController.instance.applyAfterBootstrap(
-      deviceOffline: offline,
-      allPrefetchOk: allOk,
-    );
+    if (!await AppContainer.authRepository.isLoggedIn()) {
+      if (mounted) context.go('/public/home');
+      return;
+    }
 
     if (mounted) {
       context.go('/app/home');
@@ -70,6 +50,29 @@ class _BootstrapPageState extends State<BootstrapPage> {
         unawaited(PushNavigation.consumePendingIfAny());
       });
     }
+    unawaited(_prefetchLoggedIn(offline));
+  }
+
+  Future<void> _prefetchGuest(bool offline) async {
+    final allOk = await AppContainer.prefetchPublicDuringSplash(
+      minimumDisplay: Duration.zero,
+      maximumWait: BootstrapPage.kMaxPrefetch,
+    );
+    AppNetworkBannerController.instance.applyAfterBootstrap(
+      deviceOffline: offline,
+      allPrefetchOk: allOk,
+    );
+  }
+
+  Future<void> _prefetchLoggedIn(bool offline) async {
+    final allOk = await AppContainer.prefetchDuringSplash(
+      minimumDisplay: Duration.zero,
+      maximumWait: BootstrapPage.kMaxPrefetch,
+    );
+    AppNetworkBannerController.instance.applyAfterBootstrap(
+      deviceOffline: offline,
+      allPrefetchOk: allOk,
+    );
   }
 
   @override

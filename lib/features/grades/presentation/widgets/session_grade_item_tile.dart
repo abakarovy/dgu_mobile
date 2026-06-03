@@ -2,6 +2,7 @@ import 'package:dgu_mobile/core/constants/app_colors.dart';
 import 'package:dgu_mobile/core/theme/app_text_styles.dart';
 import 'package:flutter/material.dart';
 
+import '../../domain/grade_type_labels.dart';
 import '../models/session_grade_breakdown.dart';
 import 'grade_item_tile.dart';
 
@@ -21,7 +22,7 @@ class SessionGradeItemTile extends StatelessWidget {
   static const List<({String key, String label})> _keys = [
     (key: 'att1', label: 'Аттестация 1'),
     (key: 'att2', label: 'Аттестация 2'),
-    (key: 'dfk', label: 'Диф. зачёт'),
+    (key: 'dfk', label: GradeTypeLabels.differentiatedCreditShort),
     (key: 'kurs', label: 'Курсовая'),
     (key: 'zach', label: 'Зачёт'),
     (key: 'ekz', label: 'Экзамен'),
