@@ -29,7 +29,9 @@ import '../network/app_network_banner_controller.dart';
 import '../storage/local_user_storage_wipe.dart';
 import '../mock/demo_session.dart';
 import '../../data/api/edu_disclosure_api.dart';
+import '../../data/api/health_api.dart';
 import '../../data/api/upbringing_api.dart';
+import '../device/app_runtime_info.dart';
 import '../../data/college_site/college_site_image_prefetch.dart';
 import '../../data/college_site/college_site_service.dart';
 
@@ -54,6 +56,7 @@ abstract final class AppContainer {
   static StudentServicesApi? _studentServicesApi;
   static EduDisclosureApi? _eduDisclosureApi;
   static UpbringingApi? _upbringingApi;
+  static HealthApi? _healthApi;
   static JsonCache? _jsonCache;
   static CollegeSiteService? _collegeSiteService;
   static String? _appDocumentsDirPath;
@@ -96,8 +99,11 @@ abstract final class AppContainer {
     _studentServicesApi = StudentServicesApi(apiClient: apiClient);
     _eduDisclosureApi = EduDisclosureApi(apiClient: apiClient);
     _upbringingApi = UpbringingApi(apiClient: apiClient);
+    _healthApi = HealthApi(apiClient: apiClient);
     _jsonCache = jsonCache;
   }
+
+  static AppRuntimeInfo get runtimeInfo => AppRuntimeInfo.instance;
 
   static String? get appDocumentsDirPath => _appDocumentsDirPath;
 
@@ -211,6 +217,12 @@ abstract final class AppContainer {
     return a;
   }
 
+  static HealthApi get healthApi {
+    final a = _healthApi;
+    if (a == null) throw StateError('AppContainer.init() must be called before using healthApi');
+    return a;
+  }
+
   static AuthApi get authApi {
     final a = _authApi;
     if (a == null) throw StateError('AppContainer.init() must be called before using authApi');
@@ -284,6 +296,18 @@ abstract final class AppContainer {
       _prefetchCurriculum,
     );
     return results.every((ok) => ok);
+  }
+
+  /// Кэш, без которого «Главная» показывает прочерки вместо группы и заданий.
+  static bool isHomeScreenCacheReady() {
+    final me = jsonCache.getJsonMap('auth:me');
+    if (me == null) return false;
+    final role = (me['role'] ?? '').toString().trim().toLowerCase();
+    if (role == 'parent') {
+      return jsonCache.getJsonMap('parents:student-data') != null;
+    }
+    return jsonCache.getJsonMap('1c:my-profile') != null &&
+        jsonCache.getJsonList('mobile:assignments:my') != null;
   }
 
   /// Splash: параллельный prefetch, минимум [minimumDisplay] на экране, до [maximumWait] на успех.

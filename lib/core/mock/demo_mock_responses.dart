@@ -157,7 +157,16 @@ abstract final class DemoMockResponses {
       return DemoMockPayload(statusCode: 200, data: _studentPortal());
     }
     if (path == '/health') {
-      return DemoMockPayload(statusCode: 200, data: {'status': 'ok', 'demo': true});
+      return DemoMockPayload(
+        statusCode: 200,
+        data: {
+          'status': 'ok',
+          'demo': true,
+          'app_update': {
+            'update_available': false,
+          },
+        },
+      );
     }
     return DemoMockPayload(statusCode: 200, data: <String, dynamic>{});
   }

@@ -11,6 +11,7 @@ import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'app/app.dart';
 import 'app/router/app_router.dart';
 import 'core/auth/unauthorized_handler.dart';
+import 'core/device/app_runtime_info.dart';
 import 'core/di/app_container.dart';
 import 'core/backend_access/backend_access_controller.dart';
 import 'core/backend_access/backend_access_websocket_sync.dart';
@@ -92,6 +93,7 @@ void main() async {
 
   // DI for backend (Dio/AuthApi/TokenStorage).
   await AppContainer.init();
+  await AppRuntimeInfo.instance.ensureLoaded();
 
   await syncWebSocketWithBackendAccess(
     BackendAccessController.instance.isBackendBlocked,

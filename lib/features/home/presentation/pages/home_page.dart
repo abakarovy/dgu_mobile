@@ -39,25 +39,57 @@ class _HomePageState extends State<HomePage> {
   List<ScheduleLesson> _todayLessons = const <ScheduleLesson>[];
   DateTime? _lastSilentScheduleRefreshAt;
   Timer? _clockTick;
+  bool _warmingHome = false;
 
   @override
   void initState() {
     super.initState();
+    _warmingHome = !AppContainer.isHomeScreenCacheReady();
     _banner = _readBannerData();
     _hydrateTodayFromCache();
+    if (_warmingHome) {
+      unawaited(_waitUntilHomeCacheReady());
+    }
     HomeRefreshHost.register(({required bool force}) {
       if (!mounted) return;
       _hydrateTodayFromCache();
       unawaited(_refreshTodayScheduleSilent(force: force));
+      if (AppContainer.isHomeScreenCacheReady()) {
+        _reloadBannerFromCache();
+        if (_warmingHome) setState(() => _warmingHome = false);
+      }
     });
     _clockTick = Timer.periodic(_scheduleClockTick, (_) {
       if (!mounted) return;
       setState(() {});
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) setState(() => _banner = _readBannerData());
+      if (mounted) _reloadBannerFromCache();
       unawaited(_refreshTodayScheduleSilent(force: false));
     });
+  }
+
+  void _reloadBannerFromCache() {
+    if (!mounted) return;
+    setState(() => _banner = _readBannerData());
+  }
+
+  Future<void> _waitUntilHomeCacheReady() async {
+    final deadline = DateTime.now().add(const Duration(seconds: 12));
+    while (mounted && DateTime.now().isBefore(deadline)) {
+      if (AppContainer.isHomeScreenCacheReady()) {
+        _reloadBannerFromCache();
+        _hydrateTodayFromCache();
+        await _refreshTodayScheduleSilent(force: false);
+        if (mounted) setState(() => _warmingHome = false);
+        return;
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+    }
+    if (mounted) {
+      _reloadBannerFromCache();
+      setState(() => _warmingHome = false);
+    }
   }
 
   @override
@@ -340,7 +372,9 @@ class _HomePageState extends State<HomePage> {
           Text('Задания', style: _cardTitleStyleFor(context)),
           SizedBox(height: gapTitle),
           Text(
-            activeCount == null ? '—' : '$activeCount активных',
+            activeCount == null
+                ? (_warmingHome ? 'Загрузка…' : '—')
+                : '$activeCount активных',
             style: _cardSubtitleStyleFor(context),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
@@ -376,6 +410,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   int? _readActiveAssignmentsCount() {
+    if (_warmingHome) return null;
     try {
       final list = AppContainer.jsonCache.getJsonList('mobile:assignments:my');
       if (list == null) return null;
@@ -489,6 +524,36 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    if (_warmingHome) {
+      return const ColoredBox(
+        color: Colors.white,
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: 36,
+                height: 36,
+                child: CircularProgressIndicator(
+                  strokeWidth: 3,
+                  color: AppColors.primaryBlue,
+                ),
+              ),
+              SizedBox(height: 16),
+              Text(
+                'Загружаем данные…',
+                style: TextStyle(
+                  fontSize: 14,
+                  height: 1.35,
+                  color: AppColors.notificationSubtitle,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     final sf = min(
       MediaQuery.sizeOf(context).width / 402,
       MediaQuery.sizeOf(context).height / 874,
@@ -499,7 +564,7 @@ class _HomePageState extends State<HomePage> {
         onRefresh: () async {
           _hydrateTodayFromCache();
           await _refreshTodayScheduleSilent(force: true);
-          if (mounted) setState(() => _banner = _readBannerData());
+          if (mounted) _reloadBannerFromCache();
         },
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -535,8 +600,8 @@ class _HomePageState extends State<HomePage> {
     final summary = _buildTodaySummary(dateNow);
     final isParent = (_banner.me?.role ?? '').trim().toLowerCase() == 'parent';
     final displayName = isParent
-        ? (ParentChildName.twoWordGenitiveLabel() ?? '…')
-        : _displayName(_banner.me?.fullName);
+        ? (ParentChildName.twoWordGenitiveLabel() ?? (_warmingHome ? '…' : '—'))
+        : _displayName(_banner.me?.fullName, loading: _warmingHome);
     final String? parentForSummary = isParent
         ? () {
             final s = ParentChildName.twoWordGenitiveLabel()?.trim();
@@ -1242,9 +1307,9 @@ class _HomePageState extends State<HomePage> {
     return m?.group(1);
   }
 
-  String _displayName(String? fullName) {
+  String _displayName(String? fullName, {bool loading = false}) {
     final s = (fullName ?? '').trim();
-    if (s.isEmpty) return '-';
+    if (s.isEmpty) return loading ? '…' : '—';
     final parts = s.split(RegExp(r'\s+')).where((e) => e.trim().isNotEmpty).toList();
     final last = parts.isNotEmpty ? parts[0] : '';
     final first = parts.length > 1 ? parts[1] : '';
@@ -1261,7 +1326,8 @@ class _HomePageState extends State<HomePage> {
   _GroupHomeParsed _parseGroupForHome(String? groupLabel) {
     final raw = (groupLabel ?? '').trim();
     if (raw.isEmpty) {
-      return _GroupHomeParsed(groupAbbr: '-', courseGroupText: '-');
+      final dash = _warmingHome ? '…' : '—';
+      return _GroupHomeParsed(groupAbbr: dash, courseGroupText: dash);
     }
 
     // Пример: «ИСиП 4к 1г 2022»

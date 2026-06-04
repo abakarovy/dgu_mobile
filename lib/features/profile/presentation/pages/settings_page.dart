@@ -16,6 +16,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../../../../shared/widgets/app_developer_card.dart';
 import '../../../../shared/widgets/app_header.dart';
 import '../widgets/profile_mail_card.dart';
 
@@ -333,6 +334,8 @@ class _SettingsPageState extends State<SettingsPage> {
     final gapUnderHero = 16 * profileScale;
     final gapBlock = 30 * layoutScale;
     final gapToggle = 10 * layoutScale;
+    /// Как между кнопками на экране «Профиль».
+    final gapActionRow = 8 * layoutScale;
     // Секции «Уведомления» / «Дополнительные»: в 1.5× к прежнему визуалу.
     final sectionLabelFs = 8.56 * layoutScale * 1.5;
     final sectionIconW = size.width * (7 / figmaW) * 1.5;
@@ -456,7 +459,12 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
               ),
             ],
-            SizedBox(height: gapSection),
+            SizedBox(height: gapActionRow),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: hPad),
+              child: AppDeveloperCard(layoutScale: layoutScale),
+            ),
+            SizedBox(height: gapActionRow),
             Padding(
               padding: EdgeInsets.symmetric(horizontal: hPad),
               child: Row(

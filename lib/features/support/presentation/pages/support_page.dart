@@ -8,6 +8,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_ui.dart';
 import '../../../../core/di/app_container.dart';
 import '../../../../core/theme/app_text_styles.dart';
+import '../../../../shared/widgets/app_developer_card.dart';
 import '../../../../data/models/help_model.dart';
 import '../../../../shared/widgets/app_header.dart';
 import '../widgets/support_contact_row.dart';
@@ -95,6 +96,8 @@ class _SupportPageState extends State<SupportPage> {
                 email: email,
                 site: site,
               ),
+              const SizedBox(height: AppUi.spacingXl),
+              const AppDeveloperCard(),
               const SizedBox(height: 28),
               if (disc != null && disc.hasAnyContent) ...[
                 _buildSectionTitle('Сведения об организации'),

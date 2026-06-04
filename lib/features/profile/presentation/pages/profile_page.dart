@@ -20,6 +20,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:dgu_mobile/shared/widgets/dismiss_keyboard_on_tap.dart';
 
+import '../../../../shared/widgets/app_developer_card.dart';
 import '../../../../data/api/grades_api.dart' show GradesBundle;
 import '../../../../data/models/one_c_my_profile.dart';
 import '../../../../data/models/student_ticket_model.dart';
@@ -722,6 +723,11 @@ class _ProfilePageState extends State<ProfilePage> {
                 ],
               ),
             ),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: hPad),
+              child: AppDeveloperCard(layoutScale: layoutScale),
+            ),
+            SizedBox(height: 24 * layoutScale),
           ],
         ),
       ),

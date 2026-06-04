@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_ui.dart';
 import '../../../../core/theme/app_text_styles.dart';
+import '../../../../shared/widgets/app_developer_card.dart';
 
 /// Профиль гостя (абитуриент): вход студента или родителя.
 class PublicProfilePage extends StatelessWidget {
@@ -102,6 +103,8 @@ class PublicProfilePage extends StatelessWidget {
                 ],
               ),
             ),
+            const SizedBox(height: AppUi.spacingXl),
+            const AppDeveloperCard(),
           ],
         ),
       ),
