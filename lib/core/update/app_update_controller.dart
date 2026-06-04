@@ -25,8 +25,6 @@ final class AppUpdateController {
     pending = null;
     shouldBlockNavigation = false;
 
-    if (!_isStorePlatform) return;
-
     final update = health?.appUpdate;
     if (update == null) return;
 
@@ -48,7 +46,8 @@ final class AppUpdateController {
     }
 
     pending = update;
-    shouldBlockNavigation = update.isForcedFor(currentVersion);
+    // Блокируем bootstrap только на android/ios (в сторе ставят обновление).
+    shouldBlockNavigation = _isStorePlatform && update.isForcedFor(currentVersion);
   }
 
   static Future<void> dismissOptional() async {
