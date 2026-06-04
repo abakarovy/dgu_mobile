@@ -1,5 +1,4 @@
-import 'dart:io' show Platform;
-
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -18,8 +17,9 @@ abstract final class AppUpdateDialog {
     final update = AppUpdateController.pending;
     if (update == null) return;
 
-    await AppRuntimeInfo.instance.ensureLoaded();
-    final forced = update.isForcedFor(AppRuntimeInfo.instance.version);
+    final runtime = AppRuntimeInfo.instance;
+    await runtime.ensureLoaded();
+    final forced = update.isForcedFor(runtime.version);
 
     final ctx = appRootNavigatorKey.currentContext;
     if (ctx == null || !ctx.mounted) return;
@@ -45,11 +45,11 @@ abstract final class AppUpdateDialog {
             child: _AppUpdateDialogBody(
               update: update,
               forced: forced,
+              platformId: runtime.platformId,
               onLater: () async {
                 await AppUpdateController.dismissOptional();
                 if (dialogContext.mounted) Navigator.of(dialogContext).pop();
               },
-              onUpdate: () => _openStore(update),
             ),
           ),
         );
@@ -57,39 +57,83 @@ abstract final class AppUpdateDialog {
     );
   }
 
-  static Future<void> _openStore(AppUpdateInfo update) async {
-    final url = _resolveStoreUrl(update);
-    if (url.isEmpty) return;
-    final uri = Uri.tryParse(url);
+  static Future<void> _openStoreUrl(String? url) async {
+    final s = url?.trim() ?? '';
+    if (s.isEmpty) return;
+    final uri = Uri.tryParse(s);
     if (uri == null) return;
     try {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     } catch (_) {}
   }
+}
 
-  static String _resolveStoreUrl(AppUpdateInfo update) {
-    if (Platform.isAndroid) {
-      return _firstNonEmpty([
-        update.storeUrlRustore,
-        update.storeUrlAndroid,
-      ]);
+class _StoreButtonConfig {
+  const _StoreButtonConfig({
+    required this.label,
+    required this.url,
+    required this.primary,
+  });
+
+  final String label;
+  final String? url;
+  final bool primary;
+
+  bool get enabled => url != null && url!.trim().isNotEmpty;
+}
+
+final class _UpdateDialogCopy {
+  _UpdateDialogCopy._();
+
+  static const String _appTitle = 'Колледж ДГУ';
+
+  static List<_StoreButtonConfig> storeButtons(
+    AppUpdateInfo update, {
+    required String platformId,
+  }) {
+    final rustore = update.storeUrlRustore?.trim();
+    final googlePlay = update.storeUrlAndroid?.trim();
+    final appStore = update.storeUrlIos?.trim();
+
+    if (platformId == 'ios' || defaultTargetPlatform == TargetPlatform.iOS) {
+      return [
+        _StoreButtonConfig(
+          label: 'Обновить через App Store',
+          url: appStore,
+          primary: true,
+        ),
+      ];
     }
-    if (Platform.isIOS) {
-      return update.storeUrlIos ?? '';
-    }
-    return _firstNonEmpty([
-      update.storeUrlRustore,
-      update.storeUrlAndroid,
-      update.storeUrlIos,
-    ]);
+
+    return [
+      _StoreButtonConfig(
+        label: 'Обновить через RuStore',
+        url: rustore,
+        primary: true,
+      ),
+      _StoreButtonConfig(
+        label: 'Обновить через Google Play',
+        url: googlePlay,
+        primary: false,
+      ),
+    ];
   }
 
-  static String _firstNonEmpty(List<String?> values) {
-    for (final v in values) {
-      final s = v?.trim() ?? '';
-      if (s.isNotEmpty) return s;
+  static String buildMessage({
+    required AppUpdateInfo update,
+    required bool forced,
+  }) {
+    final server = update.message?.trim();
+    if (server != null && server.isNotEmpty) return server;
+
+    if (forced) {
+      return 'Для продолжения работы нужно обновить приложение «$_appTitle».\n\n'
+          'Это обязательное обновление: без него приложение может работать некорректно.';
     }
-    return '';
+
+    return 'Вышла новая версия приложения «$_appTitle».\n\n'
+        'Рекомендуем обновиться, чтобы получить исправления и улучшения. '
+        'Выберите магазин, через который вы устанавливали приложение.';
   }
 }
 
@@ -97,21 +141,24 @@ class _AppUpdateDialogBody extends StatelessWidget {
   const _AppUpdateDialogBody({
     required this.update,
     required this.forced,
+    required this.platformId,
     required this.onLater,
-    required this.onUpdate,
   });
 
   final AppUpdateInfo update;
   final bool forced;
+  final String platformId;
   final VoidCallback onLater;
-  final VoidCallback onUpdate;
 
   @override
   Widget build(BuildContext context) {
-    final latest = update.latestVersion?.trim();
-    final defaultMessage = latest != null && latest.isNotEmpty
-        ? 'Вышла новая версия $latest. Установите обновление из RuStore или App Store.'
-        : 'Вышла новая версия приложения. Установите обновление из магазина.';
+    final message = _UpdateDialogCopy.buildMessage(
+      update: update,
+      forced: forced,
+    );
+    final stores = _UpdateDialogCopy.storeButtons(update, platformId: platformId)
+        .where((s) => s.enabled)
+        .toList();
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
@@ -150,11 +197,11 @@ class _AppUpdateDialogBody extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Text(
-            update.message ?? defaultMessage,
+            message,
             style: AppTextStyle.inter(
               fontWeight: FontWeight.w500,
               fontSize: 15,
-              height: 1.4,
+              height: 1.45,
               color: AppColors.grey,
             ),
           ),
@@ -182,27 +229,63 @@ class _AppUpdateDialogBody extends StatelessWidget {
             ),
             const SizedBox(height: 10),
           ],
-          FilledButton(
-            onPressed: onUpdate,
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.primaryBlue,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              padding: const EdgeInsets.symmetric(vertical: 14),
-            ),
-            child: Text(
-              'Обновить',
+          if (stores.isEmpty)
+            Text(
+              'Ссылки на магазин временно недоступны. Попробуйте позже или обратитесь в поддержку колледжа.',
               style: AppTextStyle.inter(
-                fontWeight: FontWeight.w700,
-                fontSize: 16,
-                height: 1.0,
-                color: Colors.white,
+                fontWeight: FontWeight.w500,
+                fontSize: 13,
+                height: 1.35,
+                color: AppColors.notificationSubtitle,
               ),
-            ),
-          ),
+            )
+          else
+            ...stores.asMap().entries.map((entry) {
+              final store = entry.value;
+              final isLast = entry.key == stores.length - 1;
+              return Padding(
+                padding: EdgeInsets.only(bottom: isLast ? 0 : 10),
+                child: store.primary
+                    ? FilledButton(
+                        onPressed: () => AppUpdateDialog._openStoreUrl(store.url),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppColors.primaryBlue,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                        child: _storeLabel(store.label, Colors.white),
+                      )
+                    : OutlinedButton(
+                        onPressed: () => AppUpdateDialog._openStoreUrl(store.url),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.primaryBlue,
+                          side: const BorderSide(color: AppColors.primaryBlue),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                        child: _storeLabel(store.label, AppColors.primaryBlue),
+                      ),
+              );
+            }),
         ],
+      ),
+    );
+  }
+
+  Widget _storeLabel(String text, Color color) {
+    return Text(
+      text,
+      textAlign: TextAlign.center,
+      style: AppTextStyle.inter(
+        fontWeight: FontWeight.w700,
+        fontSize: 15,
+        height: 1.2,
+        color: color,
       ),
     );
   }
