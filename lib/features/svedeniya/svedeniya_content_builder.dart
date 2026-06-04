@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../core/constants/api_constants.dart';
 import '../../core/constants/app_ui.dart';
 import '../../core/constants/college_public_links.dart';
+import '../../core/student/student_portal_constants.dart';
+import '../../core/student/student_portal_hub.dart';
 import '../../data/svedeniya/svedeniya_merge.dart';
 import '../../data/svedeniya/svedeniya_static_defaults.dart';
 import 'edu_disclosure_nav.dart';
@@ -527,28 +529,29 @@ class SvedeniyaContentBuilder {
     }
   }
 
+  void _appendStudentHubLinks(
+    List<Widget> out, {
+    bool Function(Map<String, dynamic> link)? include,
+  }) {
+    final overview = _mapFrom(studentPortal, 'overview');
+    for (final m in StudentPortalHub.filtered(overview['hub_links'])) {
+      if (include != null && !include(m)) continue;
+      final href = SvedeniyaWidgets.str(m['href']);
+      final label = SvedeniyaWidgets.str(m['label']);
+      if (href == null || label == null) continue;
+      final url = href.startsWith('http')
+          ? href
+          : '${ApiConstants.collegeSiteOrigin}$href';
+      out.add(SvedeniyaWidgets.externalLinkTile(title: label, url: url));
+    }
+  }
+
   void _buildStudentam(List<Widget> out, String child) {
     switch (child) {
       case 'razdel':
         final overview = _mapFrom(studentPortal, 'overview');
         SvedeniyaWidgets.appendHtml(out, SvedeniyaWidgets.str(overview['body_html']));
-        final hub = overview['hub_links'];
-        final links = hub is List && hub.isNotEmpty
-            ? hub
-            : SvedeniyaStaticDefaults.defaultStudentHubLinks;
-        for (final raw in links) {
-          if (raw is! Map) continue;
-          final m = Map<String, dynamic>.from(raw);
-          final href = SvedeniyaWidgets.str(m['href']);
-          if (href == null) continue;
-          final url = href.startsWith('http')
-              ? href
-              : '${ApiConstants.collegeSiteOrigin}$href';
-          out.add(SvedeniyaWidgets.externalLinkTile(
-            title: SvedeniyaWidgets.str(m['label']) ?? 'Ссылка',
-            url: url,
-          ));
-        }
+        _appendStudentHubLinks(out);
       case 'raspisanie-zanyatiy':
         _studentSchedule(out, 'schedule_page', 'schedule_semesters');
         _appendDepartmentGia(out);
@@ -560,16 +563,40 @@ class SvedeniyaContentBuilder {
         SvedeniyaWidgets.appendHtml(out, SvedeniyaWidgets.str(er['body_html']));
       case 'vpr':
         final vpr = _mapFrom(studentPortal, 'vpr');
-        final title = SvedeniyaWidgets.str(vpr['page_title']);
+        final title = SvedeniyaWidgets.str(vpr['page_title'] ?? vpr['title']);
         if (title != null) out.add(SvedeniyaWidgets.plain(title));
         SvedeniyaWidgets.appendHtml(out, SvedeniyaWidgets.str(vpr['body_html']));
         SvedeniyaWidgets.appendPdfSlot(out, {'file_url': vpr['file_url']});
+        for (final m in _listMaps(vpr['items'])) {
+          final itemTitle = SvedeniyaWidgets.str(m['title']);
+          final rel = SvedeniyaWidgets.str(m['file_url']);
+          final url = SvedeniyaWidgets.str(m['url'] ?? m['href']);
+          if (itemTitle == null) continue;
+          if (rel != null) {
+            SvedeniyaWidgets.appendPdfSlot(out, {'file_url': rel, 'link_title': itemTitle});
+          } else if (url != null) {
+            final resolved = url.startsWith('http') ? url : '${ApiConstants.collegeSiteOrigin}$url';
+            out.add(SvedeniyaWidgets.externalLinkTile(title: itemTitle, url: resolved));
+          }
+        }
       case 'sno':
-        out.add(SvedeniyaWidgets.externalLinkTile(
-          title: 'Студенческое научное общество',
-          url: CollegePublicLinks.studentSnoUrl,
-        ));
+        _appendStudentHubLinks(
+          out,
+          include: (m) {
+            final label = (SvedeniyaWidgets.str(m['label']) ?? '').toLowerCase();
+            final href = (SvedeniyaWidgets.str(m['href']) ?? '').toLowerCase();
+            return label.contains('сно') || href.contains('sno');
+          },
+        );
     }
+  }
+
+  List<Map<String, dynamic>> _listMaps(dynamic v) {
+    if (v is! List) return const [];
+    return [
+      for (final raw in v)
+        if (raw is Map) Map<String, dynamic>.from(raw),
+    ];
   }
 
   void _studentSchedule(List<Widget> out, String pageKey, String semestersKey) {
@@ -584,34 +611,41 @@ class SvedeniyaContentBuilder {
     for (final raw in semesters) {
       if (raw is! Map) continue;
       final m = Map<String, dynamic>.from(raw);
-      final semTitle = SvedeniyaWidgets.str(m['title']) ?? 'Семестр';
+      final semTitle = SvedeniyaWidgets.str(m['title']);
       final entries = m['entries'];
       if (entries is List) {
         for (final e in entries) {
           if (e is! Map) continue;
           final em = Map<String, dynamic>.from(e);
+          final entryTitle = SvedeniyaWidgets.str(em['label'] ?? em['title']) ?? semTitle;
+          if (entryTitle == null) continue;
           out.add(SvedeniyaWidgets.pdfTile(
-            title: SvedeniyaWidgets.str(em['label'] ?? em['title']) ?? semTitle,
+            title: entryTitle,
             fileRel: SvedeniyaWidgets.str(em['file_url']),
           ));
         }
       } else {
-        out.add(SvedeniyaWidgets.pdfTile(
-          title: semTitle,
-          fileRel: SvedeniyaWidgets.str(m['file_url']),
-        ));
+        final title = semTitle ?? SvedeniyaWidgets.str(m['label']);
+        if (title != null) {
+          out.add(SvedeniyaWidgets.pdfTile(
+            title: title,
+            fileRel: SvedeniyaWidgets.str(m['file_url']),
+          ));
+        }
       }
     }
   }
 
   void _appendDepartmentSessions(List<Widget> out) {
-    final title = SvedeniyaWidgets.str(_ext['studentam_sessions_block_title']) ?? 'Сессии по отделениям';
+    final title = SvedeniyaWidgets.str(_ext['studentam_sessions_block_title']) ??
+        StudentPortalConstants.sessionsDepartmentTitleDefault;
     final list = _ext['studentam_department_sessions'];
     _appendDepartmentBlocks(out, title, list);
   }
 
   void _appendDepartmentGia(List<Widget> out) {
-    final title = SvedeniyaWidgets.str(_ext['studentam_gia_block_title']) ?? 'ГИА по отделениям';
+    final title = SvedeniyaWidgets.str(_ext['studentam_gia_block_title']) ??
+        StudentPortalConstants.giaDepartmentTitleDefault;
     final list = _ext['studentam_department_gia'];
     _appendDepartmentBlocks(out, title, list);
   }

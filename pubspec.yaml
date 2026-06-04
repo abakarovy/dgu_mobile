@@ -157,7 +157,7 @@ flutter:
           weight: 700
           style: italic
 
-# Только белый фон при старте (без картинки). Обновление: dart run flutter_native_splash:create
+# Native splash: только белый фон (логотип — в AppSplashView). Обновление: dart run flutter_native_splash:create
 flutter_native_splash:
   color: "#FFFFFF"
   android: true

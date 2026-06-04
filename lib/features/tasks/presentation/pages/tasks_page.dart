@@ -18,7 +18,7 @@ class TasksPage extends StatefulWidget {
 
 class _TasksPageState extends State<TasksPage> {
   bool _loading = true;
-  List<({String title, String url})> _resourceLinks = LmsResourceLinks.fallback;
+  List<({String title, String url})> _resourceLinks = const [];
 
   static const _accentColors = [
     Color(0xFF2563EB),
@@ -47,11 +47,9 @@ class _TasksPageState extends State<TasksPage> {
     try {
       final lmsRaw = await AppContainer.studentServicesApi.lmsList();
       final parsed = LmsResourceLinks.fromApi(lmsRaw);
-      if (mounted && parsed.isNotEmpty) {
-        setState(() => _resourceLinks = parsed);
-      }
+      if (mounted) setState(() => _resourceLinks = parsed);
     } catch (_) {
-      // запасной список
+      if (mounted) setState(() => _resourceLinks = const []);
     } finally {
       if (mounted) setState(() => _loading = false);
     }

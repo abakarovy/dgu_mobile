@@ -926,24 +926,15 @@ abstract final class DemoMockResponses {
           'original_filename': 'vpr_materials_2026.pdf',
           'file_url': '/uploads/demo/vpr_materials_2026.pdf',
         },
+        'schedule_page': {'body_html': ''},
+        'sessions': {'body_html': ''},
+        'sessions_semesters': [],
         'eresources': {
           'body_html':
-              '<p>Электронные библиотечные системы и учебные платформы доступны по логину, '
-              'выданному в библиотеке колледжа.</p>',
+              '<h2>Электронные ресурсы</h2><ul>'
+              '<li><a href="https://urait.ru/">ЭБС «Юрайт»</a></li>'
+              '<li><a href="https://profspo.ru/">ПРОФ СПО</a></li>'
+              '</ul>',
         },
-        'digital_resources': [
-          {
-            'title': 'ЭБС «Юрайт»',
-            'url': 'https://urait.ru',
-          },
-          {
-            'title': 'ПРОФ СПО',
-            'url': 'https://profspo.ru',
-          },
-          {
-            'title': 'Академия Москва',
-            'url': 'https://academymoscow.ru',
-          },
-        ],
       };
 }

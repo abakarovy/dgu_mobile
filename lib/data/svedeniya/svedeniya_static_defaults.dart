@@ -121,15 +121,6 @@ abstract final class SvedeniyaStaticDefaults {
     },
   ];
 
-  /// `DEFAULT_STUDENT_HUB_LINKS` — studentPortalTypes.ts
-  static const defaultStudentHubLinks = [
-    {'label': 'Расписание занятий', 'href': '/svedeniya/studentam/raspisanie-zanyatiy', 'external': false},
-    {'label': 'Расписание сессий', 'href': '/svedeniya/studentam/raspisanie-sessiy', 'external': false},
-    {'label': 'Электронные ресурсы', 'href': '/svedeniya/studentam/elektronnye-resursy', 'external': false},
-    {'label': 'ВПР', 'href': '/svedeniya/studentam/vpr', 'external': false},
-    {'label': 'СНО', 'href': 'https://sno.dgu.ru/', 'external': true},
-  ];
-
   static const stipendiiSocialBenefitsDefault = {
     'label': 'Социальные льготы и поддержка',
     'href': 'https://dgu.ru/sveden/grants/',

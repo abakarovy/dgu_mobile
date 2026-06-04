@@ -60,16 +60,18 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
   static bool _isSessionType(String? t) =>
       GradeTypeLabels.isSessionOutcome((t ?? '').trim());
 
-  /// Оценка для вкладки «Сессия»: только если в API есть значение.
-  static String? _sessionGradeValue(String raw) {
+  /// Нет выставленной оценки: пусто или плейсхолдер из 1С / журнала.
+  static bool _isRealGradeValue(String raw) {
     final g = raw.trim();
-    if (g.isEmpty || g == '-' || g == '—') return null;
-    return g;
+    return g.isNotEmpty && g != '-' && g != '—';
   }
 
-  /// В журнале с бэка часто приходят строки без оценки (grade_value: null) — для «Текущие» их не показываем,
-  /// иначе справа остаётся пустой цветной квадрат.
-  static bool _hasGradeValue(GradeEntity g) => g.grade.trim().isNotEmpty;
+  /// Оценка для вкладки «Сессия»: только если в API есть значение.
+  static String? _sessionGradeValue(String raw) =>
+      _isRealGradeValue(raw) ? raw.trim() : null;
+
+  /// Для «Текущие» не показываем строки без оценки (в т.ч. `grade: "-"` из sync-grades).
+  static bool _hasGradeValue(GradeEntity g) => _isRealGradeValue(g.grade);
 
   List<GradeListItem> _filtered(List<GradeListItem> items) {
     final start = DateTime(_rangeStart.year, _rangeStart.month, _rangeStart.day);
