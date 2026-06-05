@@ -41,12 +41,16 @@ class _AppShellPageState extends State<AppShellPage> {
 
   StatefulNavigationShell get _shell => widget.navigationShell;
 
-  static int _branchIndexFromPath(String path, StatefulNavigationShell shell) {
-    if (path.startsWith('/app/profile')) return _indexProfile;
-    if (path.startsWith('/app/grades')) return _indexGrades;
-    if (path.startsWith('/app/home')) return _indexHome;
-    if (path.startsWith('/app/news')) return _indexNews;
-    return shell.currentIndex;
+  /// Явный переход на корень вкладки (сбрасывает вложенный стек профиля и т.п.).
+  void _goTabRoot(int branchIndex) {
+    final location = switch (branchIndex) {
+      _indexProfile => '/app/profile',
+      _indexGrades => '/app/grades',
+      _indexHome => '/app/home',
+      _indexNews => '/app/news',
+      _ => '/app/home',
+    };
+    context.go(location);
   }
 
   @override
@@ -58,7 +62,7 @@ class _AppShellPageState extends State<AppShellPage> {
   @override
   Widget build(BuildContext context) {
     final path = GoRouterState.of(context).uri.path;
-    final branchIndex = _branchIndexFromPath(path, _shell);
+    final branchIndex = _shell.currentIndex;
     final isNotificationsScreen = path.endsWith('notifications');
     final isSupportScreen = path.endsWith('support');
     final isStudentIdScreen = path.endsWith('student-id');
@@ -216,8 +220,10 @@ class _AppShellPageState extends State<AppShellPage> {
                                 iconAsset: 'assets/icons/nav_home.svg',
                                 label: 'Главная',
                                 onTap: () {
-                                  _shell.goBranch(_indexHome);
-                                  HomeRefreshHost.requestRefresh(force: false);
+                                  _goTabRoot(_indexHome);
+                                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                                    HomeRefreshHost.requestRefresh(force: false);
+                                  });
                                 },
                               ),
                             ),
@@ -226,7 +232,7 @@ class _AppShellPageState extends State<AppShellPage> {
                                 selected: branchIndex == _indexGrades,
                                 iconAsset: 'assets/icons/nav_grades.svg',
                                 label: 'Оценки',
-                                onTap: () => _shell.goBranch(_indexGrades),
+                                onTap: () => _goTabRoot(_indexGrades),
                               ),
                             ),
                             Expanded(
@@ -235,7 +241,7 @@ class _AppShellPageState extends State<AppShellPage> {
                                 iconAsset: 'assets/icons/nav_news.svg',
                                 label: 'Новости',
                                 onTap: () {
-                                  _shell.goBranch(_indexNews);
+                                  _goTabRoot(_indexNews);
                                   WidgetsBinding.instance.addPostFrameCallback((_) {
                                     NewsRefreshHost.requestRefresh();
                                   });
@@ -247,7 +253,7 @@ class _AppShellPageState extends State<AppShellPage> {
                                 selected: branchIndex == _indexProfile,
                                 iconAsset: 'assets/icons/nav_profile.svg',
                                 label: 'Профиль',
-                                onTap: () => _shell.goBranch(_indexProfile),
+                                onTap: () => _goTabRoot(_indexProfile),
                               ),
                             ),
                           ],
