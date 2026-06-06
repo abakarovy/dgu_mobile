@@ -3,6 +3,8 @@ class AbsenceSemesterRow {
   const AbsenceSemesterRow({
     required this.semester,
     this.year,
+    this.periodStart,
+    this.periodEnd,
     this.totalAbsences,
     this.totalHours,
     this.excusedAbsences,
@@ -11,6 +13,10 @@ class AbsenceSemesterRow {
 
   final String semester;
   final int? year;
+  /// `period.start` из ответа пропусков (`DD.MM.YYYY`).
+  final DateTime? periodStart;
+  /// `period.end` из ответа пропусков (`DD.MM.YYYY`).
+  final DateTime? periodEnd;
   final int? totalAbsences;
   final double? totalHours;
   /// `data.excused_absences` из `GET /api/1c/absences`.

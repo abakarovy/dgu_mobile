@@ -4,18 +4,31 @@ import 'package:dio/dio.dart';
 
 import '../../core/constants/api_constants.dart';
 import '../../features/grades/domain/entities/grade_entity.dart';
+import '../../features/grades/domain/final_grades_parser.dart';
+import '../../features/grades/domain/semester_labels.dart';
 import '../services/token_storage.dart';
 import 'api_client.dart';
 import 'api_exception.dart';
 
-/// Плоский список оценок + порядок семестров из ответа 1С (`grades[].semester`).
+/// Журнал + итоги сессии из двух независимых API (см. SESSION_GRADES.md).
 class GradesBundle {
-  const GradesBundle({required this.grades, required this.semesters});
+  const GradesBundle({
+    required this.journalGrades,
+    required this.sessionGrades,
+    required this.semesters,
+  });
 
-  final List<GradeEntity> grades;
+  /// `GET /api/journal/grades/my` — текущие отметки (без сессионных типов).
+  final List<GradeEntity> journalGrades;
 
-  /// Как в `sync-grades`: порядок блоков; для журнала — уникальные семестры из записей.
+  /// `GET /api/1c/final-grades` — зачётно-экзаменационная сессия.
+  final List<GradeEntity> sessionGrades;
+
+  /// Семестры для фильтра (из журнала; fallback — из final-grades).
   final List<String> semesters;
+
+  /// Обратная совместимость: только журнал.
+  List<GradeEntity> get grades => journalGrades;
 }
 
 class GradesApi {
@@ -49,185 +62,106 @@ class GradesApi {
     }
   }
 
-  /// Сначала `GET /api/1c/sync-grades` (руководство backend), иначе журнал.
   Future<List<GradeEntity>> getMyGrades() async {
     final b = await loadMyGrades();
-    return b.grades;
+    return b.journalGrades;
   }
 
-  /// Как [getMyGrades], но дополнительно отдаёт порядок семестров из тела `sync-grades`.
+  /// Параллельно: журнал + final-grades (`refresh=1`, как на сайте).
   ///
-  /// [studentIdOverride] — ID ребёнка для роли `parent` (иначе из токена — сам пользователь).
+  /// [studentIdOverride] — для родителя (final-grades с `student_id`).
   Future<GradesBundle> loadMyGrades({int? studentIdOverride}) async {
-    // Родитель без явного id ребёнка не должен бить 1С с `student_id` из JWT (id родителя → 400).
     if (studentIdOverride == null && await _isParentRoleFromToken()) {
-      return const GradesBundle(grades: <GradeEntity>[], semesters: <String>[]);
+      return const GradesBundle(
+        journalGrades: <GradeEntity>[],
+        sessionGrades: <GradeEntity>[],
+        semesters: <String>[],
+      );
     }
+
     final sid = studentIdOverride ?? await _studentIdFromToken();
-    if (sid != null) {
+    final isParentChild = studentIdOverride != null;
+
+    List<GradeEntity> journal = const [];
+    List<GradeEntity> session = const [];
+
+    if (!isParentChild) {
       try {
-        final res = await _api.dio.get<dynamic>(
-          ApiConstants.oneCSyncGradesPath,
-          queryParameters: {'student_id': sid},
-          options: Options(validateStatus: (s) => s != null && s < 500),
-        );
-        if (res.statusCode == 200) {
-          final sems = semesterOrderFromSyncData(res.data);
-          final list = _extractGradeMaps(res.data);
-          if (list.isNotEmpty) {
-            return GradesBundle(
-              grades: list.map(_fromJson).toList(),
-              semesters: sems,
-            );
-          }
-          if (sems.isNotEmpty) {
-            return GradesBundle(grades: const <GradeEntity>[], semesters: sems);
-          }
-        }
+        journal = await _getJournalGradesMy(refresh: true);
       } on DioException {
-        // fallback ниже
+        journal = const [];
       }
     }
-    if (studentIdOverride != null) {
-      // Родитель: журнал `grades/my` недоступен (403).
-      return const GradesBundle(grades: <GradeEntity>[], semesters: <String>[]);
+
+    if (sid != null) {
+      session = await _getFinalGrades(refresh: true, studentId: sid);
     }
-    final journal = await _getJournalGradesMy();
+
+    var semesters = JournalSemesterOptions.buildFromJournal(journal);
+    if (semesters.isEmpty && session.isNotEmpty) {
+      semesters = SemesterLabels.uniqueSorted(
+        session.map((g) => (g.semester ?? '').trim()).where((s) => s.isNotEmpty),
+      );
+    }
+
     return GradesBundle(
-      grades: journal,
-      semesters: _uniqueSortedSemestersFromEntities(journal),
+      journalGrades: journal,
+      sessionGrades: session,
+      semesters: semesters,
     );
   }
 
-  static List<String> semesterOrderFromSyncData(dynamic data) {
-    final map = _asStringKeyedMap(data);
-    if (map == null) return const <String>[];
-    final grades = map['grades'];
-    if (grades is! List) return const <String>[];
-    final out = <String>[];
-    for (final e in grades) {
-      if (e is! Map) continue;
-      final s = (e['semester'] ?? '').toString().trim();
-      if (s.isNotEmpty) out.add(s);
-    }
-    out.sort(_compareSemestersNewestFirst);
-    return out;
-  }
-
-  static int? _semesterSortKey(String raw) {
-    final t = raw.trim().toLowerCase().replaceAll('семестр', 'сем');
-    final m = RegExp(
-      r'^(\d+)\s*(?:сем|sem)\.?\s+(\d{4})\s*-\s*(\d{4})',
-      caseSensitive: false,
-    ).firstMatch(t);
-    if (m == null) return null;
-    final semNum = int.tryParse(m.group(1)!);
-    final yearStart = int.tryParse(m.group(2)!);
-    if (semNum == null || yearStart == null) return null;
-    return yearStart * 10 + semNum;
-  }
-
-  static int _compareSemestersNewestFirst(String a, String b) {
-    final ka = _semesterSortKey(a);
-    final kb = _semesterSortKey(b);
-    if (ka != null && kb != null) return kb.compareTo(ka);
-    if (ka != null) return -1;
-    if (kb != null) return 1;
-    return b.compareTo(a);
-  }
-
-  static List<String> _uniqueSortedSemestersFromEntities(List<GradeEntity> items) {
-    final set = <String>{};
-    for (final g in items) {
-      final s = (g.semester ?? '').trim();
-      if (s.isNotEmpty) set.add(s);
-    }
-    final list = set.toList()..sort(_compareSemestersNewestFirst);
-    return list;
-  }
-
-  /// `GET /api/1c/final-grades?student_id=…` — итоговые оценки (см. руководство backend §11.2).
-  /// Формат тела по возможности совпадает с [getMyGrades] / sync-grades.
-  Future<List<GradeEntity>> getFinalGrades() async {
-    final sid = await _studentIdFromToken();
+  /// `GET /api/1c/final-grades` — итоговые ведомости сессии.
+  Future<List<GradeEntity>> getFinalGrades({int? studentId}) async {
+    final sid = studentId ?? await _studentIdFromToken();
     if (sid == null) return const <GradeEntity>[];
+    return _getFinalGrades(refresh: true, studentId: sid);
+  }
+
+  Future<List<GradeEntity>> _getFinalGrades({
+    required bool refresh,
+    required int studentId,
+  }) async {
     try {
+      final qp = <String, dynamic>{
+        'student_id': studentId,
+        if (refresh) 'refresh': '1',
+      };
       final res = await _api.dio.get<dynamic>(
         ApiConstants.oneCFinalGradesPath,
-        queryParameters: {'student_id': sid},
+        queryParameters: qp,
         options: Options(validateStatus: (s) => s != null && s < 500),
       );
       if (res.statusCode != 200) return const <GradeEntity>[];
-      final list = _extractGradeMaps(res.data);
+      final list = _extractFinalGradeMaps(res.data);
       if (list.isEmpty) return const <GradeEntity>[];
-      return list.map(_fromJson).toList();
+      return FinalGradesParser.parseItems(list);
     } on DioException {
       return const <GradeEntity>[];
     }
   }
 
-  /// Бэкенд отдаёт `GET /api/1c/sync-grades` как
-  /// `{ grades: [ { semester: "…", records: [ { subject, grade, type, date } ] } ] }`.
-  /// Раньше брали верхний список как строки оценок — в UI было пусто.
-  static List<Map<String, dynamic>> _extractGradeMaps(dynamic data) {
-    final map = _asStringKeyedMap(data);
-    if (map != null) {
-      final nested = _flattenSyncGradesSemesters(map);
-      if (nested.isNotEmpty) return nested;
-    }
+  static List<Map<String, dynamic>> _extractFinalGradeMaps(dynamic data) {
     if (data is List) {
-      return data
-          .whereType<Map>()
-          .map((m) => Map<String, dynamic>.from(m))
-          .toList();
+      return data.whereType<Map>().map((m) => Map<String, dynamic>.from(m)).toList();
     }
-    if (map != null) {
-      for (final k in ['grades', 'items', 'data', 'records', 'list']) {
-        final v = map[k];
-        if (v is List) {
-          return v
-              .whereType<Map>()
-              .map((m) => Map<String, dynamic>.from(m))
-              .toList();
-        }
+    final map = _asStringKeyedMap(data);
+    if (map == null) return [];
+    for (final k in ['grades', 'Grades', 'items', 'data', 'records']) {
+      final v = map[k];
+      if (v is List) {
+        return v.whereType<Map>().map((m) => Map<String, dynamic>.from(m)).toList();
       }
     }
     return [];
   }
 
-  static Map<String, dynamic>? _asStringKeyedMap(dynamic data) {
-    if (data is Map<String, dynamic>) return data;
-    if (data is Map) return Map<String, dynamic>.from(data);
-    return null;
-  }
-
-  static List<Map<String, dynamic>> _flattenSyncGradesSemesters(Map<String, dynamic> data) {
-    final grades = data['grades'];
-    if (grades is! List) return [];
-    final out = <Map<String, dynamic>>[];
-    for (final e in grades) {
-      if (e is! Map) continue;
-      final semRow = Map<String, dynamic>.from(e);
-      final semester = (semRow['semester'] ?? '').toString().trim();
-      final records = semRow['records'];
-      if (records is! List) continue;
-      for (final r in records) {
-        if (r is! Map) continue;
-        final row = Map<String, dynamic>.from(r);
-        if (semester.isNotEmpty && (row['semester'] == null || '${row['semester']}'.trim().isEmpty)) {
-          row['semester'] = semester;
-        }
-        out.add(row);
-      }
-    }
-    return out;
-  }
-
-  /// `GET /api/journal/grades/my` — запасной путь, если sync-grades пустой/недоступен.
-  Future<List<GradeEntity>> _getJournalGradesMy() async {
+  /// `GET /api/journal/grades/my` — журнал успеваемости.
+  Future<List<GradeEntity>> _getJournalGradesMy({bool refresh = false}) async {
     try {
       final res = await _api.dio.get<dynamic>(
         '/journal/grades/my',
+        queryParameters: refresh ? {'refresh': '1'} : null,
         options: Options(validateStatus: (s) => s != null && s < 500),
       );
       if (res.statusCode != 200) {
@@ -248,14 +182,20 @@ class GradesApi {
       return list
           .whereType<Map>()
           .map((m) => Map<String, dynamic>.from(m))
-          .map(_fromJson)
+          .map(_fromJournalJson)
           .toList();
     } on DioException catch (e) {
       throw ApiException.fromDio(e);
     }
   }
 
-  static GradeEntity _fromJson(Map<String, dynamic> json) {
+  static Map<String, dynamic>? _asStringKeyedMap(dynamic data) {
+    if (data is Map<String, dynamic>) return data;
+    if (data is Map) return Map<String, dynamic>.from(data);
+    return null;
+  }
+
+  static GradeEntity _fromJournalJson(Map<String, dynamic> json) {
     String str(dynamic v) => (v is String) ? v : (v == null ? '' : '$v');
     DateTime? dt(dynamic v) => DateTime.tryParse(str(v));
 
@@ -286,7 +226,10 @@ class GradesApi {
 
     final gradeType = str(json['grade_type'] ?? json['type']).trim();
     final date = dt(json['date'] ?? json['created_at'] ?? json['graded_at']);
-    final semester = str(json['semester'] ?? json['term'] ?? json['period']).trim();
+    var semester = str(json['semester'] ?? json['term'] ?? json['period']).trim();
+    if (semester.isEmpty && date != null) {
+      semester = SemesterLabels.inferFromDate(date);
+    }
 
     return GradeEntity(
       subjectName: subject.isEmpty ? 'Дисциплина' : subject,

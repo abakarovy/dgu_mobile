@@ -13,6 +13,8 @@ import '../../../../data/services/token_storage.dart';
 import '../../domain/auth_flow_results.dart';
 import '../../domain/entities/user_entity.dart';
 import '../../domain/repositories/auth_repository.dart';
+import '../../../../core/staff/staff_roles.dart';
+import '../../../../data/api/staff_api.dart';
 import '../../../../data/api/auth_api_outcomes.dart';
 import '../../../../core/mock/demo_session.dart';
 
@@ -20,13 +22,16 @@ import '../../../../core/mock/demo_session.dart';
 class AuthRepositoryImpl implements AuthRepository {
   AuthRepositoryImpl({
     required AuthApi authApi,
+    required StaffApi staffApi,
     required TokenStorage tokenStorage,
     required JsonCache jsonCache,
   })  : _authApi = authApi,
+        _staffApi = staffApi,
         _tokenStorage = tokenStorage,
         _jsonCache = jsonCache;
 
   final AuthApi _authApi;
+  final StaffApi _staffApi;
   final TokenStorage _tokenStorage;
   final JsonCache _jsonCache;
 
@@ -179,23 +184,52 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
+  Future<AuthLoginResult> loginStaff({
+    required String email,
+    required String password,
+  }) async {
+    final user = await _staffApi.loginStaff(email: email, password: password);
+    await _jsonCache.setJson('auth:me', user.toJson());
+    PushRegistrar.instance.ensureRegistered();
+    AuthSession.bump();
+    return AuthLoginSuccess(user.toEntity());
+  }
+
+  @override
   Future<UserEntity?> getCurrentUser() async {
     final token = await _tokenStorage.getToken();
     if (token == null || token.isEmpty) return null;
+    UserModel? cached;
     final jsonStr = await _tokenStorage.getUserDataJson();
     if (jsonStr != null && jsonStr.isNotEmpty) {
       try {
-        final user = UserModel.fromJson(jsonDecode(jsonStr) as Map<String, dynamic>);
-        return user.toEntity();
+        cached = UserModel.fromJson(jsonDecode(jsonStr) as Map<String, dynamic>);
       } catch (_) {
         // ignore
       }
     }
+    if (cached != null && StaffRoles.isStaff(cached.role)) {
+      return cached.toEntity();
+    }
+    if (cached != null) {
+      return cached.toEntity();
+    }
     try {
       final user = await _authApi.getMe();
       await _tokenStorage.setUserDataJson(jsonEncode(user.toJson()));
+      await _jsonCache.setJson('auth:me', user.toJson());
       return user.toEntity();
     } catch (_) {
+      if (StaffRoles.isStaff(cached?.role)) {
+        try {
+          final user = await _staffApi.getProfile();
+          await _tokenStorage.setUserDataJson(jsonEncode(user.toJson()));
+          await _jsonCache.setJson('auth:me', user.toJson());
+          return user.toEntity();
+        } catch (_) {
+          return cached?.toEntity();
+        }
+      }
       return null;
     }
   }

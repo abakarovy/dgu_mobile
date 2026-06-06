@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -18,6 +20,8 @@ import '../../data/api/notification_preferences_api.dart';
 import '../../data/api/profile_1c_api.dart';
 import '../../data/api/push_api.dart';
 import '../../data/api/schedule_api.dart';
+import '../../data/api/staff_api.dart';
+import '../../data/api/staff_modules_api.dart';
 import '../../data/api/student_services_api.dart';
 import '../../data/api/student_ticket_api.dart';
 import '../../data/services/token_storage.dart';
@@ -31,6 +35,8 @@ import '../mock/demo_session.dart';
 import '../../data/api/edu_disclosure_api.dart';
 import '../../data/api/health_api.dart';
 import '../../data/api/upbringing_api.dart';
+import '../staff/staff_module_navigation.dart';
+import '../staff/staff_roles.dart';
 import '../device/app_runtime_info.dart';
 import '../../data/college_site/college_site_image_prefetch.dart';
 import '../../data/college_site/college_site_service.dart';
@@ -54,6 +60,8 @@ abstract final class AppContainer {
   static DocumentsApi? _documentsApi;
   static StudentTicketApi? _studentTicketApi;
   static StudentServicesApi? _studentServicesApi;
+  static StaffApi? _staffApi;
+  static StaffModulesApi? _staffModulesApi;
   static EduDisclosureApi? _eduDisclosureApi;
   static UpbringingApi? _upbringingApi;
   static HealthApi? _healthApi;
@@ -74,8 +82,11 @@ abstract final class AppContainer {
     final apiClient = ApiClient(tokenStorage: tokenStorage);
     _tokenStorage = tokenStorage;
     _authApi = AuthApi(apiClient: apiClient, tokenStorage: tokenStorage);
+    _staffApi = StaffApi(apiClient: apiClient, tokenStorage: tokenStorage);
+    _staffModulesApi = StaffModulesApi(apiClient: apiClient);
     _authRepository = AuthRepositoryImpl(
       authApi: _authApi!,
+      staffApi: _staffApi!,
       tokenStorage: tokenStorage,
       jsonCache: jsonCache,
     );
@@ -205,6 +216,20 @@ abstract final class AppContainer {
     return a;
   }
 
+  static StaffApi get staffApi {
+    final a = _staffApi;
+    if (a == null) throw StateError('AppContainer.init() must be called before using staffApi');
+    return a;
+  }
+
+  static StaffModulesApi get staffModulesApi {
+    final a = _staffModulesApi;
+    if (a == null) {
+      throw StateError('AppContainer.init() must be called before using staffModulesApi');
+    }
+    return a;
+  }
+
   static EduDisclosureApi get eduDisclosureApi {
     final a = _eduDisclosureApi;
     if (a == null) throw StateError('AppContainer.init() must be called before using eduDisclosureApi');
@@ -275,6 +300,9 @@ abstract final class AppContainer {
     if (role == 'parent') {
       return _prefetchAllParent(t);
     }
+    if (StaffRoles.isStaff(role)) {
+      return _prefetchAllStaff(t);
+    }
 
     final results = await Future.wait<bool>([
       _timedPrefetch(t, _prefetchGroup),
@@ -296,6 +324,19 @@ abstract final class AppContainer {
       _prefetchCurriculum,
     );
     return results.every((ok) => ok);
+  }
+
+  static Future<bool> _prefetchAllStaff(Duration t) async {
+    final capsOk = await _timedPrefetch(t, () async {
+      final caps = await staffApi.getCapabilities();
+      await jsonCache.setJson(StaffModuleNavigation.cacheKey, caps.toJson());
+    });
+    final profileOk = await _timedPrefetch(t, () async {
+      final user = await staffApi.getProfile();
+      await jsonCache.setJson('auth:me', user.toJson());
+      await tokenStorage.setUserDataJson(jsonEncode(user.toJson()));
+    });
+    return capsOk && profileOk;
   }
 
   /// Кэш, без которого «Главная» показывает прочерки вместо группы и заданий.
@@ -399,6 +440,18 @@ abstract final class AppContainer {
     // `_timedPrefetch` вернёт false и остальной prefetch не запустится.
     // HTTP 401 обрабатывает Dio + [UnauthorizedHandler] (очистка сессии и логин).
     // Здесь не вызываем [forceLogoutLocal]: при сетевых сбоях пользователь остаётся в аккаунте.
+    final cachedJson = await tokenStorage.getUserDataJson();
+    if (cachedJson != null && cachedJson.isNotEmpty) {
+      try {
+        final map = jsonDecode(cachedJson) as Map<String, dynamic>;
+        if (StaffRoles.isStaff(map['role']?.toString())) {
+          final user = await staffApi.getProfile();
+          await jsonCache.setJson('auth:me', user.toJson());
+          await tokenStorage.setUserDataJson(jsonEncode(user.toJson()));
+          return;
+        }
+      } catch (_) {}
+    }
     final me = await authApi.getMe();
     await jsonCache.setJson('auth:me', me.toJson());
   }
@@ -429,7 +482,21 @@ abstract final class AppContainer {
     await jsonCache.setJson(
       'grades:my',
       [
-        for (final g in bundle.grades)
+        for (final g in bundle.journalGrades)
+          {
+            'subject_name': g.subjectName,
+            'grade': g.grade,
+            'grade_type': g.gradeType,
+            'teacher_name': g.teacherName,
+            'date': g.date?.toIso8601String(),
+            'semester': g.semester,
+          }
+      ],
+    );
+    await jsonCache.setJson(
+      'grades:session',
+      [
+        for (final g in bundle.sessionGrades)
           {
             'subject_name': g.subjectName,
             'grade': g.grade,

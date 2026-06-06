@@ -83,6 +83,311 @@ Future<DateTimeRange?> showAppDateRangePicker({
   });
 }
 
+/// Выбор одной даты: нижний лист в стиле приложения.
+Future<DateTime?> showAppDatePicker({
+  required BuildContext context,
+  DateTime? initialDate,
+  required DateTime firstDate,
+  required DateTime lastDate,
+  String title = 'Выберите дату',
+}) {
+  final fd = DateTime(firstDate.year, firstDate.month, firstDate.day);
+  final ld = DateTime(lastDate.year, lastDate.month, lastDate.day);
+  DateTime? initial;
+  if (initialDate != null) {
+    var d = DateTime(initialDate.year, initialDate.month, initialDate.day);
+    if (d.isBefore(fd)) d = fd;
+    if (d.isAfter(ld)) d = ld;
+    initial = d;
+  }
+
+  return AppOverlayNotifier.wrapModalBottomSheet(() {
+    return showModalBottomSheet<DateTime>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      isDismissible: true,
+      enableDrag: true,
+      useRootNavigator: true,
+      barrierColor: Colors.black54,
+      builder: (ctx) {
+        final bottomInset = MediaQuery.viewInsetsOf(ctx).bottom;
+        final maxH = MediaQuery.sizeOf(ctx).height * 0.92;
+        final sheetH = MediaQuery.sizeOf(ctx).height - bottomInset;
+        return Padding(
+          padding: EdgeInsets.only(bottom: bottomInset),
+          child: SizedBox(
+            height: sheetH,
+            width: double.infinity,
+            child: Stack(
+              clipBehavior: Clip.none,
+              fit: StackFit.expand,
+              children: [
+                Positioned.fill(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => Navigator.of(ctx).pop(),
+                    child: const ColoredBox(color: Colors.transparent),
+                  ),
+                ),
+                Align(
+                  alignment: Alignment.bottomCenter,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(maxHeight: maxH),
+                    child: _AppSingleDatePickerPanel(
+                      firstDate: fd,
+                      lastDate: ld,
+                      initialDate: initial,
+                      title: title,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  });
+}
+
+class _AppSingleDatePickerPanel extends StatefulWidget {
+  const _AppSingleDatePickerPanel({
+    required this.firstDate,
+    required this.lastDate,
+    required this.title,
+    this.initialDate,
+  });
+
+  final DateTime firstDate;
+  final DateTime lastDate;
+  final String title;
+  final DateTime? initialDate;
+
+  @override
+  State<_AppSingleDatePickerPanel> createState() =>
+      _AppSingleDatePickerPanelState();
+}
+
+class _AppSingleDatePickerPanelState extends State<_AppSingleDatePickerPanel> {
+  late DateTime _visibleMonth;
+  DateTime? _selected;
+
+  @override
+  void initState() {
+    super.initState();
+    _selected = widget.initialDate;
+    final anchor = widget.initialDate ?? DateTime.now();
+    _visibleMonth = DateTime(anchor.year, anchor.month);
+  }
+
+  void _prevMonth() {
+    final prev = DateTime(_visibleMonth.year, _visibleMonth.month - 1);
+    final firstMonth = DateTime(widget.firstDate.year, widget.firstDate.month);
+    if (prev.isBefore(firstMonth)) return;
+    setState(() => _visibleMonth = prev);
+  }
+
+  void _nextMonth() {
+    final next = DateTime(_visibleMonth.year, _visibleMonth.month + 1);
+    final lastMonth = DateTime(widget.lastDate.year, widget.lastDate.month);
+    if (next.isAfter(lastMonth)) return;
+    setState(() => _visibleMonth = next);
+  }
+
+  bool get _canPrev {
+    final firstMonth = DateTime(widget.firstDate.year, widget.firstDate.month);
+    return DateTime(
+      _visibleMonth.year,
+      _visibleMonth.month,
+    ).isAfter(firstMonth);
+  }
+
+  bool get _canNext {
+    final lastMonth = DateTime(widget.lastDate.year, widget.lastDate.month);
+    return DateTime(
+      _visibleMonth.year,
+      _visibleMonth.month,
+    ).isBefore(lastMonth);
+  }
+
+  void _onDayTap(DateTime day) {
+    final d = DateTime(day.year, day.month, day.day);
+    if (d.isBefore(widget.firstDate) || d.isAfter(widget.lastDate)) return;
+    setState(() {
+      if (d.year != _visibleMonth.year || d.month != _visibleMonth.month) {
+        _visibleMonth = DateTime(d.year, d.month);
+      }
+      _selected = d;
+    });
+  }
+
+  void _confirm() {
+    final selected = _selected;
+    if (selected == null) return;
+    Navigator.of(context).pop(selected);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final selected = _selected;
+    final rangeStart = selected ?? DateTime(1970, 1, 1);
+    final rangeEnd = selected ?? DateTime(1970, 1, 1);
+
+    return Material(
+      color: AppColors.surfaceLight,
+      clipBehavior: Clip.antiAlias,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppUi.radiusXl)),
+      ),
+      child: ListView(
+        shrinkWrap: true,
+        physics: const ClampingScrollPhysics(),
+        padding: EdgeInsets.fromLTRB(
+          AppUi.screenPaddingH,
+          12,
+          AppUi.screenPaddingH,
+          16 + MediaQuery.paddingOf(context).bottom,
+        ),
+        children: [
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.lightGrey,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            widget.title,
+            textAlign: TextAlign.center,
+            style: AppTextStyle.inter(
+              fontWeight: FontWeight.w700,
+              fontSize: 18,
+              height: 22 / 18,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              IconButton(
+                visualDensity: VisualDensity.compact,
+                onPressed: _canPrev ? _prevMonth : null,
+                icon: Icon(
+                  Icons.chevron_left_rounded,
+                  color: _canPrev ? AppColors.primaryBlue : AppColors.lightGrey,
+                  size: 28,
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  '${_monthNamesRu[_visibleMonth.month - 1]} ${_visibleMonth.year}',
+                  textAlign: TextAlign.center,
+                  style: AppTextStyle.inter(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ),
+              IconButton(
+                visualDensity: VisualDensity.compact,
+                onPressed: _canNext ? _nextMonth : null,
+                icon: Icon(
+                  Icons.chevron_right_rounded,
+                  color: _canNext ? AppColors.primaryBlue : AppColors.lightGrey,
+                  size: 28,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              for (final w in _weekdayShortRu)
+                Expanded(
+                  child: Center(
+                    child: Text(
+                      w,
+                      style: AppTextStyle.inter(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 11,
+                        color: AppColors.caption,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          _MonthGrid(
+            visibleMonth: _visibleMonth,
+            firstDate: widget.firstDate,
+            lastDate: widget.lastDate,
+            rangeStart: rangeStart,
+            rangeEnd: rangeEnd,
+            onDayTap: _onDayTap,
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.primaryBlue,
+                    side: const BorderSide(color: AppColors.lightGrey),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppUi.radiusM),
+                    ),
+                  ),
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: Text(
+                    'Отмена',
+                    style: AppTextStyle.inter(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 15,
+                      color: AppColors.primaryBlue,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.primaryBlue,
+                    foregroundColor: AppColors.onDark,
+                    disabledBackgroundColor:
+                        AppColors.primaryBlue.withValues(alpha: 0.35),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppUi.radiusM),
+                    ),
+                  ),
+                  onPressed: selected == null ? null : _confirm,
+                  child: Text(
+                    'Готово',
+                    style: AppTextStyle.inter(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 15,
+                      color: AppColors.onDark,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 const _monthNamesRu = <String>[
   'Январь',
   'Февраль',

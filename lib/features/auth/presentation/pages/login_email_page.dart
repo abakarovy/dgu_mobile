@@ -70,6 +70,16 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
     return e is Map && e['role'] == 'parent';
   }
 
+  bool get _isExplicitStudentRole {
+    final e = _extra;
+    return e is Map && e['role'] == 'student' && !_isRegisterMode;
+  }
+
+  bool get _isStaffMode {
+    final e = _extra;
+    return e is Map && e['staff'] == true;
+  }
+
   String? get _verifiedFullName {
     final e = _extra;
     if (e is Map) return e['fullName'] as String?;
@@ -89,8 +99,10 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
   }
 
   String get _topTitle {
+    if (_isRegisterMode) return 'Регистрация';
     if (_isParentRole) return 'Родитель';
-    return _isRegisterMode ? 'Регистрация' : 'Студент';
+    if (_isExplicitStudentRole) return 'Студент';
+    return 'Вход';
   }
 
   Future<void> _handleRegisterApiException(ApiException e) async {
@@ -547,6 +559,15 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
               _startResendCooldown(challenge.resendAfterSeconds);
             });
         }
+      } else if (_isStaffMode) {
+        final r = await AppContainer.authRepository.loginStaff(
+          email: email,
+          password: password,
+        );
+        if (!mounted) return;
+        if (r is AuthLoginSuccess) {
+          context.go('/bootstrap');
+        }
       } else {
         final r = await AppContainer.authRepository.login(
           username: email,
@@ -969,7 +990,7 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
                                             !_obscurePassword,
                                       ),
                                     ),
-                                    if (!_isRegisterMode) ...[
+                                    if (!_isRegisterMode && !_isStaffMode) ...[
                                       const SizedBox(height: 8),
                                       SizedBox(
                                         width: double.infinity,
@@ -1057,66 +1078,34 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
                                               ),
                                       ),
                                     ),
-                                    if (_isParentRole) ...[
-                                      if (!_isRegisterMode) ...[
-                                        const SizedBox(height: 24),
-                                        GestureDetector(
-                                          behavior: HitTestBehavior.opaque,
-                                          onTap: () => context.go(
-                                            '/login/email',
-                                            extra: const {
-                                              'role': 'student',
-                                              'mode': 'login',
-                                            },
-                                          ),
-                                          child: SizedBox(
-                                            width: double.infinity,
-                                            child: Text(
-                                              'Войти как студент',
-                                              textAlign: TextAlign.center,
-                                              style: linkStyle,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ] else ...[
+                                    if (_isRegisterMode) ...[
                                       const SizedBox(height: 24),
                                       GestureDetector(
                                         behavior: HitTestBehavior.opaque,
-                                        onTap: () =>
-                                            context.go('/login/student'),
+                                        onTap: () => context.go('/login/student'),
                                         child: SizedBox(
                                           width: double.infinity,
                                           child: Text(
-                                            _isRegisterMode
-                                                ? 'Назад'
-                                                : 'Войти по З/К',
+                                            'Назад',
                                             textAlign: TextAlign.center,
                                             style: linkStyle,
                                           ),
                                         ),
                                       ),
-                                      if (!_isRegisterMode) ...[
-                                        const SizedBox(height: 24),
-                                        GestureDetector(
-                                          behavior: HitTestBehavior.opaque,
-                                          onTap: () => context.go(
-                                            '/login/email',
-                                            extra: const {
-                                              'role': 'parent',
-                                              'mode': 'login',
-                                            },
-                                          ),
-                                          child: SizedBox(
-                                            width: double.infinity,
-                                            child: Text(
-                                              'Войти как родитель',
-                                              textAlign: TextAlign.center,
-                                              style: linkStyle,
-                                            ),
+                                    ] else if (!_isStaffMode) ...[
+                                      const SizedBox(height: 24),
+                                      GestureDetector(
+                                        behavior: HitTestBehavior.opaque,
+                                        onTap: () => context.go('/login/student'),
+                                        child: SizedBox(
+                                          width: double.infinity,
+                                          child: Text(
+                                            'Регистрация студента',
+                                            textAlign: TextAlign.center,
+                                            style: linkStyle,
                                           ),
                                         ),
-                                      ],
+                                      ),
                                     ],
                                   ],
                                 ],

@@ -8,6 +8,13 @@ class UserEntity {
     this.studentBookNumber,
     this.course,
     this.direction,
+    this.isAdmin = false,
+    this.position,
+    this.avatarUrl,
+    this.canAccessSiteAdmin = false,
+    this.canAccessAdmissionAdmin = false,
+    this.canAccessDepartmentCabinet = false,
+    this.isTeacher = false,
   });
 
   final String id;
@@ -17,4 +24,11 @@ class UserEntity {
   final String? studentBookNumber;
   final int? course;
   final String? direction;
+  final bool isAdmin;
+  final String? position;
+  final String? avatarUrl;
+  final bool canAccessSiteAdmin;
+  final bool canAccessAdmissionAdmin;
+  final bool canAccessDepartmentCabinet;
+  final bool isTeacher;
 }

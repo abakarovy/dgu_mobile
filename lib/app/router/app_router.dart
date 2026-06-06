@@ -41,6 +41,23 @@ import '../../features/student/presentation/pages/portfolio_page.dart';
 import '../../features/student/presentation/pages/scholarship_rating_page.dart';
 import '../../features/student/presentation/pages/scholarship_section_page.dart';
 import '../../features/student/presentation/pages/student_portal_page.dart';
+import '../../features/staff/presentation/pages/staff_home_page.dart';
+import '../../features/staff/presentation/pages/staff_profile_page.dart';
+import '../../features/staff/presentation/pages/staff_admin_page.dart';
+import '../../features/staff/presentation/pages/staff_shell_page.dart';
+import '../../features/staff/presentation/pages/staff_tools_page.dart';
+import '../../features/staff/presentation/pages/staff_users_tab_page.dart';
+import '../../features/staff/presentation/pages/staff_settings_page.dart';
+import '../../features/staff/presentation/pages/staff_events_admin_page.dart';
+import '../../features/staff/presentation/pages/staff_mobile_release_page.dart';
+import '../../features/staff/presentation/pages/staff_scholarship_admin_page.dart';
+import '../../features/staff/presentation/pages/staff_department_page.dart';
+import '../../features/staff/presentation/pages/staff_teacher_journal_page.dart';
+import '../../features/staff/presentation/pages/staff_admin_sections.dart';
+import '../../features/staff/presentation/pages/staff_groups_admin_page.dart';
+import '../../features/staff/presentation/pages/staff_news_admin_page.dart';
+import '../../features/staff/presentation/pages/staff_module_pages.dart';
+import '../../core/staff/staff_roles.dart';
 
 /// Полноэкранные подмаршруты с кнопкой «назад»: [CupertinoPage] даёт свайп с края (iOS).
 Page<void> _cupertinoSubpage({
@@ -204,7 +221,211 @@ final GoRouter appRouter = GoRouter(
             child: LoginEmailPage(extra: state.extra),
           ),
         ),
+        GoRoute(
+          path: 'staff',
+          name: 'loginStaff',
+          pageBuilder: (context, state) => _cupertinoSubpage(
+            key: state.pageKey,
+            name: state.name,
+            child: LoginEmailPage(extra: const {'staff': true}),
+          ),
+        ),
       ],
+    ),
+    GoRoute(
+      path: '/staff',
+      redirect: (_, _) => '/staff/home',
+    ),
+    StatefulShellRoute.indexedStack(
+      builder: (context, state, navigationShell) =>
+          StaffShellPage(navigationShell: navigationShell),
+      branches: [
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/staff/profile',
+              name: 'staffProfile',
+              builder: (context, state) =>
+                  StaffProfilePage(key: ValueKey(AuthSession.epoch)),
+              routes: [
+                GoRoute(
+                  path: 'settings',
+                  name: 'staffSettings',
+                  pageBuilder: (context, state) => _cupertinoSubpage(
+                    key: state.pageKey,
+                    name: state.name,
+                    child: const StaffSettingsPage(),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/staff/users',
+              name: 'staffUsers',
+              builder: (context, state) =>
+                  StaffUsersTabPage(key: ValueKey('staffUsers-${AuthSession.epoch}')),
+            ),
+          ],
+        ),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/staff/home',
+              name: 'staffHome',
+              builder: (context, state) =>
+                  StaffHomePage(key: ValueKey('staffHome-${AuthSession.epoch}')),
+            ),
+          ],
+        ),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/staff/tools',
+              name: 'staffTools',
+              builder: (context, state) =>
+                  StaffToolsPage(key: ValueKey('staffTools-${AuthSession.epoch}')),
+            ),
+          ],
+        ),
+      ],
+    ),
+    GoRoute(
+      path: '/staff/admission',
+      name: 'staffAdmission',
+      pageBuilder: (context, state) => _cupertinoSubpage(
+        key: state.pageKey,
+        name: state.name,
+        child: const StaffAdminPage(),
+      ),
+    ),
+    GoRoute(
+      path: '/staff/admin',
+      redirect: (_, _) => '/staff/admission',
+    ),
+    GoRoute(
+      path: '/staff/events',
+      name: 'staffEvents',
+      pageBuilder: (context, state) => _cupertinoSubpage(
+        key: state.pageKey,
+        name: state.name,
+        child: const StaffEventsAdminPage(),
+      ),
+    ),
+    GoRoute(
+      path: '/staff/mobile-release',
+      name: 'staffMobileRelease',
+      pageBuilder: (context, state) => _cupertinoSubpage(
+        key: state.pageKey,
+        name: state.name,
+        child: const StaffMobileReleasePage(),
+      ),
+    ),
+    GoRoute(
+      path: '/staff/department',
+      name: 'staffDepartment',
+      pageBuilder: (context, state) => _cupertinoSubpage(
+        key: state.pageKey,
+        name: state.name,
+        child: const StaffDepartmentPage(),
+      ),
+    ),
+    GoRoute(
+      path: '/staff/journal',
+      name: 'staffJournal',
+      pageBuilder: (context, state) => _cupertinoSubpage(
+        key: state.pageKey,
+        name: state.name,
+        child: const StaffTeacherJournalPage(),
+      ),
+    ),
+    GoRoute(
+      path: '/staff/dashboard',
+      name: 'staffDashboard',
+      redirect: (_, _) => '/staff/home',
+    ),
+    GoRoute(
+      path: '/staff/news',
+      name: 'staffNews',
+      pageBuilder: (context, state) => _cupertinoSubpage(
+        key: state.pageKey,
+        name: state.name,
+        child: const StaffNewsAdminPage(),
+      ),
+    ),
+    GoRoute(
+      path: '/staff/groups',
+      name: 'staffGroups',
+      pageBuilder: (context, state) => _cupertinoSubpage(
+        key: state.pageKey,
+        name: state.name,
+        child: const StaffGroupsAdminPage(),
+      ),
+    ),
+    GoRoute(
+      path: '/staff/moderation',
+      name: 'staffModeration',
+      pageBuilder: (context, state) => _cupertinoSubpage(
+        key: state.pageKey,
+        name: state.name,
+        child: const StaffModerationAdminPage(),
+      ),
+    ),
+    GoRoute(
+      path: '/staff/weekly-grades',
+      name: 'staffWeeklyGrades',
+      pageBuilder: (context, state) => _cupertinoSubpage(
+        key: state.pageKey,
+        name: state.name,
+        child: const StaffWeeklyGradesAdminPage(),
+      ),
+    ),
+    GoRoute(
+      path: '/staff/scholarship-rating',
+      name: 'staffScholarshipRating',
+      pageBuilder: (context, state) => _cupertinoSubpage(
+        key: state.pageKey,
+        name: state.name,
+        child: const StaffScholarshipAdminPage(),
+      ),
+    ),
+    GoRoute(
+      path: '/staff/settings-admin',
+      name: 'staffSettingsAdmin',
+      pageBuilder: (context, state) => _cupertinoSubpage(
+        key: state.pageKey,
+        name: state.name,
+        child: const StaffSettingsAdminPage(),
+      ),
+    ),
+    GoRoute(
+      path: '/staff/edu-disclosure',
+      name: 'staffEduDisclosure',
+      pageBuilder: (context, state) => _cupertinoSubpage(
+        key: state.pageKey,
+        name: state.name,
+        child: const StaffEduDisclosureAdminPage(),
+      ),
+    ),
+    GoRoute(
+      path: '/staff/web/:moduleId',
+      name: 'staffWebModule',
+      pageBuilder: (context, state) => _cupertinoSubpage(
+        key: state.pageKey,
+        name: state.name,
+        child: StaffWebModulePage(moduleId: state.pathParameters['moduleId'] ?? ''),
+      ),
+    ),
+    GoRoute(
+      path: '/staff/module/:moduleId',
+      name: 'staffPartialModule',
+      redirect: (context, state) {
+        final id = state.pathParameters['moduleId'] ?? '';
+        return '/staff/web/$id';
+      },
     ),
     StatefulShellRoute.indexedStack(
       builder: (context, state, navigationShell) =>
@@ -502,7 +723,20 @@ final GoRouter appRouter = GoRouter(
 
     // Гость: только публичный режим
     if (!isLoggedIn && path.startsWith('/app')) return '/public/home';
+    if (!isLoggedIn && path.startsWith('/staff')) return '/public/home';
     if (!isLoggedIn && (path == '/login' || path == '/login/')) return '/public/profile';
+
+    if (isLoggedIn) {
+      final user = await AppContainer.authRepository.getCurrentUser();
+      final isStaff = StaffRoles.isStaff(user?.role);
+      if (isStaff && path.startsWith('/app')) return '/staff/home';
+      if (!isStaff && path.startsWith('/staff')) return '/app/home';
+      if (isStaff &&
+          (path.startsWith('/staff/admission') || path.startsWith('/staff/admin')) &&
+          !StaffRoles.canViewAdmission(user)) {
+        return '/staff/home';
+      }
+    }
 
     // Старые маршруты абитуриента → главная гостя
     if (path == '/applicant' ||

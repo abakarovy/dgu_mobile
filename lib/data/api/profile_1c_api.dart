@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 
 import '../../core/constants/api_constants.dart';
 import '../../core/cache/json_cache.dart';
+import '../../features/grades/domain/semester_labels.dart';
 import '../models/absences_detail.dart';
 import '../models/one_c_my_profile.dart';
 import '../services/token_storage.dart';
@@ -276,10 +277,20 @@ class Profile1cApi {
           unexc = _asInt(d['unexcused_absences']);
         }
         int? y = _asInt(m['year'] ?? m['study_year']);
+        DateTime? periodStart;
+        DateTime? periodEnd;
+        final period = m['period'];
+        if (period is Map) {
+          final pm = Map<String, dynamic>.from(period);
+          periodStart = _parseAbsencePeriodDate(pm['start']);
+          periodEnd = _parseAbsencePeriodDate(pm['end']);
+        }
         semesters.add(
           AbsenceSemesterRow(
             semester: label,
             year: y,
+            periodStart: periodStart,
+            periodEnd: periodEnd,
             totalAbsences: abs,
             totalHours: hrs,
             excusedAbsences: exc,
@@ -348,6 +359,11 @@ class Profile1cApi {
     if (v is num) return v.toInt();
     if (v is String) return int.tryParse(v.trim());
     return null;
+  }
+
+  static DateTime? _parseAbsencePeriodDate(dynamic v) {
+    if (v == null) return null;
+    return SemesterPeriods.parsePeriodDate(v.toString());
   }
 
   static String _formatAbsencesRu(int n) {

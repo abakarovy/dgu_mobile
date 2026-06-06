@@ -16,6 +16,7 @@ import '../widgets/grades_list_view.dart';
 import '../widgets/learning_route_view.dart';
 import '../widgets/subject_grades_sheet.dart';
 import '../../domain/entities/grade_entity.dart';
+import '../../domain/final_grades_parser.dart';
 import '../../domain/grade_type_labels.dart';
 import '../../domain/merge_journal_absence_rows.dart';
 
@@ -47,10 +48,12 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
   bool _isWeekMode = true;
 
   static const String _cacheKeyGrades = 'grades:my';
+  static const String _cacheKeySession = 'grades:session';
   static const String _cacheKeySemesters = 'grades:semesters';
 
-  List<GradeEntity> _grades = const <GradeEntity>[];
-  /// Порядок семестров из ответа `sync-grades` (пусто — берём из записей).
+  List<GradeEntity> _journalGrades = const <GradeEntity>[];
+  List<GradeEntity> _sessionGrades = const <GradeEntity>[];
+  /// Семестры для фильтра сессии (из журнала, см. SESSION_GRADES.md).
   List<String> _semesterOrder = const <String>[];
   bool _refreshing = false;
   int _sessionSemesterIndex = 0;
@@ -151,7 +154,7 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
   /// Оценки предмета для шита: только «Текущие» (не итоги сессии), все загруженные строки.
   List<GradeListItem> _itemsForCurrentSubject(String name) {
     return mergeJournalAbsenceRows(
-      _grades
+      _journalGrades
           .where((g) => g.subjectName == name)
           .where((g) => !_isSessionType(g.gradeType))
           .where(_hasGradeValue)
@@ -165,10 +168,9 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
     if (semesters.isEmpty) return [];
     final idx = _sessionSemesterIndex.clamp(0, semesters.length - 1);
     final selected = semesters[idx];
-    return _grades
-        .where((g) => (g.semester ?? '').trim() == selected)
+    return _sessionGrades
+        .where((g) => JournalSemesterOptions.sessionRowMatchesSemester(g, selected))
         .where((g) => g.subjectName == name)
-        .where((g) => _isSessionType(g.gradeType))
         .map(_toListItem)
         .toList();
   }
@@ -191,7 +193,8 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
       _isWeekMode = false;
     }
 
-    _grades = _decodeCachedGrades();
+    _journalGrades = _decodeCachedGrades(_cacheKeyGrades);
+    _sessionGrades = _decodeCachedGrades(_cacheKeySession);
     _semesterOrder = _decodeCachedSemesters();
     _clampSemesterIndex();
     // Тихо обновим из сети, но UI строим сразу по кэшу (чтобы не было «загрузки» при открытии).
@@ -280,7 +283,7 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  if (_refreshing && _grades.isNotEmpty)
+                  if (_refreshing && (_journalGrades.isNotEmpty || _sessionGrades.isNotEmpty))
                     const LinearProgressIndicator(minHeight: 2),
                   if (idx == 0)
                     Padding(
@@ -330,15 +333,12 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
 
   Widget _buildCurrentTab(BuildContext context) {
     final currentEntities = mergeJournalAbsenceRows(
-      _grades
-          .where((g) => !_isSessionType(g.gradeType))
-          .where(_hasGradeValue)
-          .toList(),
+      _journalGrades.where(_hasGradeValue).toList(),
     );
     final list = currentEntities.map(_toListItem).toList();
     final filtered = _filtered(list);
 
-    if (_grades.isEmpty && _refreshing) {
+    if (_journalGrades.isEmpty && _refreshing) {
       return const Center(child: CircularProgressIndicator());
     }
     if (filtered.isEmpty) {
@@ -359,36 +359,16 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
     );
   }
 
-  /// Семестры: от нового к старому (как в `sync-grades` и в выборе семестра).
+  /// Семестры для переключателя сессии (из журнала).
   List<String> _effectiveSemesters() {
-    final raw = _semesterOrder.isNotEmpty
-        ? List<String>.from(_semesterOrder)
-        : _uniqueSemesters(_grades);
-    raw.sort(_compareSemestersNewestFirst);
-    return raw;
+    if (_semesterOrder.isNotEmpty) return _semesterOrder;
+    return JournalSemesterOptions.buildFromJournal(_journalGrades);
   }
 
-  /// Ключ для сортировки: «2 сем 2025-2026» → 20252 (год начала × 10 + номер семестра).
-  static int? _semesterSortKey(String raw) {
-    final t = raw.trim().toLowerCase().replaceAll('семестр', 'сем');
-    final m = RegExp(
-      r'^(\d+)\s*(?:сем|sem)\.?\s+(\d{4})\s*-\s*(\d{4})',
-      caseSensitive: false,
-    ).firstMatch(t);
-    if (m == null) return null;
-    final semNum = int.tryParse(m.group(1)!);
-    final yearStart = int.tryParse(m.group(2)!);
-    if (semNum == null || yearStart == null) return null;
-    return yearStart * 10 + semNum;
-  }
-
-  static int _compareSemestersNewestFirst(String a, String b) {
-    final ka = _semesterSortKey(a);
-    final kb = _semesterSortKey(b);
-    if (ka != null && kb != null) return kb.compareTo(ka);
-    if (ka != null) return -1;
-    if (kb != null) return 1;
-    return b.compareTo(a);
+  List<GradeEntity> _sessionGradesForSemester(String semester) {
+    return _sessionGrades
+        .where((g) => JournalSemesterOptions.sessionRowMatchesSemester(g, semester))
+        .toList();
   }
 
   void _clampSemesterIndex() {
@@ -421,19 +401,45 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
     return _sessionSemesterIndex > 0;
   }
 
-  List<String> _uniqueSemesters(List<GradeEntity> items) {
-    final set = <String>{};
-    for (final g in items) {
-      final s = (g.semester ?? '').trim();
-      if (s.isNotEmpty) set.add(s);
+  /// Итоги сессии по дисциплинам за один семестр.
+  List<Widget> _sessionCardsForSemester(
+    BuildContext context,
+    String semester,
+  ) {
+    final semesterEntities = _sessionGradesForSemester(semester);
+    if (semesterEntities.isEmpty) return const [];
+
+    final bySubject = <String, List<GradeEntity>>{};
+    for (final g in semesterEntities) {
+      bySubject.putIfAbsent(g.subjectName, () => []).add(g);
     }
-    final list = set.toList()..sort();
-    return list;
+    final subjects = bySubject.keys.toList()..sort();
+    const sessionCardSpacing = 16.0;
+
+    return [
+      for (final name in subjects)
+        if (_sessionSubjectHasVisibleOutcomes(bySubject[name]!)) ...[
+          Builder(
+            builder: (context) {
+              final list = bySubject[name]!;
+              final breakdown = _breakdownFor(list);
+              return _SessionGradeCard(
+                subjectName: name,
+                teacherName: _pickAnyTeacher(list),
+                breakdown: breakdown,
+                extraForms: _extraSessionForms(list, breakdown),
+                onTap: () => _showSubjectGrades(context, name, sessionTab: true),
+              );
+            },
+          ),
+          const SizedBox(height: sessionCardSpacing),
+        ],
+    ];
   }
 
   /// Итоги сессии по дисциплинам (атт., зачёт, экзамен и т.д.), не журнал «по дням» как в «Текущие».
   Widget _buildSessionTab(BuildContext context) {
-    if (_grades.isEmpty && _refreshing) {
+    if (_sessionGrades.isEmpty && _journalGrades.isEmpty && _refreshing) {
       return const Center(child: CircularProgressIndicator());
     }
     final semesters = _effectiveSemesters();
@@ -448,14 +454,13 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
         ),
       );
     }
+
     final n = semesters.length;
     final idx = _sessionSemesterIndex.clamp(0, n - 1);
     final selected = semesters[idx];
-    final semesterEntities = _grades
-        .where((g) => (g.semester ?? '').trim() == selected)
-        .where((g) => _isSessionType(g.gradeType))
-        .toList();
-    if (semesterEntities.isEmpty) {
+    final cards = _sessionCardsForSemester(context, selected);
+
+    if (cards.isEmpty) {
       return Center(
         child: Text(
           'Нет оценок за сессию',
@@ -467,47 +472,9 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
       );
     }
 
-    final bySubject = <String, List<GradeEntity>>{};
-    for (final g in semesterEntities) {
-      bySubject.putIfAbsent(g.subjectName, () => []).add(g);
-    }
-    final subjects = bySubject.keys.toList()..sort();
-    final visibleSubjects = <String>[
-      for (final name in subjects)
-        if (_sessionSubjectHasVisibleOutcomes(bySubject[name]!)) name,
-    ];
-
-    if (visibleSubjects.isEmpty) {
-      return Center(
-        child: Text(
-          'Нет итогов за сессию',
-          style: Theme.of(context)
-              .textTheme
-              .bodyLarge
-              ?.copyWith(color: AppColors.caption),
-        ),
-      );
-    }
-
-    const sessionCardSpacing = 16.0;
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(8, 0, 8, sessionCardSpacing),
-      itemCount: visibleSubjects.length,
-      separatorBuilder: (_, _) => const SizedBox(height: sessionCardSpacing),
-      itemBuilder: (context, i) {
-        final name = visibleSubjects[i];
-        final list = bySubject[name]!;
-        final breakdown = _breakdownFor(list);
-        final extraForms = _extraSessionForms(list, breakdown);
-        final teacher = _pickAnyTeacher(list);
-        return _SessionGradeCard(
-          subjectName: name,
-          teacherName: teacher,
-          breakdown: breakdown,
-          extraForms: extraForms,
-          onTap: () => _showSubjectGrades(context, name, sessionTab: true),
-        );
-      },
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(8, 0, 8, 16),
+      children: cards,
     );
   }
 
@@ -858,8 +825,8 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
     );
   }
 
-  List<GradeEntity> _decodeCachedGrades() {
-    final cached = AppContainer.jsonCache.getJsonList(_cacheKeyGrades);
+  List<GradeEntity> _decodeCachedGrades(String cacheKey) {
+    final cached = AppContainer.jsonCache.getJsonList(cacheKey);
     if (cached == null) return const <GradeEntity>[];
     String str(dynamic v) => v is String ? v : (v == null ? '' : '$v');
     return cached
@@ -888,6 +855,42 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
         .toList();
   }
 
+  Future<void> _persistGradesCache({
+    required List<GradeEntity> journal,
+    required List<GradeEntity> session,
+    required List<String> semesters,
+  }) async {
+    await AppContainer.jsonCache.setJson(
+      _cacheKeyGrades,
+      [
+        for (final g in journal)
+          {
+            'subject_name': g.subjectName,
+            'grade': g.grade,
+            'grade_type': g.gradeType,
+            'teacher_name': g.teacherName,
+            'date': g.date?.toIso8601String(),
+            'semester': g.semester,
+          }
+      ],
+    );
+    await AppContainer.jsonCache.setJson(
+      _cacheKeySession,
+      [
+        for (final g in session)
+          {
+            'subject_name': g.subjectName,
+            'grade': g.grade,
+            'grade_type': g.gradeType,
+            'teacher_name': g.teacherName,
+            'date': g.date?.toIso8601String(),
+            'semester': g.semester,
+          }
+      ],
+    );
+    await AppContainer.jsonCache.setJson(_cacheKeySemesters, semesters);
+  }
+
   Future<void> _refreshGrades() async {
     if (_refreshing) return;
     setState(() => _refreshing = true);
@@ -901,49 +904,43 @@ class _GradesPageState extends State<GradesPage> with SingleTickerProviderStateM
         }
       }
       final bundle = await AppContainer.gradesApi.loadMyGrades(studentIdOverride: sid);
-      final cached = _decodeCachedGrades();
+      final cachedJournal = _decodeCachedGrades(_cacheKeyGrades);
+      final cachedSession = _decodeCachedGrades(_cacheKeySession);
       final cachedSems = _decodeCachedSemesters();
-      final fresh = bundle.grades;
-      final freshSems = bundle.semesters;
-      // При пустом ответе сервера сохраняем старый кэш.
-      if (fresh.isNotEmpty || cached.isEmpty) {
-        await AppContainer.jsonCache.setJson(
-          _cacheKeyGrades,
-          [
-            for (final g in fresh)
-              {
-                'subject_name': g.subjectName,
-                'grade': g.grade,
-                'grade_type': g.gradeType,
-                'teacher_name': g.teacherName,
-                'date': g.date?.toIso8601String(),
-                'semester': g.semester,
-              }
-          ],
+
+      final hasFresh = bundle.journalGrades.isNotEmpty || bundle.sessionGrades.isNotEmpty;
+      final cacheEmpty = cachedJournal.isEmpty && cachedSession.isEmpty;
+
+      if (hasFresh || cacheEmpty) {
+        await _persistGradesCache(
+          journal: bundle.journalGrades,
+          session: bundle.sessionGrades,
+          semesters: bundle.semesters,
         );
-        await AppContainer.jsonCache.setJson(_cacheKeySemesters, freshSems);
         if (mounted) {
           setState(() {
-            _grades = fresh;
-            _semesterOrder = freshSems;
+            _journalGrades = bundle.journalGrades;
+            _sessionGrades = bundle.sessionGrades;
+            _semesterOrder = bundle.semesters;
             _clampSemesterIndex();
           });
         }
-      } else {
-        if (mounted) {
-          setState(() {
-            _grades = cached;
-            _semesterOrder = cachedSems;
-            _clampSemesterIndex();
-          });
-        }
+      } else if (mounted) {
+        setState(() {
+          _journalGrades = cachedJournal;
+          _sessionGrades = cachedSession;
+          _semesterOrder = cachedSems;
+          _clampSemesterIndex();
+        });
       }
     } catch (_) {
-      final cached = _decodeCachedGrades();
+      final cachedJournal = _decodeCachedGrades(_cacheKeyGrades);
+      final cachedSession = _decodeCachedGrades(_cacheKeySession);
       final cachedSems = _decodeCachedSemesters();
-      if (mounted && cached.isNotEmpty) {
+      if (mounted && (cachedJournal.isNotEmpty || cachedSession.isNotEmpty)) {
         setState(() {
-          _grades = cached;
+          _journalGrades = cachedJournal;
+          _sessionGrades = cachedSession;
           _semesterOrder = cachedSems;
           _clampSemesterIndex();
         });

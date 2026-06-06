@@ -300,7 +300,21 @@ class _ProfilePageState extends State<ProfilePage> {
       await AppContainer.jsonCache.setJson(
         'grades:my',
         [
-          for (final g in bundle.grades)
+          for (final g in bundle.journalGrades)
+            {
+              'subject_name': g.subjectName,
+              'grade': g.grade,
+              'grade_type': g.gradeType,
+              'teacher_name': g.teacherName,
+              'date': g.date?.toIso8601String(),
+              'semester': g.semester,
+            }
+        ],
+      );
+      await AppContainer.jsonCache.setJson(
+        'grades:session',
+        [
+          for (final g in bundle.sessionGrades)
             {
               'subject_name': g.subjectName,
               'grade': g.grade,

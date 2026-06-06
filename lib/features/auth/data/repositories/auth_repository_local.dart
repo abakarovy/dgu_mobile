@@ -81,4 +81,20 @@ class AuthRepositoryLocal implements AuthRepository {
 
   @override
   Future<UserEntity?> getCurrentUser() async => _mockUser;
+
+  @override
+  Future<AuthLoginResult> loginStaff({
+    required String email,
+    required String password,
+  }) async {
+    return AuthLoginSuccess(
+      const UserEntity(
+        id: 'local-staff-1',
+        email: 'staff@local.dgu.ru',
+        fullName: 'Сотрудник (локально)',
+        role: 'teacher',
+        isTeacher: true,
+      ),
+    );
+  }
 }

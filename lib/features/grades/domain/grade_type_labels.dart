@@ -26,6 +26,16 @@ abstract final class GradeTypeLabels {
     return t.contains('экзам') || t.contains('гэк') || t.contains('гос');
   }
 
+  static bool isAttestation(String typeRaw) {
+    final t = _norm(typeRaw);
+    return t.contains('аттест') ||
+        t.contains('att 1') ||
+        t.contains('att 2') ||
+        (t.contains('1 ат') && !t.contains('ответ')) ||
+        t.contains('2 ат') ||
+        t.contains('промежут');
+  }
+
   static bool isCoursework(String typeRaw) => _norm(typeRaw).contains('курсов');
 
   /// Итог сессии: зачёт, экзамен, курсовая и т.п. (не текущие К/Р, пропуски).
@@ -40,6 +50,7 @@ abstract final class GradeTypeLabels {
     return isExam(typeRaw) ||
         isDifferentiatedCredit(typeRaw) ||
         isCoursework(typeRaw) ||
+        isAttestation(typeRaw) ||
         t.contains('итог') ||
         isPlainCredit(typeRaw);
   }

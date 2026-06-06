@@ -513,34 +513,12 @@ class _LoginPageState extends State<LoginPage> {
                                     behavior: HitTestBehavior.opaque,
                                     onTap: () => context.go(
                                       '/login/email',
-                                      extra: const {
-                                        'role': 'student',
-                                        'mode': 'login',
-                                      },
+                                      extra: const {'mode': 'login'},
                                     ),
                                     child: SizedBox(
                                       width: double.infinity,
                                       child: Text(
                                         'Войти по E-mail',
-                                        textAlign: TextAlign.center,
-                                        style: linkStyle,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 24),
-                                  GestureDetector(
-                                    behavior: HitTestBehavior.opaque,
-                                    onTap: () => context.go(
-                                      '/login/email',
-                                      extra: const {
-                                        'role': 'parent',
-                                        'mode': 'login',
-                                      },
-                                    ),
-                                    child: SizedBox(
-                                      width: double.infinity,
-                                      child: Text(
-                                        'Войти как родитель',
                                         textAlign: TextAlign.center,
                                         style: linkStyle,
                                       ),

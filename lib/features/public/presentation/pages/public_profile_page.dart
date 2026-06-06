@@ -6,7 +6,7 @@ import '../../../../core/constants/app_ui.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../shared/widgets/app_developer_card.dart';
 
-/// Профиль гостя (абитуриент): вход студента или родителя.
+/// Профиль гостя: вход в аккаунт (студент/родитель) и сотрудники.
 class PublicProfilePage extends StatelessWidget {
   const PublicProfilePage({super.key});
 
@@ -39,20 +39,21 @@ class PublicProfilePage extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _RoleLoginCard(
-              title: 'Я студент',
-              icon: Icons.school_outlined,
-              primary: false,
-              onTap: () => context.push('/login/student'),
-            ),
-            const SizedBox(height: AppUi.spacingM),
-            _RoleLoginCard(
-              title: 'Я родитель',
-              icon: Icons.family_restroom_outlined,
+              title: 'Студент или родитель',
+              subtitle: 'Вход по e-mail и паролю',
+              icon: Icons.account_circle_outlined,
               primary: true,
               onTap: () => context.push(
                 '/login/email',
-                extra: const {'role': 'parent', 'mode': 'login'},
+                extra: const {'mode': 'login'},
               ),
+            ),
+            const SizedBox(height: AppUi.spacingM),
+            _RoleLoginCard(
+              title: 'Сотрудник',
+              icon: Icons.badge_outlined,
+              primary: false,
+              onTap: () => context.push('/login/staff'),
             ),
             const SizedBox(height: AppUi.spacingXl),
             Row(
@@ -118,9 +119,11 @@ class _RoleLoginCard extends StatelessWidget {
     required this.icon,
     required this.primary,
     required this.onTap,
+    this.subtitle,
   });
 
   final String title;
+  final String? subtitle;
   final IconData icon;
   final bool primary;
   final VoidCallback onTap;
@@ -174,13 +177,30 @@ class _RoleLoginCard extends StatelessWidget {
               ),
               const SizedBox(width: AppUi.spacingM),
               Expanded(
-                child: Text(
-                  title,
-                  style: AppTextStyle.inter(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 16,
-                    color: primary ? Colors.white : AppColors.textPrimary,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: AppTextStyle.inter(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
+                        color: primary ? Colors.white : AppColors.textPrimary,
+                      ),
+                    ),
+                    if ((subtitle ?? '').trim().isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        subtitle!.trim(),
+                        style: AppTextStyle.inter(
+                          fontSize: 13,
+                          color: primary
+                              ? Colors.white.withValues(alpha: 0.85)
+                              : AppColors.grey,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
               Icon(

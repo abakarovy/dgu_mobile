@@ -34,6 +34,328 @@ abstract final class DemoMockResponses {
     if (path == '/auth/me') {
       return DemoMockPayload(statusCode: 200, data: DemoSession.demoUser.toJson());
     }
+    if (path == '/v1/user/profile') {
+      return DemoMockPayload(statusCode: 200, data: _staffUser());
+    }
+    if (path == '/v1/staff/capabilities') {
+      return DemoMockPayload(statusCode: 200, data: _staffCapabilities());
+    }
+    if (path == '/v1/admin/applicants') {
+      return DemoMockPayload(statusCode: 200, data: _staffApplicants());
+    }
+    if (path.startsWith('/v1/admin/applicants/')) {
+      final id = int.tryParse(path.split('/').last) ?? 1;
+      return DemoMockPayload(statusCode: 200, data: _staffApplicantDetail(id));
+    }
+    if (path == '/v1/admin/payment-cutoff') {
+      return DemoMockPayload(statusCode: 200, data: {'cutoff_score': 4.35});
+    }
+    if (path == '/mobile/events/admin/list') {
+      return DemoMockPayload(statusCode: 200, data: _staffEventsAdmin());
+    }
+    if (path == '/mobile-app-release/admin') {
+      return DemoMockPayload(
+        statusCode: 200,
+        data: {
+          'check_updates_on_launch': true,
+          'latest_version': '1.1.1',
+          'min_version': '1.1.1',
+          'force_update': true,
+          'update_title': 'Доступно обновление',
+          'update_message': 'Что нового в этой версии…',
+          'store_url_rustore':
+              'https://www.rustore.ru/catalog/app/ru.dgu.college.dgu_mobile.android',
+          'store_url_ios': 'https://apps.apple.com/us/app/',
+          'store_url_android':
+              'https://play.google.com/store/apps/details?id=ru.dgu.college.dgu_mobile.android',
+          'updated_at': '2026-06-04T14:56:34',
+        },
+      );
+    }
+    if (path == '/admin/dashboard-stats') {
+      return DemoMockPayload(
+        statusCode: 200,
+        data: {
+          'users_total': 393,
+          'users_new_week': 380,
+          'students_count': 379,
+          'teachers_count': 2,
+          'department_heads_count': 3,
+          'admins_count': 5,
+          'news_published': 3,
+          'news_total': 3,
+          'news_unpublished': 0,
+          'news_published_week': 3,
+          'groups_total': 1,
+          'groups_new_week': 0,
+          'portfolio_pending': 0,
+          'document_requests_pending': 7,
+          'materials_total': 0,
+          'upk_services': 1,
+          'upk_services_active': 1,
+          'upk_cases': 0,
+          'clients': {
+            'registered_web': 10,
+            'registered_mobile': 182,
+            'registered_admin': 0,
+            'registered_invite': 1,
+            'logins_week': 17,
+            'logins_mobile': 12,
+            'logins_web': 5,
+            'mobile_app_opens_week': 203,
+          },
+          'registrations_by_source_week': [
+            {'label': 'Не указано', 'count': 187},
+            {'label': 'Мобильное приложение', 'count': 182},
+            {'label': 'Сайт', 'count': 10},
+            {'label': 'Приглашение', 'count': 1},
+          ],
+          'registrations_by_source_total': [
+            {'label': 'Не указано', 'count': 200},
+            {'label': 'Мобильное приложение', 'count': 182},
+            {'label': 'Сайт', 'count': 10},
+            {'label': 'Приглашение', 'count': 1},
+          ],
+          'logins_by_client_week': [
+            {'label': 'Не указано', 'count': 12},
+            {'label': 'Сайт', 'count': 5},
+          ],
+          'registrations_by_client_week': [
+            {'label': 'Мобильное приложение', 'count': 109},
+            {'label': 'Сайт', 'count': 3},
+          ],
+          'app_versions_week': [
+            {'label': '1.1.1', 'count': 195},
+            {'label': '1.1.0', 'count': 8},
+          ],
+          'mobile_app_by_platform': [
+            {'label': 'iOS', 'count': 113},
+            {'label': 'Android', 'count': 89},
+            {'label': 'windows', 'count': 1},
+          ],
+        },
+      );
+    }
+    if (path == '/journal/subjects/my') {
+      return DemoMockPayload(
+        statusCode: 200,
+        data: [
+          {'id': 1, 'name': 'Информатика', 'group_code': 'ИС-201'},
+        ],
+      );
+    }
+    if (path == '/cabinet/department/me') {
+      return DemoMockPayload(
+        statusCode: 200,
+        data: {'department_name': 'Отделение информационных технологий'},
+      );
+    }
+    if (path == '/cabinet/department/groups-overview') {
+      return DemoMockPayload(
+        statusCode: 200,
+        data: [
+          {'group_code': 'ИС-201', 'students_count': 28},
+        ],
+      );
+    }
+    if (path == '/cabinet/department/announcements') {
+      return DemoMockPayload(statusCode: 200, data: []);
+    }
+    if (path == '/news/admin/list') {
+      return DemoMockPayload(
+        statusCode: 200,
+        data: [
+          {'id': 1, 'title': 'Демо-новость', 'created_at': '2026-05-01'},
+        ],
+      );
+    }
+    if (path == '/users') {
+      if (options.method == 'POST') {
+        return DemoMockPayload(statusCode: 201, data: {'id': 99, ...?options.data});
+      }
+      return DemoMockPayload(
+        statusCode: 200,
+        data: [
+          {
+            'id': 1,
+            'full_name': 'Студент Демо',
+            'email': 'test@test.ru',
+            'role': 'student',
+            'is_test_user': true,
+            'is_active': true,
+            'force_password_change': true,
+          },
+          {
+            'id': 2,
+            'full_name': 'Ягияев Али',
+            'email': 'ali.yagiyaev@yandex.ru',
+            'role': 'student',
+            'status': 'active',
+          },
+          {
+            'id': 3,
+            'full_name': 'Гаджилаев Магомедгаджи',
+            'email': 'info@gadzhilaev.ru',
+            'role': 'admin',
+            'status': 'inactive',
+            'is_active': false,
+          },
+        ],
+      );
+    }
+    if (path.startsWith('/users/') && options.method == 'PUT') {
+      return DemoMockPayload(statusCode: 200, data: options.data ?? {});
+    }
+    if (path.startsWith('/users/') && options.method == 'DELETE') {
+      return DemoMockPayload(statusCode: 204, data: null);
+    }
+    if (path == '/groups') {
+      if (options.method == 'POST') {
+        final body = options.data is Map
+            ? Map<String, dynamic>.from(options.data as Map)
+            : <String, dynamic>{};
+        return DemoMockPayload(
+          statusCode: 201,
+          data: {
+            'id': 99,
+            'teacher_id': body['teacher_id'] ?? 2,
+            'students_count': 0,
+            'created_at': DateTime.now().toUtc().toIso8601String(),
+            ...body,
+          },
+        );
+      }
+      return DemoMockPayload(
+        statusCode: 200,
+        data: [
+          {
+            'id': 1,
+            'name': 'ОИБАС 3к 1г 2023',
+            'teacher_id': 2,
+            'teacher_name': 'Ягияев Али',
+            'students_count': 8,
+            'status': 'active',
+            'description': 'Создана автоматически из сводки отделения 1С',
+            'course': 3,
+            'direction': 'ОИБАС',
+          },
+        ],
+      );
+    }
+    if (path.startsWith('/groups/') && path.endsWith('/students')) {
+      return DemoMockPayload(
+        statusCode: 200,
+        data: [
+          {
+            'id': 101,
+            'full_name': 'АХМЕДОВА ДЖАМИЛЯ КАМИЛЬЕВНА',
+            'email': 'jamila@demo.ru',
+            'role': 'student',
+          },
+          {
+            'id': 102,
+            'full_name': 'СИДИКОВ СОДИРХОН БАХТИЁРОВИЧ',
+            'email': 'sodir@demo.ru',
+            'role': 'student',
+          },
+        ],
+      );
+    }
+    if (RegExp(r'^/groups/\d+/students/\d+').hasMatch(path)) {
+      return DemoMockPayload(statusCode: 200, data: {});
+    }
+    if (RegExp(r'^/groups/\d+').hasMatch(path)) {
+      if (options.method == 'PUT') {
+        return DemoMockPayload(statusCode: 200, data: options.data ?? {});
+      }
+      return DemoMockPayload(
+        statusCode: 200,
+        data: {
+          'id': 1,
+          'name': 'ОИБАС 3к 1г 2023',
+          'teacher_id': 2,
+          'students_count': 8,
+          'description': 'Создана автоматически из сводки отделения 1С',
+          'course': 3,
+          'direction': 'ОИБАС',
+          'created_at': DateTime.now().toUtc().toIso8601String(),
+        },
+      );
+    }
+    if (path == '/portfolio/admin/pending') {
+      return const DemoMockPayload(statusCode: 200, data: <dynamic>[]);
+    }
+    if (path == '/admin/settings') {
+      return DemoMockPayload(
+        statusCode: 200,
+        data: {
+          'email_notifications': true,
+          'upk_cases_public': true,
+          'student_registration_enabled': true,
+          'maintenance_mode': false,
+          'auto_publish_news': true,
+        },
+      );
+    }
+    if (path == '/edu-disclosure/admin/sections') {
+      return DemoMockPayload(
+        statusCode: 200,
+        data: [
+          {'slug': 'mto', 'title': 'МТО — материально-техническое обеспечение'},
+          {'slug': 'about', 'title': 'О колледже'},
+        ],
+      );
+    }
+    if (path == '/admin/weekly-grades-digest/preview') {
+      return DemoMockPayload(
+        statusCode: 200,
+        data: {
+          'week_label': '1–7 июня 2026',
+          'week_start': '2026-06-01',
+          'week_end': '2026-06-07',
+          'student_name': 'Студент Демо',
+          'rows': [
+            {
+              'date': '2026-06-03',
+              'subject_name': 'Математика',
+              'grade_type': 'Текущая',
+              'grade_value': '5',
+            },
+          ],
+        },
+      );
+    }
+    if (path == '/admin/weekly-grades-digest/send-student') {
+      return DemoMockPayload(
+        statusCode: 200,
+        data: {'ok': true, 'message': 'Письмо отправлено', 'emails_sent': 1},
+      );
+    }
+    if (path == '/admin/weekly-grades-digest/send-broadcast') {
+      return DemoMockPayload(
+        statusCode: 200,
+        data: {
+          'week_label': '1–7 июня 2026',
+          'emails_sent': 12,
+          'emails_failed': 0,
+          'students_processed': 15,
+          'students_skipped_no_book': 0,
+          'students_no_grades_in_week': 3,
+        },
+      );
+    }
+    if (path == '/admin/weekly-grades-digest/recipients') {
+      return DemoMockPayload(
+        statusCode: 200,
+        data: [
+          {
+            'value': '1',
+            'student_user_id': 1,
+            'line': 'Студент Демо · test@test.ru',
+          },
+        ],
+      );
+    }
     if (path == '/groups/my') {
       return const DemoMockPayload(statusCode: 200, data: <dynamic>[]);
     }
@@ -52,7 +374,7 @@ abstract final class DemoMockResponses {
       return DemoMockPayload(statusCode: 200, data: _syncGrades());
     }
     if (path == '/1c/final-grades') {
-      return DemoMockPayload(statusCode: 200, data: {'grades': []});
+      return DemoMockPayload(statusCode: 200, data: _finalGrades());
     }
     if (path == '/1c/curriculum') {
       return DemoMockPayload(statusCode: 200, data: _curriculum());
@@ -64,7 +386,7 @@ abstract final class DemoMockResponses {
       return DemoMockPayload(statusCode: 404, data: {'detail': 'Фото не найдено'});
     }
     if (path == '/journal/grades/my') {
-      return DemoMockPayload(statusCode: 200, data: []);
+      return DemoMockPayload(statusCode: 200, data: _journalGradesMy());
     }
     if (path == '/news' || path.startsWith('/news/')) {
       if (path.startsWith('/news/') && path != '/news') {
@@ -172,6 +494,53 @@ abstract final class DemoMockResponses {
   }
 
   static DemoMockPayload? _mutate(String path, String method, RequestOptions options) {
+    if (path == '/v1/auth/staff') {
+      return DemoMockPayload(
+        statusCode: 200,
+        data: {
+          'token': DemoSession.demoToken,
+          'user': _staffUser(),
+        },
+      );
+    }
+    if (path == '/v1/auth/web-handoff') {
+      final body = options.data;
+      final target = body is Map ? (body['target'] ?? 'news_edit') : 'news_edit';
+      return DemoMockPayload(
+        statusCode: 200,
+        data: {
+          'url':
+              'https://college.dgu.ru/auth/mobile-handoff?code=demo-handoff&target=$target',
+        },
+      );
+    }
+    if (path == '/v1/user/avatar') {
+      return DemoMockPayload(
+        statusCode: 200,
+        data: {'avatar_url': '/uploads/avatars/demo_staff.jpg'},
+      );
+    }
+    if (path == '/v1/admin/set-payment-cutoff') {
+      return DemoMockPayload(
+        statusCode: 200,
+        data: {
+          'cutoff_score': 4.35,
+          'moved_to_payment_count': 3,
+          'push_sent': 2,
+          'push_failed': 0,
+        },
+      );
+    }
+    if (path == '/mobile-app-release/admin' && method == 'PUT') {
+      final body = options.data;
+      return DemoMockPayload(
+        statusCode: 200,
+        data: body is Map ? Map<String, dynamic>.from(body) : {'ok': true},
+      );
+    }
+    if (path.startsWith('/mobile/events/') && method == 'DELETE') {
+      return DemoMockPayload(statusCode: 200, data: {'ok': true});
+    }
     if (path == '/auth/login') {
       return DemoMockPayload(statusCode: 200, data: DemoSession.demoUser.toJson());
     }
@@ -190,6 +559,12 @@ abstract final class DemoMockResponses {
         return DemoMockPayload(statusCode: 200, data: Map<String, dynamic>.from(body));
       }
       return DemoMockPayload(statusCode: 200, data: _notificationPrefs());
+    }
+    if (path == '/scholarship-rating/staff/pending') {
+      return const DemoMockPayload(statusCode: 200, data: <dynamic>[]);
+    }
+    if (path == '/scholarship-rating/staff/approved') {
+      return const DemoMockPayload(statusCode: 200, data: <dynamic>[]);
     }
     if (path.startsWith('/portfolio/') || path.startsWith('/scholarship-rating/')) {
       return DemoMockPayload(statusCode: 200, data: {'ok': true});
@@ -301,6 +676,80 @@ abstract final class DemoMockResponses {
             ],
           },
         ],
+      };
+
+  /// Журнал без сессионных типов (как после нормализации бэкенда).
+  static List<Map<String, dynamic>> _journalGradesMy() => [
+        {
+          'subject_name': 'Веб-программирование',
+          'grade_value': 4,
+          'grade_type': 'Контрольная работа',
+          'date': '2026-04-15',
+          'semester': '2 сем 2025-2026',
+        },
+        {
+          'subject_name': 'Системное программирование',
+          'grade_value': 5,
+          'grade_type': 'Ответ у доски',
+          'date': '2026-04-22',
+          'semester': '2 сем 2025-2026',
+        },
+        {
+          'subject_name': 'Математика',
+          'grade_value': 4,
+          'grade_type': 'Контрольная работа',
+          'date': '2025-11-12',
+          'semester': '1 сем 2025-2026',
+        },
+        {
+          'subject_name': 'Физика',
+          'grade_value': 5,
+          'grade_type': 'Лабораторная',
+          'date': '2025-10-20',
+          'semester': '1 сем 2025-2026',
+        },
+      ];
+
+  /// Итоговые ведомости сессии — отдельный API.
+  static Map<String, dynamic> _finalGrades() => {
+        'grades': [
+          {
+            'subject': 'Операционные системы',
+            'control_type': 'Экзамен (балльная шкала)',
+            'grade': '5',
+            'date': '2026-05-23',
+            'semester': '2 сем 2025-2026',
+          },
+          {
+            'subject': 'Базы данных',
+            'control_type': 'Экзамен (балльная шкала)',
+            'grade': '5',
+            'date': '2026-05-23',
+            'semester': '2 сем 2025-2026',
+          },
+          {
+            'subject': 'История',
+            'control_type': 'Экзамен (балльная шкала)',
+            'grade': '5',
+            'date': '2025-06-22',
+            'semester': '2 сем 2024-2025',
+          },
+          {
+            'subject': 'Безопасность жизнедеятельности',
+            'control_type': 'Зачёт',
+            'grade': '5',
+            'date': '2025-06-18',
+            'semester': '2 сем 2024-2025',
+          },
+          {
+            'subject': 'Математика',
+            'control_type': 'Экзамен (балльная шкала)',
+            'grade': '4',
+            'date': '2026-01-20',
+            'semester': '1 сем 2025-2026',
+          },
+        ],
+        'is_cached': false,
       };
 
   static Map<String, dynamic> _curriculum() => {
@@ -945,5 +1394,122 @@ abstract final class DemoMockResponses {
               '<li><a href="https://profspo.ru/">ПРОФ СПО</a></li>'
               '</ul>',
         },
+      };
+
+  static Map<String, dynamic> _staffUser() => {
+        'id': 9001,
+        'fio': 'Демо Администратор',
+        'email': 'staff-demo@dgu.ru',
+        'role': 'admin',
+        'is_admin': true,
+        'can_access_site_admin': true,
+        'can_access_admission_admin': true,
+        'can_access_department_cabinet': false,
+        'is_teacher': false,
+        'position': 'Администрация колледжа',
+        'avatar_url': null,
+      };
+
+  static Map<String, dynamic> _staffCapabilities() => {
+        'role': 'admin',
+        'is_admin': true,
+        'can_access_site_admin': true,
+        'can_access_admission_admin': true,
+        'can_access_department_cabinet': false,
+        'is_teacher': false,
+        'modules': [
+          {
+            'id': 'profile',
+            'label': 'Профиль и аватар',
+            'mobile_ready': 'full',
+          },
+          {
+            'id': 'admission_campaign',
+            'label': 'Приёмная кампания',
+            'mobile_ready': 'full',
+          },
+          {
+            'id': 'events',
+            'label': 'Мероприятия',
+            'mobile_ready': 'full',
+          },
+          {
+            'id': 'dashboard',
+            'label': 'Дашборд',
+            'mobile_ready': 'full',
+          },
+          {
+            'id': 'news',
+            'label': 'Новости',
+            'mobile_ready': 'full',
+          },
+          {
+            'id': 'users',
+            'label': 'Пользователи',
+            'mobile_ready': 'full',
+          },
+          {
+            'id': 'groups',
+            'label': 'Группы',
+            'mobile_ready': 'full',
+          },
+          {
+            'id': 'moderation',
+            'label': 'Модерация',
+            'mobile_ready': 'full',
+          },
+          {
+            'id': 'weekly_grades',
+            'label': 'Рассылка оценок',
+            'mobile_ready': 'full',
+          },
+          {
+            'id': 'scholarship_rating',
+            'label': 'Стипендиальный рейтинг',
+            'mobile_ready': 'full',
+          },
+          {
+            'id': 'mobile_app',
+            'label': 'Мобильное приложение',
+            'mobile_ready': 'full',
+          },
+        ],
+      };
+
+  static List<Map<String, dynamic>> _staffEventsAdmin() => [
+        {
+          'id': 1,
+          'title': 'День открытых дверей',
+          'start_at': '2026-06-01T10:00:00',
+          'location': 'Колледж ДГУ',
+        },
+      ];
+
+  static Map<String, dynamic> _staffApplicants() => {
+        'items': [
+          {
+            'id': 1,
+            'full_name': 'Иванов Иван Иванович',
+            'exam_score': 4.52,
+            'status': 'registered',
+          },
+          {
+            'id': 2,
+            'full_name': 'Петрова Анна Сергеевна',
+            'exam_score': 4.10,
+            'status': 'payment_list',
+          },
+        ],
+        'total': 2,
+      };
+
+  static Map<String, dynamic> _staffApplicantDetail(int id) => {
+        'id': id,
+        'full_name': 'Иванов Иван Иванович',
+        'email': 'ivanov@mail.ru',
+        'phone': '+79001234567',
+        'phone_extra': null,
+        'exam_score': 4.52,
+        'status': 'registered',
       };
 }

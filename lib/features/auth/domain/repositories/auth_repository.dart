@@ -52,4 +52,10 @@ abstract class AuthRepository {
 
   /// Текущий пользователь из кэша или /auth/me. null если не авторизован.
   Future<UserEntity?> getCurrentUser();
+
+  /// Вход сотрудника: POST /api/v1/auth/staff.
+  Future<AuthLoginResult> loginStaff({
+    required String email,
+    required String password,
+  });
 }
