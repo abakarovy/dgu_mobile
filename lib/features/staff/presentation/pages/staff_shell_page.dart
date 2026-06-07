@@ -71,7 +71,7 @@ class _StaffShellPageState extends State<StaffShellPage> {
     final path = GoRouterState.of(context).uri.path;
     final branchIndex = _shell.currentIndex;
     final isSettingsScreen = path.endsWith('/settings');
-    final hideShellAppBar = isSettingsScreen || branchIndex == _indexHome;
+    final hideShellAppBar = isSettingsScreen;
     final hideShellBottomNavBase = isSettingsScreen || _isNestedStaffRoute(path);
 
     return Column(
@@ -89,14 +89,9 @@ class _StaffShellPageState extends State<StaffShellPage> {
                     ? null
                     : AppHeader(
                         headerTitle: switch (branchIndex) {
-                          _indexHome => Text(
+                          _indexHome => _navTitle(
                               'Дашборд',
-                              style: AppTextStyle.inter(
-                                fontWeight: FontWeight.w700,
-                                fontSize: 14.44,
-                                height: 1.0,
-                                color: const Color(0xFF000000),
-                              ),
+                              iconAsset: 'assets/icons/nav_home.svg',
                             ),
                           _indexUsers => _navTitle(
                               'Пользователи',

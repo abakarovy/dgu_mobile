@@ -52,7 +52,7 @@ class _DepartmentShellPageState extends State<DepartmentShellPage> {
     final path = GoRouterState.of(context).uri.path;
     final branchIndex = _shell.currentIndex;
     final isSettingsScreen = path.endsWith('/settings');
-    final hideShellAppBar = isSettingsScreen || branchIndex == _indexOverview;
+    final hideShellAppBar = isSettingsScreen;
     final hideShellBottomNavBase = isSettingsScreen;
 
     return Column(
@@ -70,6 +70,10 @@ class _DepartmentShellPageState extends State<DepartmentShellPage> {
                     ? null
                     : AppHeader(
                         headerTitle: switch (branchIndex) {
+                          _indexOverview => _navTitle(
+                              'Главная',
+                              iconAsset: 'assets/icons/nav_home.svg',
+                            ),
                           _indexCurators => _navTitle(
                               'Кураторы',
                               iconAsset: 'assets/icons/users.svg',

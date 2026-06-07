@@ -23,7 +23,9 @@ final class AppRuntimeInfo {
 
   int get buildNumberInt => int.tryParse(buildNumber) ?? 0;
 
-  String get versionDisplay => 'Версия $version';
+  /// Semver из [AppReleaseInfo] (синхрон с pubspec), не из PackageInfo —
+  /// на Windows/dev PackageInfo может отставать после hot reload.
+  String get versionDisplay => 'Версия ${AppReleaseInfo.version}';
 
   /// Один общий future на всё приложение (не создавать новый в [FutureBuilder] на каждый build).
   Future<void> ensureLoaded() {
@@ -35,25 +37,19 @@ final class AppRuntimeInfo {
 
     try {
       final info = await PackageInfo.fromPlatform();
-      version = _pickVersion(info.version);
       buildNumber = _pickBuild(info.buildNumber, info.version);
     } catch (_) {
-      version = AppReleaseInfo.version;
+      buildNumber = AppReleaseInfo.buildNumber;
+    }
+
+    version = AppReleaseInfo.version;
+    if (buildNumber.isEmpty || buildNumber == '0') {
       buildNumber = AppReleaseInfo.buildNumber;
     }
 
     platformId = _platformId();
     deviceLabel = await _loadDeviceLabel();
     _loaded = true;
-  }
-
-  static String _pickVersion(String fromPackage) {
-    final v = fromPackage.trim();
-    if (v.isEmpty || v == '0.0.0') return AppReleaseInfo.version;
-    // Windows иногда отдаёт "1.1.0+27" целиком в version.
-    final plus = v.indexOf('+');
-    if (plus > 0) return v.substring(0, plus);
-    return v;
   }
 
   static String _pickBuild(String buildNumber, String versionField) {
@@ -69,7 +65,7 @@ final class AppRuntimeInfo {
 
   /// Query для `GET /api/health` (semver без номера сборки, см. MOBILE_HEALTH_CLIENT.md).
   Map<String, String> toHealthQueryParameters() => {
-        'app_version': version,
+        'app_version': AppReleaseInfo.version,
         'platform': platformId,
         'device_model': deviceLabel,
       };

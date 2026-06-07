@@ -80,15 +80,6 @@ class _DepartmentHomePageState extends State<DepartmentHomePage> {
             32,
           ),
           children: [
-            Text(
-              'Главная',
-              style: AppTextStyle.inter(
-                fontWeight: FontWeight.w800,
-                fontSize: 22,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 16),
             if (_loading)
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 48),

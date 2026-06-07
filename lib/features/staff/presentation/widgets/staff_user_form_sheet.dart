@@ -354,6 +354,7 @@ class _StaffUserFormSheetState extends State<_StaffUserFormSheet> {
   late final TextEditingController _directionCtrl;
   late String _role;
   late bool _active;
+  late bool _isTestUser;
   bool _saving = false;
   String? _error;
 
@@ -371,8 +372,17 @@ class _StaffUserFormSheetState extends State<_StaffUserFormSheet> {
     _directionCtrl = TextEditingController(text: '${u?['direction'] ?? u?['specialty'] ?? ''}');
     _role = (u?['role'] ?? 'student').toString().trim().toLowerCase();
     if (!StaffUserRoles.allRoles.any((e) => e.$1 == _role)) _role = 'student';
-    final s = u?['status'] ?? u?['is_active'];
-    _active = s == null || s == true || s == 'active' || s == 'Активен';
+    _isTestUser = u?['is_test_user'] == true;
+    if (u?['is_active'] is bool) {
+      _active = u!['is_active'] as bool;
+    } else {
+      final s = u?['status'];
+      _active = s == null ||
+          s == true ||
+          s == 'active' ||
+          s == 'Активен' ||
+          s == 'активен';
+    }
   }
 
   @override
@@ -395,6 +405,7 @@ class _StaffUserFormSheetState extends State<_StaffUserFormSheet> {
       'role': _role,
       'is_active': _active,
     };
+    if (widget.isEdit) body['is_test_user'] = _isTestUser;
     final pe = _parentEmailCtrl.text.trim();
     if (pe.isNotEmpty) body['parent_email'] = pe;
     final book = _bookCtrl.text.trim();
@@ -499,6 +510,29 @@ class _StaffUserFormSheetState extends State<_StaffUserFormSheet> {
                 if (v != null) setState(() => _role = v);
               },
             ),
+            if (widget.isEdit) ...[
+              const SizedBox(height: 12),
+              Text(
+                'Статус',
+                style: AppTextStyle.inter(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.grey,
+                ),
+              ),
+              const SizedBox(height: 6),
+              StaffAdminUi.adminCheckboxTile(
+                label: 'Активен',
+                value: _active,
+                onChanged: (v) => setState(() => _active = v ?? false),
+              ),
+              const SizedBox(height: 6),
+              StaffAdminUi.adminCheckboxTile(
+                label: 'Тестовый пользователь',
+                value: _isTestUser,
+                onChanged: (v) => setState(() => _isTestUser = v ?? false),
+              ),
+            ],
             if (!widget.isEdit) ...[
               const SizedBox(height: 12),
               TextFormField(
@@ -548,17 +582,6 @@ class _StaffUserFormSheetState extends State<_StaffUserFormSheet> {
                 controller: _password2Ctrl,
                 obscureText: true,
                 decoration: StaffAdminUi.fieldDecoration('Повторите пароль'),
-              ),
-              const SizedBox(height: 8),
-              CheckboxListTile(
-                contentPadding: EdgeInsets.zero,
-                value: _active,
-                activeColor: StaffAdminUi.primaryBlue,
-                title: Text(
-                  'Активен',
-                  style: AppTextStyle.inter(fontSize: 14),
-                ),
-                onChanged: (v) => setState(() => _active = v ?? true),
               ),
             ],
             if (_error != null) ...[

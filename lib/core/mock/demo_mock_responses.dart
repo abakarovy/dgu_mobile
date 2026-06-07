@@ -58,8 +58,8 @@ abstract final class DemoMockResponses {
         statusCode: 200,
         data: {
           'check_updates_on_launch': true,
-          'latest_version': '1.1.1',
-          'min_version': '1.1.1',
+          'latest_version': '1.1.2',
+          'min_version': '1.1.2',
           'force_update': true,
           'update_title': 'Доступно обновление',
           'update_message': 'Что нового в этой версии…',
@@ -125,7 +125,7 @@ abstract final class DemoMockResponses {
             {'label': 'Сайт', 'count': 3},
           ],
           'app_versions_week': [
-            {'label': '1.1.1', 'count': 195},
+            {'label': '1.1.2', 'count': 195},
             {'label': '1.1.0', 'count': 8},
           ],
           'mobile_app_by_platform': [

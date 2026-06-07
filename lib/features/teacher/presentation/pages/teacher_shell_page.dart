@@ -57,7 +57,7 @@ class _TeacherShellPageState extends State<TeacherShellPage> {
     final path = GoRouterState.of(context).uri.path;
     final branchIndex = _shell.currentIndex;
     final isSettingsScreen = path.endsWith('/settings');
-    final hideShellAppBar = isSettingsScreen || branchIndex == _indexHome;
+    final hideShellAppBar = isSettingsScreen;
     final hideShellBottomNavBase = isSettingsScreen || _isNestedTeacherRoute(path);
 
     return Column(
@@ -75,6 +75,10 @@ class _TeacherShellPageState extends State<TeacherShellPage> {
                     ? null
                     : AppHeader(
                         headerTitle: switch (branchIndex) {
+                          _indexHome => _navTitle(
+                              'Главная',
+                              iconAsset: 'assets/icons/nav_home.svg',
+                            ),
                           _indexJournal => _navTitle(
                               'Журнал',
                               icon: Icons.grade_outlined,

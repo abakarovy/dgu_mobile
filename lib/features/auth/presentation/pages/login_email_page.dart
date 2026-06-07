@@ -33,7 +33,7 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
   static const double _formHorizontalInset = 30;
   static const double _fieldH = 60;
   static const double _radius = 46;
-  static const double _inputLineHeight = 22;
+  static const double _fieldFontSize = 16;
 
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -350,17 +350,16 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
 
     final hintStyle = AppTextStyle.inter(
       fontWeight: FontWeight.w700,
-      fontSize: 16,
-      height: 1.0,
+      fontSize: _fieldFontSize,
+      height: 1.25,
       color: _kBorderMuted,
     );
     final textStyle = AppTextStyle.inter(
       fontWeight: FontWeight.w700,
-      fontSize: 16,
-      height: 1.0,
+      fontSize: _fieldFontSize,
+      height: 1.25,
       color: _kBorderFilled,
     );
-    final verticalPad = (_fieldH - _inputLineHeight) / 2;
 
     return SizedBox(
       height: _fieldH,
@@ -372,78 +371,82 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(_radius),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              const SizedBox(width: 16),
-              Expanded(
-                child: TextField(
-                  controller: controller,
-                  focusNode: focusNode,
-                  keyboardType: keyboardType,
-                  textCapitalization: textCapitalization,
-                  textAlign: TextAlign.start,
-                  textDirection: TextDirection.ltr,
-                  textInputAction: isLast
-                      ? TextInputAction.done
-                      : TextInputAction.next,
-                  inputFormatters: inputFormatters,
-                  obscureText: obscureText,
-                  textAlignVertical: TextAlignVertical.center,
-                  maxLines: 1,
-                  minLines: 1,
-                  style: textStyle,
-                  decoration: InputDecoration(
-                    hintText: hint,
-                    hintStyle: hintStyle,
-                    hintTextDirection: TextDirection.ltr,
-                    alignLabelWithHint: true,
-                    border: InputBorder.none,
-                    isDense: true,
-                    filled: false,
-                    contentPadding: EdgeInsets.fromLTRB(
-                      0,
-                      verticalPad,
-                      0,
-                      verticalPad,
+          child: Padding(
+            padding: const EdgeInsets.only(left: 16, right: 4),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: controller,
+                    focusNode: focusNode,
+                    keyboardType: keyboardType,
+                    textCapitalization: textCapitalization,
+                    textAlign: TextAlign.start,
+                    textDirection: TextDirection.ltr,
+                    textInputAction: isLast
+                        ? TextInputAction.done
+                        : TextInputAction.next,
+                    inputFormatters: inputFormatters,
+                    obscureText: obscureText,
+                    obscuringCharacter: '•',
+                    textAlignVertical: TextAlignVertical.center,
+                    maxLines: 1,
+                    minLines: 1,
+                    style: textStyle,
+                    strutStyle: StrutStyle(
+                      fontSize: _fieldFontSize,
+                      height: 1.25,
+                      forceStrutHeight: true,
+                      leading: 0,
                     ),
-                    counterText: '',
-                  ),
-                  onSubmitted: (_) {
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (!mounted) return;
-                      if (isLast) {
-                        onLastSubmitted?.call();
-                      } else {
-                        nextFocus.requestFocus();
-                      }
-                    });
-                  },
-                ),
-              ),
-              if (onToggleObscure != null) ...[
-                IconButton(
-                  onPressed: onToggleObscure,
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(
-                    minWidth: 40,
-                    minHeight: 40,
-                  ),
-                  style: IconButton.styleFrom(
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    visualDensity: VisualDensity.compact,
-                  ),
-                  icon: Icon(
-                    obscureText
-                        ? Icons.visibility_off_outlined
-                        : Icons.visibility_outlined,
-                    size: 20,
-                    color: Colors.black.withValues(alpha: 0.45),
+                    decoration: InputDecoration(
+                      hintText: hint,
+                      hintStyle: hintStyle,
+                      hintTextDirection: TextDirection.ltr,
+                      border: InputBorder.none,
+                      isDense: true,
+                      isCollapsed: true,
+                      filled: false,
+                      contentPadding: EdgeInsets.zero,
+                      counterText: '',
+                    ),
+                    onSubmitted: (_) {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (!mounted) return;
+                        if (isLast) {
+                          onLastSubmitted?.call();
+                        } else {
+                          nextFocus.requestFocus();
+                        }
+                      });
+                    },
                   ),
                 ),
-                const SizedBox(width: 16),
+                if (onToggleObscure != null) ...[
+                  IconButton(
+                    onPressed: onToggleObscure,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                      minWidth: 40,
+                      minHeight: 40,
+                    ),
+                    style: IconButton.styleFrom(
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    icon: Icon(
+                      obscureText
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
+                      size: 20,
+                      color: Colors.black.withValues(alpha: 0.45),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),

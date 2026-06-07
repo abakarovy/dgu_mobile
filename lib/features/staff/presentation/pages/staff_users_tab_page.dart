@@ -297,10 +297,6 @@ class _StaffUsersTabPageState extends State<StaffUsersTabPage> {
 
           children: [
 
-            StaffAdminUi.pageTitle('Пользователи'),
-
-            const SizedBox(height: 12),
-
             Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [

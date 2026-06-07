@@ -564,17 +564,6 @@ class StaffDashboardView extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          'Главная панель управления',
-          style: AppTextStyle.inter(
-            fontWeight: FontWeight.w800,
-            fontSize: 26,
-            height: 1.15,
-            letterSpacing: -0.3,
-            color: StaffDashboardTheme.title,
-          ),
-        ),
-        const SizedBox(height: 20),
         _kpiGrid(kpiCards, gap: gap, fullWidthLeading: 2),
         const SizedBox(height: 20),
         _clientGrid(

@@ -146,22 +146,14 @@ class AppDeveloperCard extends StatelessWidget {
         ),
         if (showVersion) ...[
           SizedBox(height: 8 * s),
-          FutureBuilder<void>(
-            future: AppContainer.runtimeInfo.ensureLoaded(),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState != ConnectionState.done) {
-                return const SizedBox.shrink();
-              }
-              return Text(
-                AppContainer.runtimeInfo.versionDisplay,
-                textAlign: TextAlign.center,
-                style: AppTextStyle.inter(
-                  fontSize: 11 * s,
-                  height: 1.3,
-                  color: AppColors.notificationSubtitle,
-                ),
-              );
-            },
+          Text(
+            AppContainer.runtimeInfo.versionDisplay,
+            textAlign: TextAlign.center,
+            style: AppTextStyle.inter(
+              fontSize: 11 * s,
+              height: 1.3,
+              color: AppColors.notificationSubtitle,
+            ),
           ),
         ],
       ],
