@@ -51,6 +51,7 @@ class StaffApi {
   }
 
   /// POST /api/v1/auth/staff — токен в теле ответа.
+  /// В поле `email` можно передать и e-mail, и ФИО (так работает бэкенд).
   Future<UserModel> loginStaff({
     required String email,
     required String password,
@@ -67,7 +68,8 @@ class StaffApi {
       final code = response.statusCode ?? 0;
       if (code == 401 || code == 403) {
         throw ApiException(
-          ApiErrorParser.fromResponseData(response.data) ?? 'Неверный e-mail или пароль',
+          ApiErrorParser.fromResponseData(response.data) ??
+              'Неверный e-mail, ФИО или пароль',
           code,
         );
       }

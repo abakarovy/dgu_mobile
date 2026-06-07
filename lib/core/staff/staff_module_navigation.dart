@@ -70,7 +70,7 @@ abstract final class StaffModuleNavigation {
       case 'department_cabinet':
       case 'cabinet_department':
       case 'department':
-        return '/staff/department';
+        return '/department/home';
       case 'dashboard':
         return '/staff/home';
       case 'news':

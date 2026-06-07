@@ -3,15 +3,14 @@ import 'dart:convert';
 import 'dart:math' show min;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_ui.dart';
 import '../../../../core/di/app_container.dart';
 import '../../../../core/media/staff_avatar_picker.dart';
 import '../../../../core/staff/staff_module_navigation.dart';
+import '../../../../core/staff/teacher_tool_whitelist.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/utils/person_name_format.dart';
 import '../../../../data/api/api_exception.dart';
@@ -22,18 +21,15 @@ import '../../../../features/staff/domain/staff_user_roles.dart';
 import '../../../../shared/widgets/app_developer_card.dart';
 import '../widgets/staff_admin_ui.dart';
 
-String? _formatJoinedDate(String? iso) {
-  if (iso == null || iso.trim().isEmpty) return null;
-  try {
-    return DateFormat('dd.MM.yyyy').format(DateTime.parse(iso).toLocal());
-  } catch (_) {
-    return null;
-  }
-}
+enum StaffProfileMode { admin, teacher }
 
-/// Вкладка «Профиль» сотрудника — в стиле студенческого профиля.
 class StaffProfilePage extends StatefulWidget {
-  const StaffProfilePage({super.key});
+  const StaffProfilePage({
+    super.key,
+    this.mode = StaffProfileMode.admin,
+  });
+
+  final StaffProfileMode mode;
 
   @override
   State<StaffProfilePage> createState() => _StaffProfilePageState();
@@ -46,14 +42,7 @@ class _StaffProfilePageState extends State<StaffProfilePage> {
   bool _uploadingAvatar = false;
   String? _error;
 
-  static const _toolsWhitelist = {
-    'news',
-    'groups',
-    'moderation',
-    'weekly_grades',
-    'scholarship_rating',
-    'mobile_app',
-  };
+  static const _toolsWhitelist = kAdminToolModuleIds;
 
   static const _defaultAdminModules = [
     StaffModuleModel(id: 'news', label: 'Новости', mobileReady: 'full'),
@@ -218,23 +207,34 @@ class _StaffProfilePageState extends State<StaffProfilePage> {
     }
   }
 
-  void _copyEmail(String email) {
-    Clipboard.setData(ClipboardData(text: email));
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('E-mail скопирован')),
-    );
+  void _openTeacherSection(String route) {
+    if (route == '/teacher/journal' ||
+        route == '/teacher/content' ||
+        route == '/teacher/home') {
+      context.go(route);
+    } else {
+      context.push(route);
+    }
+  }
+
+  Future<void> _logout() async {
+    await AppContainer.authRepository.logout();
+    if (!mounted) return;
+    context.go('/public/profile');
   }
 
   @override
   Widget build(BuildContext context) {
     final me = _me;
     final caps = _caps;
-    final modules = _profileModules(me);
+    final isTeacherMode = widget.mode == StaffProfileMode.teacher;
+    final modules = isTeacherMode ? <StaffModuleModel>[] : _profileModules(me);
     final size = MediaQuery.sizeOf(context);
     const figmaW = 402.0;
     const figmaH = 874.0;
     final layoutScale = min(size.width / figmaW, size.height / figmaH);
     final fullName = formatPersonNameDisplay(me?.fullName ?? '');
+    final heroSubtitle = me != null ? _profileHeroSubtitle(me) : 'Сотрудник';
 
     if (_loading && me == null) {
       return const Center(child: CircularProgressIndicator());
@@ -260,7 +260,7 @@ class _StaffProfilePageState extends State<StaffProfilePage> {
               _StaffProfileHero(
                 layoutScale: layoutScale,
                 fullName: fullName.isEmpty ? '—' : fullName,
-                position: (me?.position ?? '').trim(),
+                position: heroSubtitle,
                 avatarUrl: me?.avatarUrl,
                 uploading: _uploadingAvatar,
                 onAvatarTap: _onAvatarTap,
@@ -272,19 +272,21 @@ class _StaffProfilePageState extends State<StaffProfilePage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      _StaffProfileAccountCard(
-                        user: me,
-                        onCopyEmail: () => _copyEmail(me.email),
-                      ),
-                      const SizedBox(height: 12),
-                      _StaffProfileAccessCard(user: me, caps: caps),
-                      if (modules.isNotEmpty) ...[
-                        const SizedBox(height: 12),
+                      if (isTeacherMode) ...[
+                        _StaffProfileTeacherSectionsCard(
+                          onOpen: _openTeacherSection,
+                        ),
+                      ] else if (modules.isNotEmpty &&
+                          (me.canAccessSiteAdmin ||
+                              me.isAdmin ||
+                              caps?.canAccessSiteAdmin == true)) ...[
                         _StaffProfileModulesCard(
                           modules: modules,
                           onOpen: _openModule,
                         ),
                       ],
+                      const SizedBox(height: 12),
+                      _StaffProfileLogoutButton(onLogout: _logout),
                     ],
                   ),
                 ),
@@ -299,6 +301,16 @@ class _StaffProfilePageState extends State<StaffProfilePage> {
         ),
       ),
     );
+  }
+
+  String _profileHeroSubtitle(UserModel user) {
+    final role = user.role.trim().toLowerCase();
+    for (final entry in StaffUserRoles.allRoles) {
+      if (entry.$1 == role) return entry.$2;
+    }
+    final pos = (user.position ?? '').trim();
+    if (pos.isNotEmpty) return pos;
+    return 'Сотрудник';
   }
 }
 
@@ -464,21 +476,86 @@ class _StaffProfileHero extends StatelessWidget {
   }
 }
 
-class _StaffProfileAccountCard extends StatelessWidget {
-  const _StaffProfileAccountCard({
-    required this.user,
-    required this.onCopyEmail,
-  });
+class _StaffProfileLogoutButton extends StatelessWidget {
+  const _StaffProfileLogoutButton({required this.onLogout});
 
-  final UserModel user;
-  final VoidCallback onCopyEmail;
+  final Future<void> Function() onLogout;
 
   @override
   Widget build(BuildContext context) {
-    final department = (user.department ?? '').trim();
-    final joined = _formatJoinedDate(user.createdAt);
-    final bio = (user.bio ?? '').trim();
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(AppUi.radiusL),
+      child: InkWell(
+        onTap: () => unawaited(onLogout()),
+        borderRadius: BorderRadius.circular(AppUi.radiusL),
+        child: Container(
+          padding: const EdgeInsets.all(AppUi.spacingL),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppUi.radiusL),
+            border: Border.all(
+              color: AppColors.lightGrey.withValues(alpha: 0.35),
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: Colors.red.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  Icons.logout_rounded,
+                  color: Colors.red.shade700,
+                ),
+              ),
+              const SizedBox(width: AppUi.spacingM),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Выйти',
+                      style: AppTextStyle.inter(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
+                        color: Colors.red.shade700,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Завершить сеанс на этом устройстве',
+                      style: AppTextStyle.inter(
+                        fontSize: 13,
+                        color: AppColors.grey,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
 
+class _StaffProfileTeacherSectionsCard extends StatelessWidget {
+  const _StaffProfileTeacherSectionsCard({required this.onOpen});
+
+  final ValueChanged<String> onOpen;
+
+  static const _sections = [
+    (title: 'Журнал', subtitle: 'Предметы и оценки', route: '/teacher/journal', icon: Icons.grade_outlined),
+    (title: 'Материалы', subtitle: 'Файлы для групп', route: '/teacher/materials', icon: Icons.folder_outlined),
+    (title: 'Контент', subtitle: 'Новости и мероприятия', route: '/teacher/content', icon: Icons.newspaper_outlined),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: StaffAdminUi.cardDecoration(),
@@ -486,7 +563,7 @@ class _StaffProfileAccountCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'Аккаунт',
+            'Мои разделы',
             style: AppTextStyle.inter(
               fontWeight: FontWeight.w800,
               fontSize: 16,
@@ -494,30 +571,14 @@ class _StaffProfileAccountCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          _StaffProfileInfoRow(
-            label: 'E-mail',
-            value: user.email,
-            trailing: IconButton(
-              onPressed: onCopyEmail,
-              icon: const Icon(Icons.copy_rounded, size: 18),
-              color: AppColors.grey,
-              visualDensity: VisualDensity.compact,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-              tooltip: 'Скопировать',
+          for (var i = 0; i < _sections.length; i++) ...[
+            if (i > 0) const SizedBox(height: 8),
+            _TeacherSectionRow(
+              title: _sections[i].title,
+              subtitle: _sections[i].subtitle,
+              icon: _sections[i].icon,
+              onTap: () => onOpen(_sections[i].route),
             ),
-          ),
-          if (department.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            _StaffProfileInfoRow(label: 'Отделение', value: department),
-          ],
-          if (joined != null) ...[
-            const SizedBox(height: 10),
-            _StaffProfileInfoRow(label: 'В системе с', value: joined),
-          ],
-          if (bio.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            _StaffProfileInfoRow(label: 'О себе', value: bio),
           ],
         ],
       ),
@@ -525,95 +586,70 @@ class _StaffProfileAccountCard extends StatelessWidget {
   }
 }
 
-class _StaffProfileAccessCard extends StatelessWidget {
-  const _StaffProfileAccessCard({
-    required this.user,
-    required this.caps,
+class _TeacherSectionRow extends StatelessWidget {
+  const _TeacherSectionRow({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.onTap,
   });
 
-  final UserModel user;
-  final StaffCapabilitiesModel? caps;
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final roleLabel = StaffUserRoles.labelFor(user.role);
-    final cabinetTitle = caps?.cabinetTitle ??
-        (user.canAccessDepartmentCabinet
-            ? 'Кабинет отделения'
-            : user.isTeacher
-                ? 'Кабинет преподавателя'
-                : user.isAdmin
-                    ? 'Администрирование'
-                    : 'Сотрудник');
-
-    final permissions = <String>[
-      if (user.isAdmin || caps?.isAdmin == true) 'Администратор',
-      if (user.canAccessSiteAdmin || caps?.canAccessSiteAdmin == true) 'Админка сайта',
-      if (user.canAccessAdmissionAdmin || caps?.canAccessAdmissionAdmin == true)
-        'Приёмная кампания',
-      if (user.canAccessDepartmentCabinet || caps?.canAccessDepartmentCabinet == true)
-        'Кабинет отделения',
-      if (user.isTeacher || caps?.isTeacher == true) 'Преподаватель',
-    ];
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: StaffAdminUi.cardDecoration(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            'Доступ',
-            style: AppTextStyle.inter(
-              fontWeight: FontWeight.w800,
-              fontSize: 16,
-              color: AppColors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Row(
+    return Material(
+      color: AppColors.surfaceLight,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Row(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                width: 36,
+                height: 36,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFEFF6FF),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFFBFDBFE)),
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                child: Text(
-                  roleLabel,
-                  style: AppTextStyle.inter(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 13,
-                    color: AppColors.lightBlue,
-                  ),
+                child: Icon(icon, size: 20, color: AppColors.lightBlue),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: AppTextStyle.inter(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    Text(
+                      subtitle,
+                      style: AppTextStyle.inter(
+                        fontSize: 12,
+                        color: AppColors.caption,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  cabinetTitle,
-                  style: AppTextStyle.inter(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
-                    color: AppColors.grey,
-                  ),
-                ),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: AppColors.grey.withValues(alpha: 0.7),
               ),
             ],
           ),
-          if (permissions.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: [
-                for (final p in permissions)
-                  _StaffProfileAccessChip(label: p),
-              ],
-            ),
-          ],
-        ],
+        ),
       ),
     );
   }
@@ -702,74 +738,6 @@ class _StaffProfileModulesCard extends StatelessWidget {
             );
           }),
         ],
-      ),
-    );
-  }
-}
-
-class _StaffProfileInfoRow extends StatelessWidget {
-  const _StaffProfileInfoRow({
-    required this.label,
-    required this.value,
-    this.trailing,
-  });
-
-  final String label;
-  final String value;
-  final Widget? trailing;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          width: 96,
-          child: Text(
-            label,
-            style: AppTextStyle.inter(
-              fontSize: 13,
-              color: AppColors.caption,
-            ),
-          ),
-        ),
-        Expanded(
-          child: Text(
-            value,
-            style: AppTextStyle.inter(
-              fontWeight: FontWeight.w600,
-              fontSize: 13,
-              color: AppColors.textPrimary,
-            ),
-          ),
-        ),
-        if (trailing != null) trailing!,
-      ],
-    );
-  }
-}
-
-class _StaffProfileAccessChip extends StatelessWidget {
-  const _StaffProfileAccessChip({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF1F5F9),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: StaffAdminUi.cardBorder),
-      ),
-      child: Text(
-        label,
-        style: AppTextStyle.inter(
-          fontWeight: FontWeight.w600,
-          fontSize: 12,
-          color: AppColors.textPrimary,
-        ),
       ),
     );
   }

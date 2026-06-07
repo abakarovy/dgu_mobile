@@ -7,9 +7,9 @@ import '../../../../core/theme/app_text_styles.dart';
 import '../../../../shared/widgets/app_header.dart';
 import '../../../../shared/widgets/network_degraded_banner.dart';
 
-/// Оболочка ЛК сотрудника — как у студента: AppHeader + нижняя навигация.
-class StaffShellPage extends StatefulWidget {
-  const StaffShellPage({
+/// Оболочка кабинета зав. отделением — 4 вкладки.
+class DepartmentShellPage extends StatefulWidget {
+  const DepartmentShellPage({
     super.key,
     required this.navigationShell,
   });
@@ -17,14 +17,14 @@ class StaffShellPage extends StatefulWidget {
   final StatefulNavigationShell navigationShell;
 
   @override
-  State<StaffShellPage> createState() => _StaffShellPageState();
+  State<DepartmentShellPage> createState() => _DepartmentShellPageState();
 }
 
-class _StaffShellPageState extends State<StaffShellPage> {
-  static const int _indexProfile = 0;
-  static const int _indexUsers = 1;
-  static const int _indexHome = 2;
-  static const int _indexTools = 3;
+class _DepartmentShellPageState extends State<DepartmentShellPage> {
+  static const int _indexOverview = 0;
+  static const int _indexCurators = 1;
+  static const int _indexAnnouncements = 2;
+  static const int _indexProfile = 3;
 
   static const double _navBarHeight = 67;
   static const double _navIconSize = 22;
@@ -38,32 +38,13 @@ class _StaffShellPageState extends State<StaffShellPage> {
 
   void _goTabRoot(int branchIndex) {
     final location = switch (branchIndex) {
-      _indexProfile => '/staff/profile',
-      _indexUsers => '/staff/users',
-      _indexHome => '/staff/home',
-      _indexTools => '/staff/tools',
-      _ => '/staff/home',
+      _indexOverview => '/department/home',
+      _indexCurators => '/department/curators',
+      _indexAnnouncements => '/department/announcements',
+      _indexProfile => '/department/profile',
+      _ => '/department/home',
     };
     context.go(location);
-  }
-
-  bool _isNestedStaffRoute(String path) {
-    return path.startsWith('/staff/admission') ||
-        path.startsWith('/staff/events') ||
-        path.startsWith('/staff/mobile-release') ||
-        path.startsWith('/staff/department') ||
-        path.startsWith('/staff/journal') ||
-        path.startsWith('/staff/dashboard') ||
-        path.startsWith('/staff/news') ||
-        path.startsWith('/staff/groups') ||
-        path.startsWith('/staff/moderation') ||
-        path.startsWith('/staff/weekly-grades') ||
-        path.startsWith('/staff/scholarship-rating') ||
-        path.startsWith('/staff/settings-admin') ||
-        path.startsWith('/staff/edu-disclosure') ||
-        path.startsWith('/staff/web') ||
-        path.startsWith('/staff/module') ||
-        path.endsWith('/settings');
   }
 
   @override
@@ -71,8 +52,8 @@ class _StaffShellPageState extends State<StaffShellPage> {
     final path = GoRouterState.of(context).uri.path;
     final branchIndex = _shell.currentIndex;
     final isSettingsScreen = path.endsWith('/settings');
-    final hideShellAppBar = isSettingsScreen || branchIndex == _indexHome;
-    final hideShellBottomNavBase = isSettingsScreen || _isNestedStaffRoute(path);
+    final hideShellAppBar = isSettingsScreen || branchIndex == _indexOverview;
+    final hideShellBottomNavBase = isSettingsScreen;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -89,22 +70,13 @@ class _StaffShellPageState extends State<StaffShellPage> {
                     ? null
                     : AppHeader(
                         headerTitle: switch (branchIndex) {
-                          _indexHome => Text(
-                              'Дашборд',
-                              style: AppTextStyle.inter(
-                                fontWeight: FontWeight.w700,
-                                fontSize: 14.44,
-                                height: 1.0,
-                                color: const Color(0xFF000000),
-                              ),
-                            ),
-                          _indexUsers => _navTitle(
-                              'Пользователи',
+                          _indexCurators => _navTitle(
+                              'Кураторы',
                               iconAsset: 'assets/icons/users.svg',
                             ),
-                          _indexTools => _navTitle(
-                              'Инструменты',
-                              iconAsset: 'assets/icons/tools.svg',
+                          _indexAnnouncements => _navTitle(
+                              'Объявления',
+                              iconAsset: 'assets/icons/rupor.svg',
                             ),
                           _indexProfile => Row(
                               mainAxisSize: MainAxisSize.min,
@@ -150,26 +122,26 @@ class _StaffShellPageState extends State<StaffShellPage> {
                               children: [
                                 Expanded(
                                   child: _navItem(
-                                    selected: branchIndex == _indexHome,
+                                    selected: branchIndex == _indexOverview,
                                     iconAsset: 'assets/icons/nav_home.svg',
-                                    label: 'Дашборд',
-                                    onTap: () => _goTabRoot(_indexHome),
+                                    label: 'Главная',
+                                    onTap: () => _goTabRoot(_indexOverview),
                                   ),
                                 ),
                                 Expanded(
                                   child: _navItem(
-                                    selected: branchIndex == _indexUsers,
+                                    selected: branchIndex == _indexCurators,
                                     iconAsset: 'assets/icons/users.svg',
-                                    label: 'Пользователи',
-                                    onTap: () => _goTabRoot(_indexUsers),
+                                    label: 'Кураторы',
+                                    onTap: () => _goTabRoot(_indexCurators),
                                   ),
                                 ),
                                 Expanded(
                                   child: _navItem(
-                                    selected: branchIndex == _indexTools,
-                                    iconAsset: 'assets/icons/tools.svg',
-                                    label: 'Инструменты',
-                                    onTap: () => _goTabRoot(_indexTools),
+                                    selected: branchIndex == _indexAnnouncements,
+                                    iconAsset: 'assets/icons/rupor.svg',
+                                    label: 'Объявления',
+                                    onTap: () => _goTabRoot(_indexAnnouncements),
                                   ),
                                 ),
                                 Expanded(
@@ -193,11 +165,7 @@ class _StaffShellPageState extends State<StaffShellPage> {
     );
   }
 
-  Widget _navTitle(
-    String label, {
-    String? iconAsset,
-    IconData? icon,
-  }) {
+  Widget _navTitle(String label, {String? iconAsset, IconData? icon}) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [

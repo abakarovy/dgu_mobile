@@ -47,17 +47,29 @@ import '../../features/staff/presentation/pages/staff_admin_page.dart';
 import '../../features/staff/presentation/pages/staff_shell_page.dart';
 import '../../features/staff/presentation/pages/staff_tools_page.dart';
 import '../../features/staff/presentation/pages/staff_users_tab_page.dart';
-import '../../features/staff/presentation/pages/staff_settings_page.dart';
 import '../../features/staff/presentation/pages/staff_events_admin_page.dart';
 import '../../features/staff/presentation/pages/staff_mobile_release_page.dart';
 import '../../features/staff/presentation/pages/staff_scholarship_admin_page.dart';
-import '../../features/staff/presentation/pages/staff_department_page.dart';
 import '../../features/staff/presentation/pages/staff_teacher_journal_page.dart';
 import '../../features/staff/presentation/pages/staff_admin_sections.dart';
 import '../../features/staff/presentation/pages/staff_groups_admin_page.dart';
 import '../../features/staff/presentation/pages/staff_news_admin_page.dart';
 import '../../features/staff/presentation/pages/staff_module_pages.dart';
+import '../../features/teacher/presentation/pages/teacher_shell_page.dart';
+import '../../features/teacher/presentation/pages/teacher_home_page.dart';
+import '../../features/teacher/presentation/pages/teacher_journal_page.dart';
+import '../../features/teacher/presentation/pages/teacher_content_page.dart';
+import '../../features/teacher/presentation/pages/teacher_profile_page.dart';
+import '../../features/teacher/presentation/pages/teacher_materials_page.dart';
+import '../../features/department/presentation/pages/department_shell_page.dart';
+import '../../features/department/presentation/pages/department_home_page.dart';
+import '../../features/department/presentation/pages/department_curators_page.dart';
+import '../../features/department/presentation/pages/department_announcements_page.dart'
+    show DepartmentCabinetAnnouncementsPage;
+import '../../features/department/presentation/pages/department_profile_page.dart';
 import '../../core/staff/staff_roles.dart';
+import '../../core/staff/teacher_tool_whitelist.dart';
+import '../../data/models/user_model.dart';
 
 /// Полноэкранные подмаршруты с кнопкой «назад»: [CupertinoPage] даёт свайп с края (iOS).
 Page<void> _cupertinoSubpage({
@@ -247,17 +259,6 @@ final GoRouter appRouter = GoRouter(
               name: 'staffProfile',
               builder: (context, state) =>
                   StaffProfilePage(key: ValueKey(AuthSession.epoch)),
-              routes: [
-                GoRoute(
-                  path: 'settings',
-                  name: 'staffSettings',
-                  pageBuilder: (context, state) => _cupertinoSubpage(
-                    key: state.pageKey,
-                    name: state.name,
-                    child: const StaffSettingsPage(),
-                  ),
-                ),
-              ],
             ),
           ],
         ),
@@ -288,6 +289,118 @@ final GoRouter appRouter = GoRouter(
               name: 'staffTools',
               builder: (context, state) =>
                   StaffToolsPage(key: ValueKey('staffTools-${AuthSession.epoch}')),
+            ),
+          ],
+        ),
+      ],
+    ),
+    GoRoute(
+      path: '/teacher',
+      redirect: (_, _) => '/teacher/home',
+    ),
+    StatefulShellRoute.indexedStack(
+      builder: (context, state, navigationShell) =>
+          TeacherShellPage(navigationShell: navigationShell),
+      branches: [
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/teacher/home',
+              name: 'teacherHome',
+              builder: (context, state) =>
+                  TeacherHomePage(key: ValueKey('teacherHome-${AuthSession.epoch}')),
+            ),
+          ],
+        ),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/teacher/journal',
+              name: 'teacherJournal',
+              builder: (context, state) =>
+                  TeacherJournalPage(key: ValueKey('teacherJournal-${AuthSession.epoch}')),
+            ),
+          ],
+        ),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/teacher/content',
+              name: 'teacherContent',
+              builder: (context, state) =>
+                  TeacherContentPage(key: ValueKey('teacherContent-${AuthSession.epoch}')),
+            ),
+          ],
+        ),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/teacher/profile',
+              name: 'teacherProfile',
+              builder: (context, state) =>
+                  TeacherProfilePage(key: ValueKey(AuthSession.epoch)),
+            ),
+          ],
+        ),
+      ],
+    ),
+    GoRoute(
+      path: '/teacher/materials',
+      name: 'teacherMaterials',
+      pageBuilder: (context, state) => _cupertinoSubpage(
+        key: state.pageKey,
+        name: state.name,
+        child: const TeacherMaterialsPage(),
+      ),
+    ),
+    GoRoute(
+      path: '/department',
+      redirect: (_, _) => '/department/home',
+    ),
+    StatefulShellRoute.indexedStack(
+      builder: (context, state, navigationShell) =>
+          DepartmentShellPage(navigationShell: navigationShell),
+      branches: [
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/department/home',
+              name: 'departmentHome',
+              builder: (context, state) => DepartmentHomePage(
+                key: ValueKey('departmentHome-${AuthSession.epoch}'),
+              ),
+            ),
+          ],
+        ),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/department/curators',
+              name: 'departmentCurators',
+              builder: (context, state) => DepartmentCuratorsPage(
+                key: ValueKey('departmentCurators-${AuthSession.epoch}'),
+              ),
+            ),
+          ],
+        ),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/department/announcements',
+              name: 'departmentAnnouncements',
+              builder: (context, state) => DepartmentCabinetAnnouncementsPage(
+                key: ValueKey('departmentAnnouncements-${AuthSession.epoch}'),
+              ),
+            ),
+          ],
+        ),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/department/profile',
+              name: 'departmentProfile',
+              builder: (context, state) =>
+                  DepartmentProfilePage(key: ValueKey(AuthSession.epoch)),
             ),
           ],
         ),
@@ -327,11 +440,7 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: '/staff/department',
       name: 'staffDepartment',
-      pageBuilder: (context, state) => _cupertinoSubpage(
-        key: state.pageKey,
-        name: state.name,
-        child: const StaffDepartmentPage(),
-      ),
+      redirect: (_, _) => '/department/home',
     ),
     GoRoute(
       path: '/staff/journal',
@@ -724,17 +833,55 @@ final GoRouter appRouter = GoRouter(
     // Гость: только публичный режим
     if (!isLoggedIn && path.startsWith('/app')) return '/public/home';
     if (!isLoggedIn && path.startsWith('/staff')) return '/public/home';
+    if (!isLoggedIn && path.startsWith('/teacher')) return '/public/home';
+    if (!isLoggedIn && path.startsWith('/department')) return '/public/home';
     if (!isLoggedIn && (path == '/login' || path == '/login/')) return '/public/profile';
 
     if (isLoggedIn) {
       final user = await AppContainer.authRepository.getCurrentUser();
       final isStaff = StaffRoles.isStaff(user?.role);
-      if (isStaff && path.startsWith('/app')) return '/staff/home';
+
+      UserModel? me;
+      final raw = AppContainer.jsonCache.getJsonMap('auth:me');
+      if (raw != null) {
+        try {
+          me = UserModel.fromJson(raw);
+        } catch (_) {}
+      }
+
+      final teacherShell = userUsesTeacherShellEntity(user) ||
+          (me != null && userUsesTeacherShell(me));
+      final departmentShell = userUsesDepartmentShellEntity(user) ||
+          (me != null && userUsesDepartmentShell(me));
+
+      if (departmentShell && path.startsWith('/staff/')) {
+        return '/department/home';
+      }
+      if (departmentShell && path.startsWith('/teacher/')) {
+        return '/department/home';
+      }
+      if (!departmentShell && path.startsWith('/department/')) {
+        return staffHomeRouteFromEntity(user);
+      }
+
+      if (teacherShell && path.startsWith('/staff/')) {
+        if (path.startsWith('/staff/journal')) return '/teacher/journal';
+        return '/teacher/home';
+      }
+      if (!teacherShell && path.startsWith('/teacher/')) {
+        return staffHomeRouteFromEntity(user);
+      }
+
+      if (isStaff && path.startsWith('/app')) {
+        return staffHomeRouteFromEntity(user);
+      }
       if (!isStaff && path.startsWith('/staff')) return '/app/home';
+      if (!isStaff && path.startsWith('/teacher')) return '/app/home';
+      if (!isStaff && path.startsWith('/department')) return '/app/home';
       if (isStaff &&
           (path.startsWith('/staff/admission') || path.startsWith('/staff/admin')) &&
           !StaffRoles.canViewAdmission(user)) {
-        return '/staff/home';
+        return staffHomeRouteFromEntity(user);
       }
     }
 

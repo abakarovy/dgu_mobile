@@ -5,6 +5,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_ui.dart';
 import '../../../../core/di/app_container.dart';
 import '../../../../core/staff/staff_module_navigation.dart';
+import '../../../../core/staff/teacher_tool_whitelist.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../data/api/api_exception.dart';
 import '../../../../data/models/staff_capabilities_model.dart';
@@ -27,15 +28,8 @@ class _StaffToolsPageState extends State<StaffToolsPage> {
 
   static const _excludedModuleIds = {'profile', 'dashboard', 'users'};
 
-  /// Только эти разделы показываем во вкладке «Инструменты».
-  static const _toolsWhitelist = {
-    'news',
-    'groups',
-    'moderation',
-    'weekly_grades',
-    'scholarship_rating',
-    'mobile_app',
-  };
+  /// StaffToolsPage — whitelist из [kAdminToolModuleIds].
+  static const _toolsWhitelist = kAdminToolModuleIds;
 
   static const _preferredOrder = [
     'news',

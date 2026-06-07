@@ -18,9 +18,13 @@ class StaffNewsAdminPage extends StatefulWidget {
   const StaffNewsAdminPage({
     super.key,
     this.initialTab = StaffNewsEventsTab.news,
+    this.showDeleteActions = true,
+    this.embeddedInShell = false,
   });
 
   final StaffNewsEventsTab initialTab;
+  final bool showDeleteActions;
+  final bool embeddedInShell;
 
   @override
   State<StaffNewsAdminPage> createState() => _StaffNewsAdminPageState();
@@ -241,6 +245,41 @@ class _StaffNewsAdminPageState extends State<StaffNewsAdminPage> {
 
   @override
   Widget build(BuildContext context) {
+    final body = RefreshIndicator(
+      onRefresh: _refreshCurrentTab,
+      child: ListView(
+        padding: StaffAdminUi.tabPaddingAll,
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(child: _newsEventsSwitch()),
+              const SizedBox(width: 10),
+              _createIconButton(),
+            ],
+          ),
+          const SizedBox(height: 16),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 180),
+            switchInCurve: Curves.easeOut,
+            switchOutCurve: Curves.easeIn,
+            child: KeyedSubtree(
+              key: ValueKey(_tab),
+              child: _buildTabContent(),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (widget.embeddedInShell) {
+      return ColoredBox(
+        color: StaffAdminUi.bg,
+        child: body,
+      );
+    }
+
     return Scaffold(
       backgroundColor: StaffAdminUi.bg,
       appBar: AppHeader(
@@ -248,33 +287,7 @@ class _StaffNewsAdminPageState extends State<StaffNewsAdminPage> {
         headerTitle: Text(_appBarTitle, style: appHeaderNestedTitleStyle),
         showNotificationIcon: false,
       ),
-      body: RefreshIndicator(
-        onRefresh: _refreshCurrentTab,
-        child: ListView(
-          padding: StaffAdminUi.tabPaddingAll,
-          physics: const AlwaysScrollableScrollPhysics(),
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Expanded(child: _newsEventsSwitch()),
-                const SizedBox(width: 10),
-                _createIconButton(),
-              ],
-            ),
-            const SizedBox(height: 16),
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 180),
-              switchInCurve: Curves.easeOut,
-              switchOutCurve: Curves.easeIn,
-              child: KeyedSubtree(
-                key: ValueKey(_tab),
-                child: _buildTabContent(),
-              ),
-            ),
-          ],
-        ),
-      ),
+      body: body,
     );
   }
 
@@ -328,7 +341,9 @@ class _StaffNewsAdminPageState extends State<StaffNewsAdminPage> {
             final parsed = id is int ? id : int.tryParse('$id');
             unawaited(_openWebEditor(isCreate: false, resourceId: parsed));
           },
-          onDelete: () => _deleteNews(_newsItems[index]),
+          onDelete: widget.showDeleteActions
+              ? () => _deleteNews(_newsItems[index])
+              : null,
         ),
       );
     }
@@ -358,7 +373,9 @@ class _StaffNewsAdminPageState extends State<StaffNewsAdminPage> {
         onEdit: () => unawaited(
           _openWebEditor(isCreate: false, resourceId: _eventItems[index].id),
         ),
-        onDelete: () => _deleteEvent(_eventItems[index]),
+        onDelete: widget.showDeleteActions
+            ? () => _deleteEvent(_eventItems[index])
+            : null,
       ),
     );
   }
@@ -450,7 +467,7 @@ class _StaffNewsAdminPageState extends State<StaffNewsAdminPage> {
     required String title,
     required String meta,
     required VoidCallback onEdit,
-    required VoidCallback onDelete,
+    VoidCallback? onDelete,
   }) {
     return Container(
       padding: const EdgeInsets.all(14),
@@ -525,7 +542,7 @@ class _StaffNewsAdminPageState extends State<StaffNewsAdminPage> {
 
   Widget _actionButtons({
     required VoidCallback onEdit,
-    required VoidCallback onDelete,
+    VoidCallback? onDelete,
   }) {
     const height = 36.0;
     const color = Color(0xFFDC2626);
@@ -553,29 +570,31 @@ class _StaffNewsAdminPageState extends State<StaffNewsAdminPage> {
             ),
           ),
         ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: SizedBox(
-            height: height,
-            child: OutlinedButton(
-              onPressed: onDelete,
-              style: OutlinedButton.styleFrom(
-                backgroundColor: const Color(0xFFFEF2F2),
-                foregroundColor: color,
-                side: BorderSide(color: color.withValues(alpha: 0.25)),
-                padding: EdgeInsets.zero,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
+        if (onDelete != null) ...[
+          const SizedBox(width: 8),
+          Expanded(
+            child: SizedBox(
+              height: height,
+              child: OutlinedButton(
+                onPressed: onDelete,
+                style: OutlinedButton.styleFrom(
+                  backgroundColor: const Color(0xFFFEF2F2),
+                  foregroundColor: color,
+                  side: BorderSide(color: color.withValues(alpha: 0.25)),
+                  padding: EdgeInsets.zero,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  textStyle: AppTextStyle.inter(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
                 ),
-                textStyle: AppTextStyle.inter(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13,
-                ),
+                child: const Text('Удалить'),
               ),
-              child: const Text('Удалить'),
             ),
           ),
-        ),
+        ],
       ],
     );
   }

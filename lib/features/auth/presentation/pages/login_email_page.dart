@@ -80,6 +80,13 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
     return e is Map && e['staff'] == true;
   }
 
+  String get _loginIdentifierHint =>
+      _isStaffMode ? 'E-mail или ФИО' : 'E-mail';
+
+  String get _credentialsErrorDefault => _isStaffMode
+      ? 'Неверный e-mail, ФИО или пароль'
+      : 'Неверный E-Mail или пароль';
+
   String? get _verifiedFullName {
     final e = _extra;
     if (e is Map) return e['fullName'] as String?;
@@ -593,7 +600,8 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
       } else {
         setState(() {
           _showWrongCredentialsError = true;
-          _credentialsErrorMessage = e.message;
+          _credentialsErrorMessage =
+              e.message.isNotEmpty ? e.message : _credentialsErrorDefault;
         });
       }
     } finally {
@@ -966,14 +974,21 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
                                       key: 'email',
                                       controller: _emailController,
                                       focusNode: _emailFocusNode,
-                                      hint: 'E-mail',
+                                      hint: _loginIdentifierHint,
                                       nextFocus: _passwordFocusNode,
-                                      keyboardType: TextInputType.emailAddress,
-                                      inputFormatters: [
-                                        FilteringTextInputFormatter.deny(
-                                          RegExp(r'\s'),
-                                        ),
-                                      ],
+                                      keyboardType: _isStaffMode
+                                          ? TextInputType.text
+                                          : TextInputType.emailAddress,
+                                      textCapitalization: _isStaffMode
+                                          ? TextCapitalization.words
+                                          : TextCapitalization.none,
+                                      inputFormatters: _isStaffMode
+                                          ? null
+                                          : [
+                                              FilteringTextInputFormatter.deny(
+                                                RegExp(r'\s'),
+                                              ),
+                                            ],
                                     ),
                                     const SizedBox(height: 16),
                                     _outlineField(

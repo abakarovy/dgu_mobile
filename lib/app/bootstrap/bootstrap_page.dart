@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:dgu_mobile/core/di/app_container.dart';
 import 'package:dgu_mobile/core/staff/staff_roles.dart';
+import 'package:dgu_mobile/core/staff/teacher_tool_whitelist.dart';
 import 'package:dgu_mobile/core/network/app_network_banner_controller.dart';
 import 'package:dgu_mobile/core/navigation/home_refresh_host.dart';
 import 'package:dgu_mobile/core/push/push_navigation.dart';
@@ -67,7 +68,7 @@ class _BootstrapPageState extends State<BootstrapPage> {
     final user = await AppContainer.authRepository.getCurrentUser();
     if (!mounted) return;
     if (StaffRoles.isStaff(user?.role)) {
-      context.go('/staff/home');
+      context.go(staffHomeRouteFromEntity(user));
       _showOptionalUpdateAfterNavigation();
       return;
     }

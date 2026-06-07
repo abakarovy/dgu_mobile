@@ -107,6 +107,21 @@ class StaffModulesApi {
     }
   }
 
+  // --- Материалы ---
+
+  Future<List<Map<String, dynamic>>> getGroupMaterials(int groupId) async {
+    try {
+      final res = await _api.dio.get<dynamic>(
+        '/materials/group/$groupId',
+        options: _json200,
+      );
+      if (res.statusCode != 200) throw _bad(res);
+      return _parseMapList(res.data);
+    } on DioException catch (e) {
+      throw ApiException.fromDio(e);
+    }
+  }
+
   // --- Кабинет отделения ---
 
   Future<Map<String, dynamic>> getDepartmentMe() async {
@@ -123,14 +138,14 @@ class StaffModulesApi {
     }
   }
 
-  Future<List<Map<String, dynamic>>> getDepartmentGroupsOverview() async {
+  Future<DepartmentGroupsOverviewResult> getDepartmentGroupsOverview() async {
     try {
       final res = await _api.dio.get<dynamic>(
         '/cabinet/department/groups-overview',
         options: _json200,
       );
       if (res.statusCode != 200) throw _bad(res);
-      return _parseMapList(res.data);
+      return DepartmentGroupsOverviewResult.fromJson(res.data);
     } on DioException catch (e) {
       throw ApiException.fromDio(e);
     }
@@ -144,6 +159,35 @@ class StaffModulesApi {
       );
       if (res.statusCode != 200) throw _bad(res);
       return _parseMapList(res.data);
+    } on DioException catch (e) {
+      throw ApiException.fromDio(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> createDepartmentAnnouncement(
+    Map<String, dynamic> body,
+  ) async {
+    try {
+      final res = await _api.dio.post<dynamic>(
+        '/cabinet/department/announcements',
+        data: body,
+        options: _json200,
+      );
+      if (res.statusCode != 200 && res.statusCode != 201) throw _bad(res);
+      final data = res.data;
+      return data is Map ? Map<String, dynamic>.from(data) : body;
+    } on DioException catch (e) {
+      throw ApiException.fromDio(e);
+    }
+  }
+
+  Future<void> deleteDepartmentAnnouncement(int id) async {
+    try {
+      final res = await _api.dio.delete<dynamic>(
+        '/cabinet/department/announcements/$id',
+        options: _json200,
+      );
+      if (res.statusCode != 200 && res.statusCode != 204) throw _bad(res);
     } on DioException catch (e) {
       throw ApiException.fromDio(e);
     }
@@ -591,4 +635,44 @@ class StaffModulesApi {
     ApiErrorParser.fromResponseData(res.data) ?? 'Ошибка',
     res.statusCode,
   );
+}
+
+/// Ответ GET `/cabinet/department/groups-overview`.
+class DepartmentGroupsOverviewResult {
+  const DepartmentGroupsOverviewResult({
+    required this.groups,
+    this.summary,
+  });
+
+  final List<Map<String, dynamic>> groups;
+  final Map<String, dynamic>? summary;
+
+  factory DepartmentGroupsOverviewResult.fromJson(dynamic data) {
+    if (data is List) {
+      return DepartmentGroupsOverviewResult(
+        groups: data
+            .whereType<Map>()
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList(),
+      );
+    }
+    if (data is Map) {
+      final map = Map<String, dynamic>.from(data);
+      final rawGroups = map['groups'];
+      final groups = rawGroups is List
+          ? rawGroups
+              .whereType<Map>()
+              .map((e) => Map<String, dynamic>.from(e))
+              .toList()
+          : <Map<String, dynamic>>[];
+      final summaryRaw = map['summary'];
+      return DepartmentGroupsOverviewResult(
+        groups: groups,
+        summary: summaryRaw is Map
+            ? Map<String, dynamic>.from(summaryRaw)
+            : null,
+      );
+    }
+    return const DepartmentGroupsOverviewResult(groups: []);
+  }
 }

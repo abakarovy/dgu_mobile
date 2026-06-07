@@ -144,6 +144,18 @@ abstract final class DemoMockResponses {
         ],
       );
     }
+    if (path.startsWith('/materials/group/')) {
+      return DemoMockPayload(
+        statusCode: 200,
+        data: [
+          {
+            'id': 1,
+            'title': 'Лекция 1',
+            'original_filename': 'lecture_01.pdf',
+          },
+        ],
+      );
+    }
     if (path == '/cabinet/department/me') {
       return DemoMockPayload(
         statusCode: 200,
@@ -153,9 +165,33 @@ abstract final class DemoMockResponses {
     if (path == '/cabinet/department/groups-overview') {
       return DemoMockPayload(
         statusCode: 200,
-        data: [
-          {'group_code': 'ИС-201', 'students_count': 28},
-        ],
+        data: {
+          'summary': {
+            'overall_academic_performance_percent': 99.6,
+            'overall_attendance_percent': 84.6,
+            'total_students': 270,
+            'total_budget_students': 106,
+            'total_commercial_students': 164,
+            'total_absences': 16845,
+            'average_absences_per_student': 62.4,
+          },
+          'groups': [
+            {
+              'group_code': 'ОИБАС 1к 1г 2025',
+              'curator_full_name': 'Багирова София Динмагомедовна',
+              'attendance_percent': 91,
+              'academic_debts_count': 2,
+              'risk_level': 'low',
+            },
+            {
+              'group_code': 'СИБАС ДПО 2к 2г 2024',
+              'curator_full_name': 'Иванов Иван Иванович',
+              'attendance_percent': 78,
+              'academic_debts_count': 5,
+              'risk_level': 'medium',
+            },
+          ],
+        },
       );
     }
     if (path == '/cabinet/department/announcements') {
