@@ -68,8 +68,8 @@ def flutter_install_ios_fluttermacos_placeholder_pod(ios_application_path)
 end
 
 target 'Runner' do
-  # Статическая линковка: YandexMobileAds.xcframework и Firebase без конфликта с use_frameworks!.
-  use_frameworks! :linkage => :static
+  # Динамические frameworks: иначе Xcode не находит модуль connectivity_plus (Swift-плагин) в GeneratedPluginRegistrant.m.
+  use_frameworks!
 
   flutter_install_ios_fluttermacos_placeholder_pod(File.dirname(File.realpath(__FILE__)))
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
@@ -98,6 +98,8 @@ post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
     target.build_configurations.each do |config|
+      config.build_settings['DEFINES_MODULE'] = 'YES'
+      config.build_settings['CLANG_ENABLE_MODULES'] = 'YES'
       # Некоторые podspec'и (особенно privacy pods) могут приносить iOS 9.0 как дефолт.
       # Принудительно выравниваем deployment target с проектом, иначе Xcode ругается.
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
@@ -117,4 +119,5 @@ post_install do |installer|
     # Повторно: наши флаги не должны перетирать FRAMEWORK_SEARCH_PATHS к Flutter из podhelper.
     flutter_additional_ios_build_settings(target)
   end
+
 end

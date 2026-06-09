@@ -3,6 +3,7 @@ import 'dart:math' show min;
 
 import 'package:flutter/foundation.dart' show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -355,7 +356,7 @@ class _DirectionsAutoCarouselState extends State<_DirectionsAutoCarousel>
             controller: _controller,
             scrollDirection: Axis.horizontal,
             clipBehavior: Clip.none,
-            cacheExtent: 800,
+            scrollCacheExtent: const ScrollCacheExtent.pixels(800),
             padding: EdgeInsets.symmetric(horizontal: hPad),
             physics: const BouncingScrollPhysics(
               parent: AlwaysScrollableScrollPhysics(),
